@@ -74,6 +74,15 @@ pub fn calculate(width: i32, height: i32, dpi: u32, sidebar_expanded: bool) -> W
     }
 }
 
+/// The interactive terminal uses the whole work area, including the space
+/// occupied by the optional shell command editor in command mode.
+pub fn terminal_area(layout: &WindowLayout) -> Rect {
+    Rect {
+        height: (layout.input.y + layout.input.height - layout.output.y).max(0),
+        ..layout.output
+    }
+}
+
 pub struct TabPlacement {
     pub index: usize,
     pub tab: Rect,
@@ -160,6 +169,7 @@ mod tests {
                         l.input,
                         l.execute_button,
                         l.status_bar,
+                        terminal_area(&l),
                     ] {
                         within(r, w, h);
                     }
@@ -168,6 +178,12 @@ mod tests {
                     assert!(l.output.y + l.output.height <= l.input_label.y);
                     assert!(l.input.x + l.input.width <= l.execute_button.x);
                     assert!(l.input.y + l.input.height <= l.status_bar.y);
+                    let terminal = terminal_area(&l);
+                    assert_eq!(terminal.x, l.output.x);
+                    assert_eq!(terminal.width, l.output.width);
+                    assert_eq!(terminal.y, l.output.y);
+                    assert_eq!(terminal.y + terminal.height, l.input.y + l.input.height);
+                    assert!(terminal.y + terminal.height <= l.status_bar.y);
                 }
             }
         }
@@ -212,6 +228,7 @@ mod tests {
                 l.input,
                 l.execute_button,
                 l.status_bar,
+                terminal_area(&l),
             ] {
                 within(r, w, h);
             }

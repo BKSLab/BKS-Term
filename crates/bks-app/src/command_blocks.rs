@@ -5,11 +5,19 @@ pub struct CommandBlock {
     pub output_end: Option<u32>,
 }
 
+const MAX_COMMAND_BLOCKS: usize = 4096;
+
+struct UntrackedBlock {
+    index: usize,
+    pending_echo: Option<String>,
+}
+
 #[derive(Default)]
 pub struct CommandBlocks {
     blocks: Vec<CommandBlock>,
     command_anchor: Option<u32>,
     active_command: Option<String>,
+    untracked: Option<UntrackedBlock>,
 }
 
 impl CommandBlocks {
@@ -42,12 +50,93 @@ impl CommandBlocks {
             output_start: None,
             output_end: None,
         });
+        self.keep_recent();
         self.active_command = Some(command.replace("\r\n", "\n"));
         self.text_updated(current_text);
         true
     }
 
+    /// Records only an explicitly submitted command in a shell without OSC 133.
+    pub fn execute_untracked(&mut self, command: &str, current_text: &str) {
+        let anchor = current_text.encode_utf16().count() as u32;
+        if let Some(previous) = self.untracked.take() {
+            self.blocks[previous.index].output_end.get_or_insert(anchor);
+        }
+        self.untracked = Some(UntrackedBlock {
+            index: self.blocks.len(),
+            pending_echo: Some(command.replace("\r\n", "\n")),
+        });
+        self.blocks.push(CommandBlock {
+            command_start: anchor,
+            output_start: Some(anchor),
+            output_end: None,
+        });
+        self.keep_recent();
+    }
+
+    fn keep_recent(&mut self) {
+        let removed = self.blocks.len().saturating_sub(MAX_COMMAND_BLOCKS);
+        if removed == 0 {
+            return;
+        }
+        self.blocks.drain(..removed);
+        self.untracked = self.untracked.take().and_then(|mut block| {
+            block.index = block.index.checked_sub(removed)?;
+            Some(block)
+        });
+    }
+
+    /// Rebase offsets after the same prefix is removed from model/native text.
+    /// A partially retained running result remains navigable at offset zero.
+    pub fn trim_prefix(&mut self, removed: u32) {
+        if removed == 0 {
+            return;
+        }
+        let dropped = self
+            .blocks
+            .iter()
+            .enumerate()
+            .take_while(|(index, block)| {
+                block
+                    .output_end
+                    .or_else(|| self.blocks.get(index + 1).map(|next| next.command_start))
+                    .is_some_and(|end| end <= removed)
+            })
+            .count();
+        self.blocks.drain(..dropped);
+        self.untracked = self.untracked.take().and_then(|mut block| {
+            block.index = block.index.checked_sub(dropped)?;
+            if self.blocks[block.index].command_start < removed {
+                block.pending_echo = None;
+            }
+            Some(block)
+        });
+        for block in &mut self.blocks {
+            if block.command_start < removed && block.output_start.is_none() {
+                block.output_start = Some(0);
+            }
+            block.command_start = block.command_start.saturating_sub(removed);
+            block.output_start = block
+                .output_start
+                .map(|offset| offset.saturating_sub(removed));
+            block.output_end = block
+                .output_end
+                .map(|offset| offset.saturating_sub(removed));
+        }
+        if self
+            .blocks
+            .last()
+            .is_none_or(|block| block.output_start.is_some())
+        {
+            self.active_command = None;
+        }
+        self.command_anchor = self
+            .command_anchor
+            .map(|offset| offset.saturating_sub(removed));
+    }
+
     pub fn text_updated(&mut self, current_text: &str) {
+        self.refine_untracked_start(current_text);
         let Some(command) = self.active_command.as_deref() else {
             return;
         };
@@ -63,6 +152,33 @@ impl CommandBlocks {
         }
     }
 
+    fn refine_untracked_start(&mut self, current_text: &str) {
+        let Some(untracked) = self.untracked.as_mut() else {
+            return;
+        };
+        let Some(command) = untracked.pending_echo.as_deref() else {
+            return;
+        };
+        let block = &mut self.blocks[untracked.index];
+        if let Some(start) = resolve_output_start(command, current_text, block.command_start) {
+            block.output_start = Some(start);
+            untracked.pending_echo = None;
+        } else {
+            // Wait for split echo, but stop trying after enough complete lines
+            // arrived without an exact match. Edited/no echo keeps the anchor.
+            let lines = command.split('\n').count();
+            let received = current_text
+                .encode_utf16()
+                .skip(block.command_start as usize)
+                .filter(|&c| c == b'\n' as u16)
+                .take(lines)
+                .count();
+            if received == lines {
+                untracked.pending_echo = None;
+            }
+        }
+    }
+
     fn resolved_indices(&self) -> Vec<usize> {
         self.blocks
             .iter()
@@ -73,6 +189,8 @@ impl CommandBlocks {
     }
 
     pub fn needs_output_start(&self) -> bool {
+        // Generic blocks already have a usable anchor; only OSC-based blocks
+        // need the UI's timer-driven lookup. Refine generic echo on new chunks.
         self.active_command.is_some()
     }
 
@@ -127,6 +245,17 @@ impl CommandBlocks {
             .iter()
             .filter_map(|b| b.output_start)
             .find(|&start| start > position)
+    }
+
+    pub fn navigate(&self, previous: bool, position: Option<u32>) -> Option<u32> {
+        let first = self.blocks.iter().find_map(|block| block.output_start)?;
+        match (previous, position) {
+            (true, None) => self.last(),
+            (false, None) => Some(first),
+            (_, Some(position)) if position < first => Some(first),
+            (true, Some(position)) => self.previous(position).or(Some(first)),
+            (false, Some(position)) => self.next(position).or_else(|| self.last()),
+        }
     }
 }
 
@@ -315,5 +444,192 @@ mod tests {
                 output_end: Some(10),
             }]
         );
+    }
+
+    fn three_untracked_commands() -> CommandBlocks {
+        let mut blocks = CommandBlocks::new();
+        let mut text = "$ ".to_owned();
+        for command in ["one", "two", "three"] {
+            blocks.execute_untracked(command, &text);
+            text.push_str(&format!("{command}\r\nout\r\n$ "));
+            blocks.text_updated(&text);
+        }
+        blocks
+    }
+
+    #[test]
+    fn navigate_three_blocks_from_reader_and_outside_with_clamped_edges() {
+        let blocks = three_untracked_commands();
+        assert_eq!(blocks.blocks.len(), 3);
+        assert_eq!(blocks.current(7), Some((7, Some(14))));
+        assert_eq!(blocks.current(19), Some((19, Some(26))));
+        assert_eq!(blocks.current(33), Some((33, None)));
+        for (previous, position, expected) in [
+            (true, None, 33),
+            (false, None, 7),
+            (true, Some(0), 7),
+            (false, Some(0), 7),
+            (true, Some(7), 7),
+            (false, Some(7), 19),
+            (true, Some(10), 7),
+            (false, Some(10), 19),
+            (true, Some(19), 7),
+            (false, Some(19), 33),
+            (true, Some(33), 19),
+            (false, Some(33), 33),
+            (true, Some(40), 33),
+            (false, Some(40), 33),
+        ] {
+            assert_eq!(
+                blocks.navigate(previous, position),
+                Some(expected),
+                "previous={previous}, position={position:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn navigate_empty_or_unresolved_integrated_blocks_has_no_target() {
+        let mut blocks = CommandBlocks::new();
+        assert_eq!(blocks.navigate(true, None), None);
+        assert_eq!(blocks.navigate(false, Some(0)), None);
+        blocks.command_started(2);
+        assert!(blocks.execute("dir", "$ di"));
+        assert_eq!(blocks.navigate(true, None), None);
+        blocks.text_updated("$ dir\r\n");
+        assert_eq!(blocks.navigate(false, None), Some(7));
+        assert_eq!(blocks.navigate(true, Some(7)), Some(7));
+        assert_eq!(blocks.navigate(false, Some(7)), Some(7));
+    }
+
+    #[test]
+    fn untracked_anchor_and_refined_echo_use_utf16_positions() {
+        let mut blocks = CommandBlocks::new();
+        blocks.execute_untracked("echo 🙂", "🙂 $ ");
+        assert!(!blocks.needs_output_start());
+        assert_eq!(blocks.last(), Some(5));
+        assert_eq!(blocks.blocks[0].command_start, 5);
+        blocks.text_updated("🙂 $ echo 🙂\r\nout\r\n");
+        assert_eq!(blocks.last(), Some(14));
+        assert_eq!(blocks.current(16), Some((14, None)));
+    }
+
+    #[test]
+    fn untracked_split_echo_is_navigable_before_it_is_complete() {
+        let mut blocks = CommandBlocks::new();
+        blocks.execute_untracked("dir", "$ ");
+        for text in ["$ ", "$ d", "$ dir", "$ dir\r"] {
+            blocks.text_updated(text);
+            assert_eq!(blocks.navigate(true, None), Some(2));
+            assert!(!blocks.needs_output_start());
+        }
+        blocks.text_updated("$ dir\r\nout\r\n");
+        assert_eq!(blocks.last(), Some(7));
+        assert!(!blocks.needs_output_start());
+    }
+
+    #[test]
+    fn untracked_multiline_split_echo_refines_after_all_lines() {
+        let mut blocks = CommandBlocks::new();
+        blocks.execute_untracked("echo one\r\necho two", "$ ");
+        blocks.text_updated("$ echo one\r\n>> echo");
+        assert_eq!(blocks.last(), Some(2));
+        blocks.text_updated("$ echo one\r\n>> echo two\r\nresult\r\n");
+        assert_eq!(blocks.last(), Some(25));
+    }
+
+    #[test]
+    fn untracked_without_matching_echo_keeps_anchor_and_stops_refining() {
+        for text in ["$ output without echo\r\n", "$ dXir\r\n"] {
+            let mut blocks = CommandBlocks::new();
+            blocks.execute_untracked("dir", "$ ");
+            blocks.text_updated(text);
+            assert_eq!(blocks.last(), Some(2));
+            assert!(!blocks.needs_output_start());
+            assert!(blocks.untracked.as_ref().unwrap().pending_echo.is_none());
+            // A later edit to the reader's contents cannot invent a new start.
+            blocks.text_updated("$ dir\r\n");
+            assert_eq!(blocks.last(), Some(2));
+        }
+    }
+
+    #[test]
+    fn next_untracked_submit_closes_previous_without_requiring_output() {
+        let mut blocks = CommandBlocks::new();
+        blocks.execute_untracked("one", "🙂 $ ");
+        assert_eq!(blocks.last(), Some(5));
+        blocks.execute_untracked("two", "🙂 $ one\r\n🙂 $ ");
+        assert_eq!(blocks.current(5), Some((5, Some(15))));
+        assert_eq!(blocks.current(15), Some((15, None)));
+        blocks.execute_untracked("three", "🙂 $ one\r\n🙂 $ two\r\n🙂 $ ");
+        assert_eq!(blocks.current(15), Some((15, Some(25))));
+        assert_eq!(blocks.current(25), Some((25, None)));
+        assert!(!blocks.needs_output_start());
+    }
+
+    #[test]
+    fn retention_removes_finished_blocks_and_keeps_a_partial_result_navigable() {
+        let mut blocks = CommandBlocks::new();
+        blocks.blocks = vec![
+            CommandBlock {
+                command_start: 0,
+                output_start: Some(2),
+                output_end: Some(8),
+            },
+            CommandBlock {
+                command_start: 8,
+                output_start: Some(10),
+                output_end: Some(18),
+            },
+            CommandBlock {
+                command_start: 18,
+                output_start: Some(20),
+                output_end: None,
+            },
+        ];
+        blocks.command_anchor = Some(26);
+        blocks.untracked = Some(UntrackedBlock {
+            index: 2,
+            pending_echo: Some("cmd".into()),
+        });
+        blocks.trim_prefix(12);
+        assert_eq!(blocks.blocks.len(), 2);
+        assert_eq!(blocks.navigate(false, None), Some(0));
+        assert_eq!(blocks.navigate(true, None), Some(8));
+        assert_eq!(blocks.current(0), Some((0, Some(6))));
+        assert_eq!(blocks.command_anchor, Some(14));
+        assert_eq!(blocks.untracked.as_ref().unwrap().index, 1);
+        assert_eq!(
+            blocks.untracked.as_ref().unwrap().pending_echo.as_deref(),
+            Some("cmd")
+        );
+    }
+
+    #[test]
+    fn metadata_is_bounded_even_when_the_shell_returns_no_text() {
+        let mut blocks = CommandBlocks::new();
+        for _ in 0..MAX_COMMAND_BLOCKS + 50 {
+            blocks.execute_untracked("cmd", "");
+        }
+        assert_eq!(blocks.blocks.len(), MAX_COMMAND_BLOCKS);
+        assert_eq!(
+            blocks.untracked.as_ref().unwrap().index,
+            MAX_COMMAND_BLOCKS - 1
+        );
+        assert_eq!(blocks.last(), Some(0));
+        blocks.trim_prefix(1);
+        assert_eq!(blocks.blocks.len(), 1);
+        assert_eq!(blocks.last(), Some(0));
+        assert!(blocks.untracked.as_ref().unwrap().pending_echo.is_none());
+    }
+
+    #[test]
+    fn lost_integrated_echo_does_not_remain_pending_after_retention() {
+        let mut blocks = CommandBlocks::new();
+        blocks.command_started(0);
+        assert!(blocks.execute("not-echoed", "partial"));
+        blocks.trim_prefix(3);
+        assert!(!blocks.needs_output_start());
+        assert_eq!(blocks.last(), Some(0));
     }
 }

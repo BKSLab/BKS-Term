@@ -136,7 +136,7 @@ impl ProfileMenu {
             handle: unsafe { CreatePopupMenu()? },
             background: HBRUSH::default(),
             dpi,
-            entries: Vec::with_capacity(profiles.len() + if include_actions { 2 } else { 0 }),
+            entries: Vec::with_capacity(profiles.len() + if include_actions { 8 } else { 0 }),
             _ui_thread: PhantomData,
         };
         if !theme.high_contrast {
@@ -176,6 +176,165 @@ impl ProfileMenu {
                 EntryKind::InputMode,
                 crate::MENU_INPUT_MODE as u32,
                 direct,
+                theme,
+            )?;
+            menu.append(
+                "Журнал чтения (Ctrl+Shift+Space)",
+                EntryKind::InputMode,
+                crate::MENU_READING as u32,
+                crate::reading_active(),
+                theme,
+            )?;
+            menu.append(
+                &crate::shortcut_caption(
+                    "Передавать Tab приложению",
+                    crate::shortcuts::AppAction::ToggleCapture,
+                ),
+                EntryKind::InputMode,
+                crate::MENU_TERMINAL_CAPTURE as u32,
+                crate::terminal_capture_active(),
+                theme,
+            )?;
+            menu.append(
+                "Читать экран терминала",
+                EntryKind::InputMode,
+                crate::MENU_READ_VT as u32,
+                crate::vt_reading_active(),
+                theme,
+            )?;
+            menu.append(
+                "Читать журнал команд",
+                EntryKind::InputMode,
+                crate::MENU_READ_JOURNAL as u32,
+                !crate::vt_reading_active(),
+                theme,
+            )?;
+            for (label, action, command) in [
+                (
+                    "Прочитать строку ввода",
+                    crate::shortcuts::AppAction::ReadCurrentInput,
+                    crate::MENU_READ_INPUT,
+                ),
+                (
+                    "Читать новый вывод",
+                    crate::shortcuts::AppAction::ReadNewOutput,
+                    crate::MENU_READ_NEW_OUTPUT,
+                ),
+            ] {
+                menu.append(
+                    &crate::shortcut_caption(label, action),
+                    EntryKind::InputMode,
+                    command as u32,
+                    false,
+                    theme,
+                )?;
+            }
+            menu.append(
+                &crate::shortcut_caption(
+                    "Поиск по истории терминала",
+                    crate::shortcuts::AppAction::Search,
+                ),
+                EntryKind::InputMode,
+                crate::MENU_SEARCH as u32,
+                false,
+                theme,
+            )?;
+            menu.append(
+                "SSH-профили: создать или изменить",
+                EntryKind::InputMode,
+                crate::MENU_SSH_PROFILES as u32,
+                false,
+                theme,
+            )?;
+            for (label, command, mode) in [
+                (
+                    "Озвучивание: весь новый вывод",
+                    crate::MENU_SPEECH_ALL,
+                    crate::SpeechMode::All,
+                ),
+                (
+                    "Озвучивание: только важное",
+                    crate::MENU_SPEECH_IMPORTANT,
+                    crate::SpeechMode::Important,
+                ),
+                (
+                    "Озвучивание: чтение вручную",
+                    crate::MENU_SPEECH_MANUAL,
+                    crate::SpeechMode::Manual,
+                ),
+            ] {
+                menu.append(
+                    label,
+                    EntryKind::InputMode,
+                    command as u32,
+                    crate::speech_mode() == mode,
+                    theme,
+                )?;
+            }
+            menu.append(
+                &crate::shortcut_caption(
+                    "Доступный диалог TUI",
+                    crate::shortcuts::AppAction::OpenTuiDialog,
+                ),
+                EntryKind::InputMode,
+                crate::MENU_TUI_DIALOG as u32,
+                false,
+                theme,
+            )?;
+            for (label, command, action) in [
+                (
+                    "Панель Codex App Server",
+                    crate::MENU_AGENT_PANEL,
+                    crate::shortcuts::AppAction::OpenAgentPanel,
+                ),
+                (
+                    "Новое окно: выбрать профиль",
+                    crate::MENU_NEW_WINDOW,
+                    crate::shortcuts::AppAction::NewWindow,
+                ),
+                (
+                    "Новая вкладка в папке",
+                    crate::MENU_OPEN_FOLDER,
+                    crate::shortcuts::AppAction::OpenInFolder,
+                ),
+                (
+                    "Настройки",
+                    crate::MENU_PREFERENCES,
+                    crate::shortcuts::AppAction::Preferences,
+                ),
+                (
+                    "Недавние профили: открыть",
+                    crate::MENU_RESTORE_PROFILE,
+                    crate::shortcuts::AppAction::RestoreProfile,
+                ),
+            ] {
+                menu.append(
+                    &crate::shortcut_caption(label, action),
+                    EntryKind::InputMode,
+                    command as u32,
+                    false,
+                    theme,
+                )?;
+            }
+            menu.append(
+                "Защищённый ввод пароля или ключевой фразы",
+                EntryKind::InputMode,
+                crate::MENU_SECRET_INPUT as u32,
+                false,
+                theme,
+            )?;
+            menu.append(
+                "Перезапустить в новой вкладке",
+                EntryKind::InputMode,
+                crate::MENU_RESTART as u32,
+                false,
+                theme,
+            )?;
+            menu.append(
+                "Справка (F1)",
+                EntryKind::InputMode,
+                crate::MENU_HELP as u32,
+                false,
                 theme,
             )?;
         }

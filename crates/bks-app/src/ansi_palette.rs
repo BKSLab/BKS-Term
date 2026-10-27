@@ -33,7 +33,7 @@ pub const DARK_PALETTE: AnsiPalette = AnsiPalette {
         rgb(0xF7, 0xFA, 0xF8),
     ],
     default_fg: rgb(0xE6, 0xEE, 0xEB),
-    default_bg: rgb(0x07, 0x0B, 0x0A),
+    default_bg: crate::theme::BG_TERMINAL,
     cursor: rgb(0x24, 0xE6, 0x9C),
     selection_bg: rgb(0x25, 0x57, 0x44),
 };
@@ -58,7 +58,8 @@ mod tests {
     #[test]
     fn defaults_and_accents() {
         assert_eq!(DARK_PALETTE.default_fg, COLORREF(0x00EB_EEE6));
-        assert_eq!(DARK_PALETTE.default_bg, COLORREF(0x000A_0B07));
+        assert_eq!(DARK_PALETTE.default_bg, COLORREF(0x0007_0603));
+        assert_eq!(DARK_PALETTE.default_bg, crate::theme::BG_TERMINAL);
         assert_eq!(DARK_PALETTE.cursor, COLORREF(0x009C_E624));
         assert_eq!(DARK_PALETTE.selection_bg, COLORREF(0x0044_5725));
     }

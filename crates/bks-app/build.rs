@@ -4,10 +4,19 @@ use std::process::Command;
 
 fn main() {
     println!("cargo:rerun-if-changed=app.rc");
+    println!("cargo:rerun-if-changed=app.manifest");
     println!("cargo:rerun-if-changed=assets/bks-term.ico");
     println!("cargo:rerun-if-env-changed=RC");
 
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"));
+    let version = env::var("CARGO_PKG_VERSION").expect("Cargo package version");
+    let numeric: Vec<_> = version.split('-').next().unwrap().split('.').collect();
+    assert_eq!(numeric.len(), 3);
+    let header = format!(
+        "#define BKS_VERSION_NUM {},{},{},0\n#define BKS_VERSION_STR \"{}\\0\"\n",
+        numeric[0], numeric[1], numeric[2], version
+    );
+    std::fs::write(out_dir.join("bks-version.h"), header).expect("write version resource");
     let resource = out_dir.join("bks-term.res");
     let resource_arg = format!("/fo{}", resource.display());
     let configured = env::var_os("RC").map(PathBuf::from);
@@ -19,6 +28,7 @@ fn main() {
     for compiler in compilers {
         let Ok(status) = Command::new(&compiler)
             .arg("/nologo")
+            .arg(format!("/I{}", out_dir.display()))
             .arg(&resource_arg)
             .arg("app.rc")
             .status()
