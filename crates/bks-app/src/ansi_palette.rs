@@ -32,11 +32,29 @@ pub const DARK_PALETTE: AnsiPalette = AnsiPalette {
         rgb(0x80, 0xDA, 0xED),
         rgb(0xF7, 0xFA, 0xF8),
     ],
-    default_fg: rgb(0xE6, 0xEE, 0xEB),
+    default_fg: rgb(0xD1, 0xD5, 0xDB),
     default_bg: crate::theme::BG_TERMINAL,
-    cursor: rgb(0x24, 0xE6, 0x9C),
-    selection_bg: rgb(0x25, 0x57, 0x44),
+    cursor: rgb(0xD1, 0xD5, 0xDB),
+    selection_bg: crate::theme::TEXT_SELECTION_BG,
 };
+
+pub fn configure_terminal(terminal: &mut bks_terminal::TerminalModel, theme: &crate::theme::Theme) {
+    let style = crate::text_style::resolve(bks_terminal::TextStyle::default(), theme);
+    let rgb = |color: COLORREF| bks_terminal::Rgb {
+        r: color.0 as u8,
+        g: (color.0 >> 8) as u8,
+        b: (color.0 >> 16) as u8,
+    };
+    terminal.set_default_colors(
+        rgb(style.foreground),
+        rgb(style.background),
+        rgb(if theme.high_contrast {
+            style.foreground
+        } else {
+            DARK_PALETTE.cursor
+        }),
+    );
+}
 
 #[cfg(test)]
 mod tests {
@@ -57,10 +75,10 @@ mod tests {
 
     #[test]
     fn defaults_and_accents() {
-        assert_eq!(DARK_PALETTE.default_fg, COLORREF(0x00EB_EEE6));
-        assert_eq!(DARK_PALETTE.default_bg, COLORREF(0x0007_0603));
+        assert_eq!(DARK_PALETTE.default_fg, COLORREF(0x00DB_D5D1));
+        assert_eq!(DARK_PALETTE.default_bg, COLORREF(0x001B_1815));
         assert_eq!(DARK_PALETTE.default_bg, crate::theme::BG_TERMINAL);
-        assert_eq!(DARK_PALETTE.cursor, COLORREF(0x009C_E624));
-        assert_eq!(DARK_PALETTE.selection_bg, COLORREF(0x0044_5725));
+        assert_eq!(DARK_PALETTE.cursor, COLORREF(0x00DB_D5D1));
+        assert_eq!(DARK_PALETTE.selection_bg, COLORREF(0x004D_3125));
     }
 }

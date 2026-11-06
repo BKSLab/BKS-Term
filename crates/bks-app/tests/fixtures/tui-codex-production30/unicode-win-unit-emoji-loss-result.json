@@ -1,0 +1,13 @@
+{
+  "completed_streams": 1,
+  "conversation_requests": 1,
+  "exit_code": 0,
+  "http_requests": 2,
+  "mode": "unicode-win-zero",
+  "natural_exit": true,
+  "own_listener_closed": true,
+  "own_pty_closed": true,
+  "responses_requests": 2,
+  "root": "C:\\work\\BKS.Lab\\python\\my_projects\\BKS-Term\\target/codex-production30/captures\\unicode-win-zero-1793960517081-13868",
+  "title_requests": 1
+}

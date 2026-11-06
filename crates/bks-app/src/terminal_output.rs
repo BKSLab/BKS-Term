@@ -1,15 +1,24 @@
+use bks_terminal::{StyleSpan, StyleTracker, TextStyle};
+
 pub struct TerminalChunk {
     pub text: String,
+    /// Source formatting in chunk-local canonical UTF-16 coordinates.
+    pub styles: Vec<StyleSpan>,
     pub events: Vec<TerminalEvent>,
     /// Cursor/erase operations or a bare CR followed by text. These chunks
     /// cannot establish that journal lines represent a linear screen append.
     pub screen_rewrite: bool,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TerminalEvent {
     PromptStart(usize),
     CommandStart(usize),
+    OwnedPromptStart(usize, u64),
+    OwnedCommandStart(usize, u64),
+    Clear(usize),
+    /// Empty-row traversal following Clear, completed by a return to home.
+    ClearLayout(usize),
 }
 
 #[derive(Default)]
@@ -25,8 +34,27 @@ pub struct TerminalOutput {
     saved_concealed: [bool; 2],
     main_concealed: bool,
     alternate_screen: bool,
+    clear_alternate_screen: bool,
     initial_layout: bool,
     journal_started: bool,
+    shell_lines: bool,
+    line_has_text: bool,
+    clear_layout: Option<ClearLayout>,
+    styles: StyleTracker,
+}
+
+#[derive(Default)]
+struct ClearLayout {
+    row: ClearRow,
+    rows: u16,
+}
+
+#[derive(Default)]
+enum ClearRow {
+    #[default]
+    Start,
+    Erased,
+    CarriageReturn,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -44,6 +72,10 @@ impl TerminalOutput {
         Self::default()
     }
 
+    pub fn set_shell_lines(&mut self, enabled: bool) {
+        self.shell_lines = enabled;
+    }
+
     #[cfg(test)]
     pub fn push(&mut self, bytes: &[u8]) -> String {
         self.push_chunk(bytes).text
@@ -52,8 +84,21 @@ impl TerminalOutput {
     pub fn push_chunk(&mut self, bytes: &[u8]) -> TerminalChunk {
         let mut out = String::new();
         let mut events = Vec::new();
+        let mut styles = Vec::new();
+        let mut offset = 0u32;
         let mut screen_rewrite = false;
         for &b in bytes {
+            if matches!(self.state, State::Ground) {
+                self.clear_layout_ground(b);
+            } else if matches!(self.state, State::Esc) && b != b'[' {
+                self.clear_layout = None;
+            }
+            let before = out.len();
+            let style = if self.concealed {
+                TextStyle::default()
+            } else {
+                self.styles.style()
+            };
             match self.state {
                 State::Ground => {
                     // Defer classification until the byte after CR is known.
@@ -90,6 +135,7 @@ impl TerminalOutput {
                                 self.saved_concealed = [false; 2];
                                 self.main_concealed = false;
                                 self.alternate_screen = false;
+                                self.clear_alternate_screen = false;
                             }
                             _ => {}
                         }
@@ -100,6 +146,7 @@ impl TerminalOutput {
                 },
                 State::Csi => {
                     if b == 0x1B {
+                        self.clear_layout = None;
                         self.state = State::Esc;
                     } else if (0x40..=0x7E).contains(&b) {
                         if !self.journal_started && b == b'J' && self.csi == b"2" {
@@ -108,10 +155,13 @@ impl TerminalOutput {
                             // Those initial rows describe layout, not a log.
                             self.initial_layout = true;
                         }
+                        self.csi_journal_events(b, offset, &mut events);
+                        self.csi_shell_line_break(b, &mut out);
                         self.csi_visibility(b);
                         screen_rewrite |= rewrites_screen(b);
                         self.state = State::Ground;
                     } else if matches!(b, 0x18 | 0x1A) {
+                        self.clear_layout = None;
                         self.state = State::Ground;
                     } else if b >= 0x20 {
                         if self.csi.len() < 256 {
@@ -122,7 +172,7 @@ impl TerminalOutput {
                     }
                 }
                 State::Osc => match b {
-                    0x07 => self.finish_osc(&out, &mut events),
+                    0x07 => self.finish_osc(offset, &mut events),
                     0x1B => self.state = State::OscEsc,
                     _ => {
                         if self.osc.len() < 4096 {
@@ -131,24 +181,147 @@ impl TerminalOutput {
                     }
                 },
                 State::OscEsc => match b {
-                    b'\\' => self.finish_osc(&out, &mut events),
+                    b'\\' => self.finish_osc(offset, &mut events),
                     0x1B => {}
                     _ => self.state = State::Osc,
                 },
             }
+            // Only newly emitted characters are scanned. In particular, SGR
+            // and OSC-heavy chunks never repeatedly scan the growing journal.
+            let emitted = out[before..].encode_utf16().count() as u32;
+            StyleSpan::append(&mut styles, offset, offset + emitted, style);
+            offset += emitted;
+            self.styles.push_byte(b);
         }
         TerminalChunk {
             text: out,
+            styles,
             events,
             screen_rewrite,
         }
     }
 
-    fn finish_osc(&mut self, out: &str, events: &mut Vec<TerminalEvent>) {
+    fn clear_layout_ground(&mut self, byte: u8) {
+        if byte == 0x1b {
+            return;
+        }
+        let Some(layout) = &mut self.clear_layout else {
+            return;
+        };
+        match (&layout.row, byte) {
+            (ClearRow::Erased, b'\r') => layout.row = ClearRow::CarriageReturn,
+            (ClearRow::CarriageReturn, b'\n') if layout.rows < 4_096 => {
+                layout.rows += 1;
+                layout.row = ClearRow::Start;
+            }
+            _ => self.clear_layout = None,
+        }
+    }
+
+    fn csi_journal_events(&mut self, final_byte: u8, offset: u32, events: &mut Vec<TerminalEvent>) {
+        if self.csi_overflow {
+            self.clear_layout = None;
+            return;
+        }
+        if matches!(final_byte, b'h' | b'l')
+            && self.csi.first() == Some(&b'?')
+            && self.csi[1..]
+                .iter()
+                .all(|byte| byte.is_ascii_digit() || *byte == b';')
+            && self.csi[1..]
+                .split(|byte| *byte == b';')
+                .any(|parameter| matches!(sgr_number(parameter), Some(47 | 1047 | 1049)))
+        {
+            self.clear_alternate_screen = final_byte == b'h';
+            self.clear_layout = None;
+            return;
+        }
+        if final_byte == b'J'
+            && matches!(self.csi.as_slice(), b"2" | b"3")
+            && !self.clear_alternate_screen
+        {
+            // The first ED2 is ConPTY's initial layout, not an application
+            // command clearing a journal that may already track accepted input.
+            if self.csi == b"2" && !self.journal_started {
+                self.clear_layout = None;
+                return;
+            }
+            events.push(TerminalEvent::Clear(offset as usize));
+            self.clear_layout = Some(ClearLayout::default());
+            return;
+        }
+        let Some(mut layout) = self.clear_layout.take() else {
+            return;
+        };
+        match (final_byte, self.csi.as_slice()) {
+            (b'K', b"" | b"0" | b"2")
+                if matches!(layout.row, ClearRow::Start | ClearRow::Erased) =>
+            {
+                layout.row = ClearRow::Erased;
+                self.clear_layout = Some(layout);
+            }
+            (b'H', b"" | b"1" | b"1;1")
+                if layout.rows > 0 && !matches!(layout.row, ClearRow::CarriageReturn) =>
+            {
+                events.push(TerminalEvent::ClearLayout(offset as usize));
+            }
+            (b'h' | b'l', b"?25") => self.clear_layout = Some(layout),
+            (b'm', parameters)
+                if parameters
+                    .iter()
+                    .all(|byte| byte.is_ascii_digit() || matches!(byte, b';' | b':')) =>
+            {
+                self.clear_layout = Some(layout);
+            }
+            _ => {}
+        }
+    }
+
+    fn csi_shell_line_break(&mut self, final_byte: u8, out: &mut String) {
+        if !self.shell_lines
+            || !self.line_has_text
+            || self.alternate_screen
+            || self.csi_overflow
+            || !matches!(final_byte, b'B' | b'E' | b'd' | b'H' | b'f')
+        {
+            return;
+        }
+        // ConPTY may replace a shell's line feed with a cursor move to blank
+        // rows. Keep a paragraph boundary in the reading journal instead of
+        // joining the echoed command and the first result. This is a journal
+        // separator, not an attempt to replay cursor rewrites as a VT screen.
+        let parameters: Vec<_> = self.csi.split(|byte| *byte == b';').collect();
+        let number = |index: usize| {
+            parameters.get(index).and_then(|value| {
+                if value.is_empty() {
+                    Some(1)
+                } else {
+                    sgr_number(value)
+                }
+            })
+        };
+        let moves_line = match final_byte {
+            b'B' | b'E' => parameters.len() == 1 && number(0).is_some(),
+            b'd' => parameters.len() == 1 && number(0).is_some_and(|row| row > 1),
+            b'H' | b'f' => {
+                parameters.len() <= 2
+                    && number(0).is_some_and(|row| row > 1)
+                    && (parameters.len() == 1 || number(1).is_some_and(|column| column <= 1))
+            }
+            _ => false,
+        };
+        if moves_line {
+            out.push_str("\r\n");
+            self.line_has_text = false;
+            self.last_cr = false;
+        }
+    }
+
+    fn finish_osc(&mut self, offset: u32, events: &mut Vec<TerminalEvent>) {
         let event = match self.osc.as_slice() {
-            b"133;A" => Some(TerminalEvent::PromptStart(out.encode_utf16().count())),
-            b"133;B" => Some(TerminalEvent::CommandStart(out.encode_utf16().count())),
-            _ => None,
+            b"133;A" => Some(TerminalEvent::PromptStart(offset as usize)),
+            b"133;B" => Some(TerminalEvent::CommandStart(offset as usize)),
+            marker => owned_prompt_marker(marker, offset as usize),
         };
         if let Some(event) = event {
             events.push(event);
@@ -166,6 +339,7 @@ impl TerminalOutput {
             match b {
                 0x1B => self.state = State::Esc,
                 b'\n' => {
+                    self.line_has_text = false;
                     if !self.initial_layout || self.journal_started {
                         if !self.last_cr {
                             out.push('\r');
@@ -176,6 +350,7 @@ impl TerminalOutput {
                     self.last_cr = false;
                 }
                 b'\r' => {
+                    self.line_has_text = false;
                     if !self.initial_layout || self.journal_started {
                         out.push('\r');
                         self.journal_started = true;
@@ -246,6 +421,7 @@ impl TerminalOutput {
         // Leading spaces/tabs are content too: preserve first-line indentation
         // and every subsequent blank line instead of trimming all whitespace.
         self.journal_started = true;
+        self.line_has_text = true;
         if self.concealed {
             out.extend(std::iter::repeat_n(' ', character.len_utf16()));
         } else {
@@ -343,6 +519,23 @@ impl TerminalOutput {
     }
 }
 
+fn owned_prompt_marker(marker: &[u8], offset: usize) -> Option<TerminalEvent> {
+    let (start, token) = if let Some(token) = marker.strip_prefix(b"133;A;BKS=") {
+        (true, token)
+    } else {
+        (false, marker.strip_prefix(b"133;B;BKS=")?)
+    };
+    if token.len() != 16 || !token.iter().all(u8::is_ascii_hexdigit) {
+        return None;
+    }
+    let token = u64::from_str_radix(std::str::from_utf8(token).ok()?, 16).ok()?;
+    Some(if start {
+        TerminalEvent::OwnedPromptStart(offset, token)
+    } else {
+        TerminalEvent::OwnedCommandStart(offset, token)
+    })
+}
+
 fn sgr_number(parameter: &[u8]) -> Option<u16> {
     if parameter.is_empty() {
         Some(0)
@@ -375,6 +568,335 @@ fn rewrites_screen(final_byte: u8) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bks_terminal::{Color, Flags, NamedColor, Rgb};
+
+    #[test]
+    fn shell_vertical_cursor_moves_separate_journal_lines_across_reads() {
+        let source = b"PS> ls\x1b[7;1H    result\x1b[2Btail\x1b[1;1Hsame";
+        for bytewise in [false, true] {
+            let mut output = TerminalOutput::new();
+            output.set_shell_lines(true);
+            let mut text = String::new();
+            for part in source.chunks(if bytewise { 1 } else { source.len() }) {
+                text.push_str(&output.push(part));
+            }
+            assert_eq!(text, "PS> ls\r\n    result\r\ntailsame");
+        }
+        let mut raw = TerminalOutput::new();
+        assert_eq!(raw.push(source), "PS> ls    resulttailsame");
+        raw.set_shell_lines(true);
+        assert_eq!(
+            raw.push(b"\x1b[4;?Hinvalid\x1b[4;2Hcolumn"),
+            "invalidcolumn"
+        );
+        assert_eq!(raw.push(b"\x1b[?1049hTUI\x1b[4;1Hnext"), "TUInext");
+    }
+
+    #[test]
+    fn shell_line_separators_keep_unicode_styles_and_prompt_event_offsets() {
+        let mut output = TerminalOutput::new();
+        output.set_shell_lines(true);
+        let chunk = output
+            .push_chunk("🙂 $ ls\x1b[6d    result\r\n\x1b]133;A\x07PS> \x1b]133;B\x07".as_bytes());
+        let start = "🙂 $ ls\r\n    result\r\n".encode_utf16().count();
+        assert_eq!(
+            chunk.events,
+            [
+                TerminalEvent::PromptStart(start),
+                TerminalEvent::CommandStart(start + 4)
+            ]
+        );
+        assert_eq!(
+            chunk.styles.last().unwrap().end,
+            chunk.text.encode_utf16().count() as u32
+        );
+        assert!(chunk.screen_rewrite);
+    }
+
+    fn collected_events(parts: &[&[u8]]) -> Vec<TerminalEvent> {
+        let mut output = TerminalOutput::new();
+        let mut events = Vec::new();
+        let mut base = 0;
+        for part in parts {
+            let chunk = output.push_chunk(part);
+            events.extend(chunk.events.into_iter().map(|event| match event {
+                TerminalEvent::PromptStart(at) => TerminalEvent::PromptStart(base + at),
+                TerminalEvent::CommandStart(at) => TerminalEvent::CommandStart(base + at),
+                TerminalEvent::OwnedPromptStart(at, token) => {
+                    TerminalEvent::OwnedPromptStart(base + at, token)
+                }
+                TerminalEvent::OwnedCommandStart(at, token) => {
+                    TerminalEvent::OwnedCommandStart(base + at, token)
+                }
+                TerminalEvent::Clear(at) => TerminalEvent::Clear(base + at),
+                TerminalEvent::ClearLayout(at) => TerminalEvent::ClearLayout(base + at),
+            }));
+            base += chunk.text.encode_utf16().count();
+        }
+        events
+    }
+
+    #[test]
+    fn owned_prompt_markers_keep_exact_identity_and_utf16_offsets_across_splits() {
+        let bytes =
+            "Ж🙂\x1b]133;A;BKS=0123456789abcdef\x1b\\PS> \x1b]133;B;BKS=0123456789abcdef\x07"
+                .as_bytes();
+        for split in 0..=bytes.len() {
+            assert_eq!(
+                collected_events(&[&bytes[..split], &bytes[split..]]),
+                [
+                    TerminalEvent::OwnedPromptStart(3, 0x0123_4567_89ab_cdef),
+                    TerminalEvent::OwnedCommandStart(7, 0x0123_4567_89ab_cdef),
+                ],
+                "split={split}"
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_owned_prompt_markers_are_not_legacy_prompt_events() {
+        for marker in [
+            "133;A;BKS=",
+            "133;A;BKS=0123456789abcde",
+            "133;B;BKS=0123456789abcdef0",
+            "133;A;BKS=0123456789abcdeg",
+            "133;B;BKS=0123456789abcdef;extra",
+            "133;A;other=0123456789abcdef",
+        ] {
+            let mut parser = TerminalOutput::new();
+            let chunk = parser.push_chunk(format!("before\x1b]{marker}\x07after").as_bytes());
+            assert_eq!(chunk.text, "beforeafter", "{marker}");
+            assert!(chunk.events.is_empty(), "{marker}");
+        }
+    }
+
+    #[test]
+    fn startup_clear_is_layout_and_cannot_erase_already_accepted_shell_input() {
+        let mut output = TerminalOutput::new();
+        let startup = output.push_chunk(b"\x1b[?25l\x1b[2J\x1b[H\r\n\x1b[H");
+        assert!(startup.text.is_empty() && startup.events.is_empty());
+        output.push(b"ready");
+        assert_eq!(
+            output.push_chunk(b"\x1b[2J").events,
+            [TerminalEvent::Clear(0)]
+        );
+    }
+
+    #[test]
+    fn full_clear_events_have_utf16_offsets_across_every_csi_split() {
+        let bytes = "Ж🙂\x1b[2Jmiddle\x1b[3Jlast".as_bytes();
+        let expected = [TerminalEvent::Clear(3), TerminalEvent::Clear(9)];
+        for split in 0..=bytes.len() {
+            assert_eq!(
+                collected_events(&[&bytes[..split], &bytes[split..]]),
+                expected,
+                "split {split}"
+            );
+        }
+    }
+
+    #[test]
+    fn partial_private_overflow_and_osc_erase_text_are_not_clear_directives() {
+        let mut bytes = b"old\x1b[J\x1b[0J\x1b[1J\x1b[?2J\x1b[2;J\x1b]0;\x1b[3J\x07".to_vec();
+        bytes.extend_from_slice(b"\x1b[");
+        bytes.extend_from_slice(&[b'2'; 257]);
+        bytes.extend_from_slice(b"Jtail");
+        assert!(collected_events(&[&bytes]).is_empty());
+        bytes.extend_from_slice(b"\x1b[3J");
+        assert_eq!(collected_events(&[&bytes]), [TerminalEvent::Clear(7)]);
+        for mode in [47, 1047, 1049] {
+            let bytes = format!("old\x1b[?{mode}h\x1b[2Jalt\x1b[3J\x1b[?{mode}l\x1b[2Jnew");
+            assert_eq!(
+                collected_events(&[bytes.as_bytes()]),
+                [TerminalEvent::Clear(6)]
+            );
+        }
+    }
+
+    #[test]
+    fn clear_layout_requires_bounded_erased_rows_and_home_instead_of_plain_newlines() {
+        let bytes = "Ж🙂\x1b[3J\x1b[?25l\x1b[K\r\n\x1b[K\r\n\x1b[K\x1b[H\x1b[?25h\x1b]133;A\x07PS> \x1b]133;B\x07".as_bytes();
+        let expected = [
+            TerminalEvent::Clear(3),
+            TerminalEvent::ClearLayout(7),
+            TerminalEvent::PromptStart(7),
+            TerminalEvent::CommandStart(11),
+        ];
+        for split in 0..=bytes.len() {
+            assert_eq!(
+                collected_events(&[&bytes[..split], &bytes[split..]]),
+                expected,
+                "split {split}"
+            );
+        }
+        for tail in [
+            "\r\n\r\ntext",
+            "\x1b[K\r\ntext\x1b[H",
+            "\x1b[K\r\n\x1b]133;A\x07\x1b[H",
+            "\x1b[K\r\n\x1b[2;1H",
+        ] {
+            let bytes = format!("old\x1b[3J{tail}");
+            assert!(!collected_events(&[bytes.as_bytes()])
+                .iter()
+                .any(|event| matches!(event, TerminalEvent::ClearLayout(_))));
+        }
+        let bytes = format!("old\x1b[3J{}\x1b[K\x1b[H", "\x1b[K\r\n".repeat(4_097));
+        assert_eq!(
+            collected_events(&[bytes.as_bytes()]),
+            [TerminalEvent::Clear(3)]
+        );
+    }
+
+    fn append_chunk(text: &mut String, styles: &mut Vec<StyleSpan>, chunk: TerminalChunk) {
+        let base = text.encode_utf16().count() as u32;
+        for span in chunk.styles {
+            StyleSpan::append(styles, base + span.start, base + span.end, span.style);
+        }
+        text.push_str(&chunk.text);
+    }
+
+    #[test]
+    fn journal_styles_preserve_utf16_and_sgr_across_every_chunk_boundary() {
+        let bytes = concat!(
+            "plain\x1b[31mЖ🙂e\u{301}",
+            "\x1b[38:2::8:28:255;48;5;28;1;4mX\x1b[0mY"
+        );
+        let plain = TextStyle::default();
+        let red = TextStyle::new(
+            Color::Named(NamedColor::Red),
+            plain.background,
+            Flags::empty(),
+        );
+        let decorated = TextStyle::new(
+            Color::Spec(Rgb {
+                r: 8,
+                g: 28,
+                b: 255,
+            }),
+            Color::Indexed(28),
+            Flags::BOLD | Flags::UNDERLINE,
+        );
+        let expected = vec![
+            StyleSpan {
+                start: 0,
+                end: 5,
+                style: plain,
+            },
+            StyleSpan {
+                start: 5,
+                end: 10,
+                style: red,
+            },
+            StyleSpan {
+                start: 10,
+                end: 11,
+                style: decorated,
+            },
+            StyleSpan {
+                start: 11,
+                end: 12,
+                style: plain,
+            },
+        ];
+        for split in 0..=bytes.len() {
+            let mut output = TerminalOutput::new();
+            let mut text = String::new();
+            let mut styles = Vec::new();
+            append_chunk(
+                &mut text,
+                &mut styles,
+                output.push_chunk(&bytes.as_bytes()[..split]),
+            );
+            append_chunk(
+                &mut text,
+                &mut styles,
+                output.push_chunk(&bytes.as_bytes()[split..]),
+            );
+            assert_eq!(text, "plainЖ🙂e\u{301}XY", "split {split}");
+            assert_eq!(styles, expected, "split {split}");
+        }
+    }
+
+    #[test]
+    fn concealed_journal_ranges_have_default_style_and_color_payloads_do_not_hide() {
+        let mut output = TerminalOutput::new();
+        let chunk =
+            output.push_chunk("\x1b[31mA\x1b[8mS🙂\x1b[38;2;8;28;255mH\x1b[28mB".as_bytes());
+        assert_eq!(chunk.text, "A    B");
+        assert_eq!((chunk.styles[1].start, chunk.styles[1].end), (1, 5));
+        assert_eq!(chunk.styles[1].style, TextStyle::default());
+        assert_eq!(
+            chunk.styles[2].style.foreground,
+            Color::Spec(Rgb {
+                r: 8,
+                g: 28,
+                b: 255
+            })
+        );
+        assert_eq!(chunk.styles[2].start, 5);
+
+        let chunk = output.push_chunk(b"\x1b[48:2::28:8:0mC");
+        assert_eq!(chunk.text, "C");
+        assert_eq!(
+            chunk.styles[0].style.background,
+            Color::Spec(Rgb { r: 28, g: 8, b: 0 })
+        );
+    }
+
+    #[test]
+    fn journal_saved_cursor_alternate_screen_and_reset_restore_styles() {
+        let mut output = TerminalOutput::new();
+        let chunk = output.push_chunk(
+            concat!(
+                "\x1b[31mA\x1b7\x1b[32mB\x1b8C",
+                "\x1b[?1049h\x1b[34mD\x1b[s\x1b[35mE\x1b[uF",
+                "\x1b[?1049lG\x1bcH"
+            )
+            .as_bytes(),
+        );
+        assert_eq!(chunk.text, "ABCDEFGH");
+        let colors: Vec<_> = chunk
+            .styles
+            .iter()
+            .map(|span| span.style.foreground)
+            .collect();
+        assert_eq!(
+            colors,
+            vec![
+                Color::Named(NamedColor::Red),
+                Color::Named(NamedColor::Green),
+                Color::Named(NamedColor::Red),
+                Color::Named(NamedColor::Blue),
+                Color::Named(NamedColor::Magenta),
+                Color::Named(NamedColor::Blue),
+                Color::Named(NamedColor::Red),
+                Color::Named(NamedColor::Foreground),
+            ]
+        );
+    }
+
+    #[test]
+    fn color_only_chunks_update_future_styles_and_sync_does_not_buffer_journal() {
+        let mut output = TerminalOutput::new();
+        assert!(output.push_chunk(b"\x1b[31m").styles.is_empty());
+        let first = output.push_chunk(b"\x1b[?2026hA\x1b[32m");
+        assert_eq!(first.text, "A");
+        assert_eq!(
+            first.styles[0].style.foreground,
+            Color::Named(NamedColor::Red)
+        );
+        let second = output.push_chunk(b"B\x1b[?2026l\x1b[0mC");
+        assert_eq!(second.text, "BC");
+        assert_eq!(
+            second.styles[0].style.foreground,
+            Color::Named(NamedColor::Green)
+        );
+        assert_eq!(second.styles[1].style, TextStyle::default());
+
+        let plain = output.push_chunk(b"a\x1b[31m\x1b[0mb");
+        assert_eq!(plain.styles.len(), 1);
+        assert_eq!((plain.styles[0].start, plain.styles[0].end), (0, 2));
+    }
 
     #[test]
     fn initial_conpty_blank_layout_is_ignored_across_every_chunk_boundary() {
@@ -451,6 +973,14 @@ mod tests {
             text.starts_with("  BKS_INITIAL_PADDING_MARKER"),
             "initial layout leaked to journal: {text:?}"
         );
+        // The finite fixture exits immediately after printing its marker.
+        // Give that normal exit time to signal before requesting termination:
+        // Windows can reject TerminateProcess during the exit transition.
+        let finish_by = Instant::now() + Duration::from_secs(2);
+        while session.is_alive() && Instant::now() < finish_by {
+            session.drain_output_limited(16_384);
+            std::thread::sleep(Duration::from_millis(10));
+        }
         if session.is_alive() {
             session.request_terminate().expect("stop own fixture");
         }

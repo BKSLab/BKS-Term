@@ -39,6 +39,10 @@ const ID_DEFAULTS: usize = 4606;
 const ID_SAVE: usize = 4607;
 const ID_CANCEL: usize = 4608;
 const ID_HINT: usize = 4609;
+const ID_READY_SOUND: usize = 4610;
+const ID_AUTO_ANSWER: usize = 4611;
+const ID_TRANSPARENCY: usize = 4612;
+const ID_PROFILES: usize = 4613;
 
 const HINT: &str = "Сочетания: Ctrl+Shift+T. Несколько вариантов разделяйте точкой с запятой: Ctrl+Up; Alt+Up. Пустое поле отключает сочетание; команда остаётся в меню. F1 (справка) и Ctrl+Shift+Space (ввод и чтение) обязательны для возврата управления; к ним можно добавить другие сочетания. Конфликты и клавиши Windows, NVDA и редактирования не допускаются.\r\nНедавние профили сохраняются только по вашему выбору: идентификаторы и папки, без команд, черновиков, вывода и секретов. Восстановление требует выбора профиля в меню; команды и SSH автоматически не запускаются.";
 
@@ -52,11 +56,12 @@ struct View {
     hwnd: HWND,
     owner: HWND,
     previous_focus: HWND,
-    labels: [HWND; 5],
-    fields: [HWND; 5],
+    labels: [HWND; 8],
+    fields: [HWND; 8],
     hint: HWND,
     assign: HWND,
     defaults: HWND,
+    profiles: HWND,
     save: HWND,
     cancel: HWND,
     dpi: u32,
@@ -72,6 +77,7 @@ struct State {
 thread_local! {
     static DIALOG: RefCell<Option<State>> = const { RefCell::new(None) };
     static OUTCOME: RefCell<Option<Outcome>> = const { RefCell::new(None) };
+    static PROFILE_REQUEST: RefCell<Option<HWND>> = const { RefCell::new(None) };
 }
 
 fn current() -> Option<View> {
@@ -80,6 +86,10 @@ fn current() -> Option<View> {
 
 pub fn take_result() -> Option<Outcome> {
     OUTCOME.with(|outcome| outcome.borrow_mut().take())
+}
+
+pub fn take_profiles_request() -> Option<HWND> {
+    PROFILE_REQUEST.with(|request| request.borrow_mut().take())
 }
 
 pub fn show(owner: HWND, settings: &Settings) -> Result<()> {
@@ -100,11 +110,12 @@ pub fn show(owner: HWND, settings: &Settings) -> Result<()> {
         hwnd,
         owner,
         previous_focus,
-        labels: [HWND::default(); 5],
-        fields: [HWND::default(); 5],
+        labels: [HWND::default(); 8],
+        fields: [HWND::default(); 8],
         hint: HWND::default(),
         assign: HWND::default(),
         defaults: HWND::default(),
+        profiles: HWND::default(),
         save: HWND::default(),
         cancel: HWND::default(),
         dpi,
@@ -144,12 +155,16 @@ pub fn handle_message(message: &MSG) -> bool {
         if message.message == WM_KEYDOWN {
             let stops = [
                 view.fields[0],
+                view.fields[7],
                 view.fields[1],
                 view.fields[2],
+                view.fields[5],
+                view.fields[6],
                 view.fields[3],
                 view.fields[4],
                 view.assign,
                 view.defaults,
+                view.profiles,
                 view.hint,
                 view.save,
                 view.cancel,
@@ -176,6 +191,10 @@ pub fn handle_message(message: &MSG) -> bool {
                     reset_bindings(view);
                     return true;
                 }
+                if focus == view.profiles {
+                    PROFILE_REQUEST.with(|request| *request.borrow_mut() = Some(view.hwnd));
+                    return true;
+                }
                 if focus == view.save {
                     save(view);
                     return true;
@@ -198,8 +217,20 @@ fn create_controls(view: View, instance: HINSTANCE, settings: &Settings) -> Resu
         "Недавние профили и рабочие папки",
         "Действие для настройки сочетаний",
         "Сочетания клавиш (пусто — отключены)",
+        "Звук готовности ответа TUI",
+        "Автоматически читать готовый ответ TUI",
+        "Матовое стекло и прозрачность",
     ];
-    let ids = [ID_SPEECH, ID_LAST_TAB, ID_REMEMBER, ID_ACTION, ID_CHORD];
+    let ids = [
+        ID_SPEECH,
+        ID_LAST_TAB,
+        ID_REMEMBER,
+        ID_ACTION,
+        ID_CHORD,
+        ID_READY_SOUND,
+        ID_AUTO_ANSWER,
+        ID_TRANSPARENCY,
+    ];
     let mut next = view;
     for (index, name) in names.into_iter().enumerate() {
         next.labels[index] = child(
@@ -247,6 +278,12 @@ fn create_controls(view: View, instance: HINSTANCE, settings: &Settings) -> Resu
         ] {
             add_choice(next.fields[2], label);
         }
+        for field in [next.fields[5], next.fields[6]] {
+            add_choice(field, "Выключено");
+            add_choice(field, "Включено");
+        }
+        add_choice(next.fields[7], "По настройкам Windows");
+        add_choice(next.fields[7], "Непрозрачное оформление");
         for action in AppAction::ALL {
             add_choice(next.fields[3], action.label());
         }
@@ -265,6 +302,9 @@ fn create_controls(view: View, instance: HINSTANCE, settings: &Settings) -> Resu
             ),
             (next.fields[2], usize::from(settings.remember_workspace)),
             (next.fields[3], 0),
+            (next.fields[5], usize::from(settings.answer_ready_sound)),
+            (next.fields[6], usize::from(settings.auto_read_answers)),
+            (next.fields[7], usize::from(settings.disable_transparency)),
         ] {
             SendMessageW(field, CB_SETCURSEL, Some(WPARAM(selection)), None);
         }
@@ -286,6 +326,7 @@ fn create_controls(view: View, instance: HINSTANCE, settings: &Settings) -> Resu
     )?;
     next.assign = button(view, instance, "Назначить", ID_ASSIGN)?;
     next.defaults = button(view, instance, "Сбросить сочетания", ID_DEFAULTS)?;
+    next.profiles = button(view, instance, "Профили и оболочка…", ID_PROFILES)?;
     next.save = button(view, instance, "Сохранить", ID_SAVE)?;
     next.cancel = button(view, instance, "Отмена", ID_CANCEL)?;
     DIALOG.with(|dialog| {
@@ -420,6 +461,12 @@ fn save(view: View) {
             LastTabPolicy::KeepWindow
         };
         settings.remember_workspace = choices[2] == 1;
+        settings.answer_ready_sound =
+            unsafe { SendMessageW(view.fields[5], CB_GETCURSEL, None, None).0 == 1 };
+        settings.auto_read_answers =
+            unsafe { SendMessageW(view.fields[6], CB_GETCURSEL, None, None).0 == 1 };
+        settings.disable_transparency =
+            unsafe { SendMessageW(view.fields[7], CB_GETCURSEL, None, None).0 == 1 };
         settings
     });
     close(view, Outcome::Saved(settings));
@@ -440,6 +487,7 @@ fn apply_fonts(view: View) {
         view.hint,
         view.assign,
         view.defaults,
+        view.profiles,
         view.save,
         view.cancel,
     ]);
@@ -460,21 +508,32 @@ fn layout(view: View) {
         let row_h = dpi::scale(58, view.dpi);
         let label_h = dpi::scale(22, view.dpi);
         let field_h = dpi::scale(30, view.dpi);
-        for index in 0..5 {
-            let y = margin + row_h * index as i32;
-            let _ = MoveWindow(view.labels[index], margin, y, width, label_h, true);
-            let _ = MoveWindow(
-                view.fields[index],
-                margin,
-                y + label_h,
-                width,
-                if index == 4 {
-                    field_h
-                } else {
-                    dpi::scale(260, view.dpi)
-                },
-                true,
-            );
+        // Keep the original five-row height at larger Windows scales. Related
+        // preferences share a row; tab order follows the same visual order.
+        let rows: [&[usize]; 5] = [&[0, 7], &[1, 2], &[5, 6], &[3], &[4]];
+        for (row, indices) in rows.into_iter().enumerate() {
+            let y = margin + row_h * row as i32;
+            let column_width = if indices.len() == 1 {
+                width
+            } else {
+                (width - gap) / 2
+            };
+            for (column, &index) in indices.iter().enumerate() {
+                let x = margin + column as i32 * (column_width + gap);
+                let _ = MoveWindow(view.labels[index], x, y, column_width, label_h, true);
+                let _ = MoveWindow(
+                    view.fields[index],
+                    x,
+                    y + label_h,
+                    column_width,
+                    if index == 4 {
+                        field_h
+                    } else {
+                        dpi::scale(260, view.dpi)
+                    },
+                    true,
+                );
+            }
         }
         let button_h = dpi::scale(36, view.dpi);
         let button_w = dpi::scale(180, view.dpi).min((width - gap).max(2) / 2);
@@ -489,6 +548,15 @@ fn layout(view: View) {
             true,
         );
         let footer_y = (rect.bottom - margin - button_h).max(assign_y + button_h + 2 * gap);
+        let profiles_x = margin + 2 * (button_w + gap);
+        let _ = MoveWindow(
+            view.profiles,
+            profiles_x,
+            assign_y,
+            (rect.right - margin - profiles_x).max(1),
+            button_h,
+            true,
+        );
         let hint_y = assign_y + button_h + gap;
         let _ = MoveWindow(
             view.hint,
@@ -546,6 +614,9 @@ unsafe extern "system" fn window_proc(
                         apply_binding(view);
                     }
                     ID_DEFAULTS => reset_bindings(view),
+                    ID_PROFILES => {
+                        PROFILE_REQUEST.with(|request| *request.borrow_mut() = Some(view.hwnd))
+                    }
                     ID_SAVE => save(view),
                     ID_CANCEL => close(view, Outcome::Cancelled),
                     _ => {}

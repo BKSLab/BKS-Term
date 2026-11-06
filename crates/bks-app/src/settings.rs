@@ -23,7 +23,11 @@ pub enum LastTabPolicy {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// Opaque neutral chrome; system accessibility settings still win.
+    pub disable_transparency: bool,
     pub speech_mode: SpeechMode,
+    pub answer_ready_sound: bool,
+    pub auto_read_answers: bool,
     pub shortcuts: ShortcutMap,
     pub last_tab: LastTabPolicy,
     /// Only safe profile/folder metadata; never automatically resume sessions.
@@ -103,6 +107,8 @@ mod tests {
         let baseline = Settings::default();
         let changed = Settings {
             remember_workspace: true,
+            answer_ready_sound: true,
+            auto_read_answers: true,
             ..baseline.clone()
         };
         changed.save_if_unchanged(&path, &baseline).unwrap();
@@ -120,6 +126,8 @@ mod tests {
         assert!(Settings::load(&path).remember_workspace);
         let merged = Settings::update_speech(&path, SpeechMode::All).unwrap();
         assert!(merged.remember_workspace);
+        assert!(merged.answer_ready_sound);
+        assert!(merged.auto_read_answers);
         assert_eq!(merged.shortcuts, changed.shortcuts);
         {
             let _locked = crate::config_lock::ConfigLock::acquire(&path).unwrap();
@@ -158,10 +166,16 @@ mod tests {
         assert_eq!(old.speech_mode, SpeechMode::All);
         assert_eq!(old.last_tab, LastTabPolicy::KeepWindow);
         assert!(!old.remember_workspace);
+        assert!(!old.answer_ready_sound);
+        assert!(!old.auto_read_answers);
+        assert!(!old.disable_transparency);
         assert_eq!(old.shortcuts, ShortcutMap::default());
         let updated = Settings {
+            disable_transparency: true,
             last_tab: LastTabPolicy::CloseWindow,
             remember_workspace: true,
+            answer_ready_sound: true,
+            auto_read_answers: true,
             ..old
         };
         let bytes = serde_json::to_vec(&updated).unwrap();

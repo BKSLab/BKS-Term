@@ -1,0 +1,293 @@
+{
+  "source": "Actual isolated OpenCode 2.0.32 --standalone; literal input immediately on first Ask anything render, no waiting for stable footer; zero HTTP/model/tool requests.",
+  "columns": 100,
+  "rows": 29,
+  "events": [
+    {
+      "kind": "poll",
+      "at_ms": 25,
+      "start_byte": 0,
+      "end_byte": 16
+    },
+    {
+      "kind": "poll",
+      "at_ms": 716,
+      "start_byte": 16,
+      "end_byte": 276
+    },
+    {
+      "kind": "poll",
+      "at_ms": 732,
+      "start_byte": 276,
+      "end_byte": 3431
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1745,
+      "start_byte": 3431,
+      "end_byte": 6300
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1758,
+      "start_byte": 6300,
+      "end_byte": 6387
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1839,
+      "start_byte": 6387,
+      "end_byte": 8146
+    },
+    {
+      "kind": "input",
+      "at_ms": 1853,
+      "bytes": [
+        208,
+        191
+      ]
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1864,
+      "start_byte": 8146,
+      "end_byte": 8165
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1874,
+      "start_byte": 8165,
+      "end_byte": 8250
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1884,
+      "start_byte": 8250,
+      "end_byte": 8311
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1905,
+      "start_byte": 8311,
+      "end_byte": 8314
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1915,
+      "start_byte": 8314,
+      "end_byte": 8618
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1925,
+      "start_byte": 8618,
+      "end_byte": 8621
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1936,
+      "start_byte": 8621,
+      "end_byte": 8925
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1957,
+      "start_byte": 8925,
+      "end_byte": 9237
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1967,
+      "start_byte": 9237,
+      "end_byte": 9253
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1988,
+      "start_byte": 9253,
+      "end_byte": 9565
+    },
+    {
+      "kind": "poll",
+      "at_ms": 1999,
+      "start_byte": 9565,
+      "end_byte": 10180
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2020,
+      "start_byte": 10180,
+      "end_byte": 10502
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2030,
+      "start_byte": 10502,
+      "end_byte": 10505
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2088,
+      "start_byte": 10505,
+      "end_byte": 11147
+    },
+    {
+      "kind": "input",
+      "at_ms": 2088,
+      "bytes": [
+        209,
+        128
+      ]
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2099,
+      "start_byte": 11147,
+      "end_byte": 11432
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2109,
+      "start_byte": 11432,
+      "end_byte": 11448
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2119,
+      "start_byte": 11448,
+      "end_byte": 11488
+    },
+    {
+      "kind": "input",
+      "at_ms": 2326,
+      "bytes": [
+        208,
+        184
+      ]
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2346,
+      "start_byte": 11488,
+      "end_byte": 11544
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2367,
+      "start_byte": 11544,
+      "end_byte": 11547
+    },
+    {
+      "kind": "input",
+      "at_ms": 2554,
+      "bytes": [
+        208,
+        178
+      ]
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2564,
+      "start_byte": 11547,
+      "end_byte": 11600
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2585,
+      "start_byte": 11600,
+      "end_byte": 11603
+    },
+    {
+      "kind": "input",
+      "at_ms": 2780,
+      "bytes": [
+        208,
+        181
+      ]
+    },
+    {
+      "kind": "poll",
+      "at_ms": 2800,
+      "start_byte": 11603,
+      "end_byte": 11656
+    },
+    {
+      "kind": "input",
+      "at_ms": 3010,
+      "bytes": [
+        209,
+        130
+      ]
+    },
+    {
+      "kind": "poll",
+      "at_ms": 3031,
+      "start_byte": 11656,
+      "end_byte": 11712
+    },
+    {
+      "kind": "input",
+      "at_ms": 3247,
+      "bytes": [
+        3
+      ]
+    },
+    {
+      "kind": "poll",
+      "at_ms": 3268,
+      "start_byte": 11712,
+      "end_byte": 11838
+    }
+  ],
+  "phases": [
+    {
+      "name": "typed0",
+      "at_ms": 2082,
+      "text": "п",
+      "caret": 1,
+      "shell": false
+    },
+    {
+      "name": "typed1",
+      "at_ms": 2320,
+      "text": "пр",
+      "caret": 2,
+      "shell": false
+    },
+    {
+      "name": "typed2",
+      "at_ms": 2547,
+      "text": "при",
+      "caret": 3,
+      "shell": false
+    },
+    {
+      "name": "typed3",
+      "at_ms": 2775,
+      "text": "прив",
+      "caret": 4,
+      "shell": false
+    },
+    {
+      "name": "typed4",
+      "at_ms": 3002,
+      "text": "приве",
+      "caret": 5,
+      "shell": false
+    },
+    {
+      "name": "typed5",
+      "at_ms": 3240,
+      "text": "привет",
+      "caret": 6,
+      "shell": false
+    },
+    {
+      "name": "cleared",
+      "at_ms": 3669,
+      "text": "",
+      "caret": 0,
+      "shell": false
+    }
+  ]
+}

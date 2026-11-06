@@ -1,0 +1,73 @@
+{
+    "tool_phase":  "collapsed-tool-stdout-visible",
+    "tool_header":  "• Ran Get-Content -LiteralPath fixture.txt -Encoding UTF8",
+    "tool_header_start_utf16":  209,
+    "tool_bullet":  {
+                        "offset_utf16":  209,
+                        "style":  {
+                                      "background":  "Named(Background)",
+                                      "debug_flags":  "Flags(BOLD)",
+                                      "end":  210,
+                                      "flags":  2,
+                                      "foreground":  "Indexed(2)",
+                                      "start":  209
+                                  }
+                    },
+    "tool_ran_title":  {
+                           "offset_utf16":  211,
+                           "style":  {
+                                         "background":  "Named(Background)",
+                                         "debug_flags":  "Flags(BOLD)",
+                                         "end":  214,
+                                         "flags":  2,
+                                         "foreground":  "Named(Foreground)",
+                                         "start":  211
+                                     }
+                       },
+    "tool_connector":  {
+                           "offset_utf16":  270,
+                           "style":  {
+                                         "background":  "Named(Background)",
+                                         "debug_flags":  "Flags(DIM)",
+                                         "end":  335,
+                                         "flags":  128,
+                                         "foreground":  "Named(Foreground)",
+                                         "start":  268
+                                     }
+                       },
+    "tool_collapsed":  {
+                           "offset_utf16":  433,
+                           "style":  {
+                                         "background":  "Named(Background)",
+                                         "debug_flags":  "Flags(DIM)",
+                                         "end":  462,
+                                         "flags":  128,
+                                         "foreground":  "Named(Foreground)",
+                                         "start":  429
+                                     }
+                       },
+    "final_phase":  "main-ready",
+    "final_bullet":  {
+                         "offset_utf16":  819,
+                         "style":  {
+                                       "background":  "Named(Background)",
+                                       "debug_flags":  "Flags(DIM)",
+                                       "end":  821,
+                                       "flags":  128,
+                                       "foreground":  "Named(Foreground)",
+                                       "start":  819
+                                   }
+                     },
+    "ordinary_ran_prose_phase":  "prose-ready",
+    "ordinary_ran_prose_bullet":  {
+                                      "offset_utf16":  661,
+                                      "style":  {
+                                                    "background":  "Named(Background)",
+                                                    "debug_flags":  "Flags(DIM)",
+                                                    "end":  663,
+                                                    "flags":  128,
+                                                    "foreground":  "Named(Foreground)",
+                                                    "start":  661
+                                                }
+                                  }
+}

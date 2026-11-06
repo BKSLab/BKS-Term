@@ -1,17 +1,15 @@
-use windows::core::w;
-use windows::Win32::Foundation::{COLORREF, HINSTANCE, POINT, RECT};
+use windows::Win32::Foundation::{COLORREF, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
     CreatePen, CreateSolidBrush, DeleteObject, DrawTextW, Ellipse, FillRect, GetStockObject,
-    Polyline, RestoreDC, RoundRect, SaveDC, SelectObject, SetBkMode, SetTextColor,
-    DRAW_TEXT_FORMAT, DT_END_ELLIPSIS, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, HBRUSH,
-    HDC, HFONT, NULL_BRUSH, NULL_PEN, PS_SOLID, TRANSPARENT,
+    GetTextExtentPoint32W, Polyline, RestoreDC, RoundRect, SaveDC, SelectObject, SetBkMode,
+    SetTextColor, DRAW_TEXT_FORMAT, DT_END_ELLIPSIS, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE,
+    DT_VCENTER, HBRUSH, HDC, HFONT, NULL_BRUSH, NULL_PEN, PS_SOLID, TRANSPARENT,
 };
-use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{
     DRAWITEMSTRUCT, ODS_DISABLED, ODS_FOCUS, ODS_HOTLIGHT, ODS_SELECTED,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DrawIconEx, GetWindowTextLengthW, GetWindowTextW, LoadIconW, DI_NORMAL,
+    GetDlgCtrlID, GetDlgItem, GetParent, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
 };
 
 use crate::background::{self, Surface};
@@ -40,21 +38,29 @@ pub fn draw_title_bar(hdc: HDC, rect: RECT, theme: &Theme, dpi: u32) {
     let Some(_state) = DcState::save(hdc) else {
         return;
     };
-    background::paint(hdc, rect, rect, Surface::Title, theme);
+    background::paint(
+        hdc,
+        rect,
+        RECT {
+            bottom: rect.bottom + scale(52, dpi),
+            ..rect
+        },
+        Surface::Title,
+        theme,
+    );
 
     let icon_size = scale(24, dpi);
     let icon_left = rect.left + scale(12, dpi);
     let icon_top = rect.top + (rect.bottom - rect.top - icon_size) / 2;
-    unsafe {
-        if let Ok(module) = GetModuleHandleW(None) {
-            // LoadIconW returns a shared resource; it must not be destroyed here.
-            if let Ok(icon) = LoadIconW(Some(HINSTANCE(module.0)), w!("BKS_TERM")) {
-                let _ = DrawIconEx(
-                    hdc, icon_left, icon_top, icon, icon_size, icon_size, 0, None, DI_NORMAL,
-                );
-            }
-        }
-    }
+    crate::profile_icons::draw_brand(
+        hdc,
+        RECT {
+            left: icon_left,
+            top: icon_top,
+            right: icon_left + icon_size,
+            bottom: icon_top + icon_size,
+        },
+    );
 
     let text_left = icon_left + icon_size + scale(14, dpi);
     draw_text(
@@ -80,7 +86,7 @@ pub fn draw_tab_background(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32) {
         bottom: rc.bottom,
     };
     unsafe {
-        FillRect(item.hDC, &rc, theme.toolbar);
+        background::control(item, Surface::Title, theme, dpi);
         FillRect(item.hDC, &line, theme.border_subtle);
     }
 }
@@ -91,6 +97,15 @@ pub fn draw_connection_status(
     dpi: u32,
     connected: Option<bool>,
 ) {
+    draw_status(item, theme, dpi, Some(connected));
+}
+
+pub fn draw_status(
+    item: &DRAWITEMSTRUCT,
+    theme: &Theme,
+    dpi: u32,
+    connection: Option<Option<bool>>,
+) {
     let rc = item.rcItem;
     if !has_area(rc) {
         return;
@@ -99,7 +114,38 @@ pub fn draw_connection_status(
     let Some(_state) = DcState::save(hdc) else {
         return;
     };
-    let color = match connected {
+    background::control(item, Surface::Status, theme, dpi);
+    let text = control_text(item);
+    if text.is_empty() {
+        return;
+    }
+    let mut text_size = windows::Win32::Foundation::SIZE::default();
+    let wide: Vec<u16> = text.encode_utf16().collect();
+    unsafe {
+        let previous = SelectObject(hdc, theme.status_font.into());
+        let _ = GetTextExtentPoint32W(hdc, &wide, &mut text_size);
+        SelectObject(hdc, previous);
+    }
+    let pill = RECT {
+        left: rc.left + scale(2, dpi),
+        top: rc.top + scale(5, dpi),
+        right: (rc.left + text_size.cx + scale(if connection.is_some() { 38 } else { 20 }, dpi))
+            .min(rc.right - scale(2, dpi)),
+        bottom: rc.bottom - scale(5, dpi),
+    };
+    rounded_fill(hdc, pill, theme.surface, scale(11, dpi));
+    rounded_outline(
+        hdc,
+        pill,
+        if theme.high_contrast {
+            theme.colors.text_secondary
+        } else {
+            crate::theme::BORDER_SUBTLE
+        },
+        scale(1, dpi).max(1),
+        scale(11, dpi),
+    );
+    let color = match connection.flatten() {
         Some(true) => theme.colors.status_success,
         Some(false) => theme.colors.status_error,
         None => theme.colors.text_muted,
@@ -108,25 +154,26 @@ pub fn draw_connection_status(
     let x = rc.left + scale(12, dpi);
     let y = rc.top + (rc.bottom - rc.top) / 2;
     unsafe {
-        FillRect(hdc, &rc, theme.surface);
-        let brush = CreateSolidBrush(color);
-        let old_brush = SelectObject(hdc, brush.into());
-        let old_pen = SelectObject(hdc, GetStockObject(NULL_PEN));
-        let _ = Ellipse(hdc, x - radius, y - radius, x + radius + 1, y + radius + 1);
-        let _ = SelectObject(hdc, old_pen);
-        let _ = SelectObject(hdc, old_brush);
-        let _ = DeleteObject(brush.into());
+        if connection.is_some() {
+            let brush = CreateSolidBrush(color);
+            let old_brush = SelectObject(hdc, brush.into());
+            let old_pen = SelectObject(hdc, GetStockObject(NULL_PEN));
+            let _ = Ellipse(hdc, x - radius, y - radius, x + radius + 1, y + radius + 1);
+            let _ = SelectObject(hdc, old_pen);
+            let _ = SelectObject(hdc, old_brush);
+            let _ = DeleteObject(brush.into());
+        }
     }
     draw_text(
         hdc,
         RECT {
-            left: (rc.left + scale(26, dpi)).min(rc.right),
+            left: (rc.left + scale(if connection.is_some() { 26 } else { 10 }, dpi)).min(rc.right),
             top: rc.top,
             right: (rc.right - scale(8, dpi)).max(rc.left),
             bottom: rc.bottom,
         },
-        &control_text(item),
-        theme.ui_font,
+        &text,
+        theme.status_font,
         theme.colors.text_secondary,
     );
 }
@@ -143,32 +190,25 @@ pub fn draw_tab_button(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32, active: b
     let focused = item.itemState.0 & ODS_FOCUS.0 != 0;
     let hot = item.itemState.0 & (ODS_HOTLIGHT.0 | ODS_SELECTED.0) != 0;
     let disabled = item.itemState.0 & ODS_DISABLED.0 != 0;
-    let border = if active || focused {
-        theme.brand
-    } else if hot {
-        theme.border
-    } else {
-        theme.border_subtle
-    };
-    // The overlaid close control shares this fill so the tab stays one card.
     let thickness = scale(1, dpi).max(1);
-    unsafe { FillRect(hdc, &rc, theme.toolbar) };
-    rounded_fill(hdc, rc, border, scale(8, dpi));
-    rounded_fill(
+    background::control(item, Surface::Title, theme, dpi);
+    let capsule = inset(rc, scale(2, dpi));
+    background::tab(hdc, capsule, capsule, active, theme, dpi, true);
+    rounded_outline(
         hdc,
-        inset(rc, thickness),
-        tab_background(theme, active),
-        (scale(8, dpi) - thickness).max(0),
+        capsule,
+        if theme.high_contrast {
+            theme.colors.brand
+        } else if active {
+            crate::theme::BRAND_PRIMARY
+        } else if hot {
+            crate::theme::BORDER
+        } else {
+            crate::theme::BORDER_SUBTLE
+        },
+        thickness,
+        scale(12, dpi),
     );
-    if active {
-        let line = RECT {
-            left: (rc.left + scale(8, dpi)).min(rc.right),
-            top: (rc.bottom - thickness).max(rc.top),
-            right: (rc.right - scale(8, dpi)).max(rc.left),
-            bottom: rc.bottom,
-        };
-        unsafe { FillRect(hdc, &line, theme.brand) };
-    }
 
     let text = control_text(item);
     let icon_size = scale(20, dpi);
@@ -202,9 +242,9 @@ pub fn draw_tab_button(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32, active: b
         rounded_outline(
             hdc,
             inset(rc, scale(3, dpi)),
-            theme.colors.brand,
-            thickness,
-            scale(5, dpi),
+            focus_color(theme),
+            scale(2, dpi).max(1),
+            scale(10, dpi),
         );
     }
 }
@@ -222,7 +262,32 @@ pub fn draw_tab_close(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32, active: bo
     let hot = item.itemState.0 & ODS_HOTLIGHT.0 != 0;
     let pressed = item.itemState.0 & ODS_SELECTED.0 != 0;
     let focused = item.itemState.0 & ODS_FOCUS.0 != 0;
-    unsafe { FillRect(hdc, &rc, tab_background(theme, active)) };
+    let mut canvas = rc;
+    unsafe {
+        let parent = GetParent(item.hwndItem).unwrap_or_default();
+        let id = GetDlgCtrlID(item.hwndItem) - 1000;
+        if let Ok(tab) = GetDlgItem(Some(parent), id) {
+            let mut tab_rc = RECT::default();
+            let mut close_rc = RECT::default();
+            let _ = GetWindowRect(tab, &mut tab_rc);
+            let _ = GetWindowRect(item.hwndItem, &mut close_rc);
+            canvas = RECT {
+                left: tab_rc.left - close_rc.left,
+                top: tab_rc.top - close_rc.top,
+                right: tab_rc.right - close_rc.left,
+                bottom: tab_rc.bottom - close_rc.top,
+            };
+        }
+    }
+    background::tab(
+        hdc,
+        rc,
+        inset(canvas, scale(2, dpi)),
+        active,
+        theme,
+        dpi,
+        false,
+    );
     if !disabled && (hot || pressed) {
         rounded_fill(hdc, inset(rc, scale(2, dpi)), theme.hover, scale(5, dpi));
     }
@@ -238,11 +303,101 @@ pub fn draw_tab_close(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32, active: bo
         rounded_outline(
             hdc,
             inset(rc, scale(2, dpi)),
-            theme.colors.brand,
+            focus_color(theme),
             scale(1, dpi).max(1),
             scale(5, dpi),
         );
     }
+}
+
+pub fn draw_new_tab(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32) {
+    let Some(_state) = DcState::save(item.hDC) else {
+        return;
+    };
+    background::control(item, Surface::Title, theme, dpi);
+    let rc = inset(item.rcItem, scale(3, dpi));
+    let hot = item.itemState.0 & ODS_HOTLIGHT.0 != 0;
+    let pressed = item.itemState.0 & ODS_SELECTED.0 != 0;
+    let focused = item.itemState.0 & ODS_FOCUS.0 != 0;
+    rounded_fill(
+        item.hDC,
+        rc,
+        if pressed {
+            theme.toolbar
+        } else if hot {
+            theme.hover
+        } else {
+            theme.surface
+        },
+        scale(11, dpi),
+    );
+    rounded_outline(
+        item.hDC,
+        rc,
+        if focused {
+            focus_color(theme)
+        } else if theme.high_contrast {
+            theme.colors.text_secondary
+        } else {
+            crate::theme::BORDER_SUBTLE
+        },
+        scale(if focused { 2 } else { 1 }, dpi).max(1),
+        scale(11, dpi),
+    );
+    let x = (rc.left + rc.right) / 2;
+    let y = (rc.top + rc.bottom) / 2;
+    let half = scale(6, dpi);
+    let width = scale(1, dpi).max(1);
+    stroke(
+        item.hDC,
+        [(x - half, y), (x + half + 1, y)],
+        theme.colors.text_primary,
+        width,
+    );
+    stroke(
+        item.hDC,
+        [(x, y - half), (x, y + half + 1)],
+        theme.colors.text_primary,
+        width,
+    );
+}
+
+pub fn draw_input_label(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32) {
+    background::control(item, Surface::Terminal, theme, dpi);
+    draw_text(
+        item.hDC,
+        item.rcItem,
+        &control_text(item),
+        theme.ui_font,
+        theme.colors.text_secondary,
+    );
+}
+
+pub fn draw_input_frame(hdc: HDC, rect: RECT, theme: &Theme, dpi: u32, focused: bool) {
+    if !theme.high_contrast {
+        // The native caret identifies focus on the continuous terminal canvas.
+        // No secondary underline or partial frame belongs around the editor.
+        return;
+    }
+    let frame = RECT {
+        left: rect.left - scale(3, dpi),
+        top: rect.top - scale(3, dpi),
+        right: rect.right + scale(3, dpi),
+        bottom: rect.bottom + scale(3, dpi),
+    };
+    rounded_outline(
+        hdc,
+        frame,
+        if focused {
+            focus_color(theme)
+        } else if theme.high_contrast {
+            theme.colors.text_secondary
+        } else {
+            crate::theme::BORDER
+        },
+        scale(if focused { 2 } else { 1 }, dpi).max(1),
+        scale(10, dpi),
+    );
 }
 
 pub fn draw_sidebar_button(
@@ -478,11 +633,11 @@ pub fn draw_window_button(item: &DRAWITEMSTRUCT, theme: &Theme, dpi: u32, kind: 
     }
 }
 
-fn tab_background(theme: &Theme, active: bool) -> HBRUSH {
-    if active {
-        theme.toolbar
+fn focus_color(theme: &Theme) -> COLORREF {
+    if theme.high_contrast {
+        theme.colors.brand
     } else {
-        theme.window
+        crate::theme::FOCUS_RING
     }
 }
 
@@ -553,7 +708,11 @@ fn draw_text(hdc: HDC, rect: RECT, text: &str, font: HFONT, color: COLORREF) {
         let old_font = SelectObject(hdc, font.into());
         let _ = SetBkMode(hdc, TRANSPARENT);
         let _ = SetTextColor(hdc, color);
-        let _ = DrawTextW(hdc, &mut text, &mut rect, flags);
+        if !crate::backdrop::active()
+            || !crate::glass_buffer::draw_text(hdc, &text, rect, flags, color)
+        {
+            let _ = DrawTextW(hdc, &mut text, &mut rect, flags);
+        }
         let _ = SelectObject(hdc, old_font);
     }
 }

@@ -1,11 +1,2034 @@
 # BKS Term — память проекта (рабочее состояние)
 
-**Обновлено:** 27 октября 2026 г.
+**Обновлено:** 6 ноября 2026 г.
 **Назначение:** снимок текущего состояния для продолжения работы в новых сессиях агента. Обновлять после каждой завершённой итерации. Концепция и план — в `docs/concept.md` и `docs/setup-and-iterations.md`; при противоречии те документы важнее.
 
 ## 1. Где мы находимся
 
-### Последний результат — 27.10.2026, 0.4.0-preview.6
+### Контрольная точка — 06.11.2026, preview.34 — README и фиксация результата
+
+Пользователь сообщил «вроде ок» после проверки последней сборки и явно
+поручил commit в `main`, push и обновление README с новым дизайном и логотипом.
+Это разрешение относится к накопленному результату данного проекта и
+`origin/main` (`https://github.com/BKSLab/BKS-Term.git`); полная ручная приёмка
+с NVDA этим сообщением не подтверждена.
+
+README показывает круглый логотип Frosted Glass и настоящее окно preview.34
+с демонстрационным диалогом. Снимок `docs/screenshots/bks-term-frosted-glass.png`
+получен через PrintWindow собственного изолированного окна без редактирования
+изображения; пользовательские окна и настройки не затрагивались. Все 12
+проверок сценария снимка passed, собственные процессы закрыты. Квитанция:
+`target/readme34/capture-receipt.json`.
+
+В portable/Setup добавлены логотипы, снимок, паспорт, документация адаптеров
+и исходный дизайн-референс. Скриншот актуального интерфейса отделён в README
+от раннего референса Frosted Indigo. Обновлён CHANGELOG. Упаковка и проверка
+установки/удаления в частных папках повторены: **48 passed**, 1 skipped
+(file-symlink fixture, Windows error 1314). Реестр и ярлыки пользователя
+проверкой не изменялись. Логи: `target/readme34/package{,-test}.log`.
+
+Rust-код после полной проверки preview.34 не менялся: fmt, clippy с
+`-D warnings`, **947 workspace tests** и release passed; актуальные логи
+остаются в `target/codex-tools34/checks/`. SHA256 исполняемого файла сохранён:
+`219386D902C8609BCD98CE59D01AC58B56402D0F5DB1BDEE55E16B44B3FCEBF6`.
+Ограничения автоматической UIA-проверки и ручной приёмки NVDA ниже сохраняются.
+
+В контрольную точку входят исходники, тестовые записи, ADR, документация
+и ресурсы завершённых итераций. `.gitattributes` сохраняет исходные CR/LF
+байты VT-записей; их протокольные пробелы не нормализуются. Локальная
+`docs/note.txt` остаётся вне коммита; сборки и служебные логи — в `target/`.
+
+### Итерация перед контрольной точкой — 06.11.2026, preview.34 — процесс Codex и финальный ответ
+
+Пользователь сообщил: долго нет речи о процессе, а чтение результата начинает
+с Ran/stdout вместо финального текста. Скриншоты просмотрены, в repo не копировались.
+Пользовательского settings.json при проверке нет; default speech mode — Important.
+
+Реализовано: новый `tui_turns_codex_activity.rs` отличает native exec от model
+message по marker/title ink, dim gutter и геометрии, не по слову Ran одному.
+Tool stdout не открывает fences и не создаёт фазы. Проvisional model headers
+при текущем Busy не публикуются как финальный ответ и исключаются из следующего
+полного snapshot; промежуточные Answer до последней activity также удаляются.
+Обычный final, начинающийся Ran, сохраняется. Блоки `/status` preview.33 сохранены.
+Clipped Esc footer доказывается стилями elapsed/hint, bold Esc, source editor
+и правым краем, поэтому длинный видимый work title не теряет Busy.
+
+`TurnLog::working_turn` даёт ID только для текущего source-owned Codex Busy
+без menu/protected/terminal signal. `TurnSpeech::working` допускает короткое
+«Работа продолжается» после 15 секунд без выданной речи, без очереди пропущенных
+интервалов. Manual/background/typing/pause/terminal outcomes отменяют допуск.
+Main обновляет его после событий; неполный sync frame временно задерживает
+выдачу без сброса quiet timer. Ход работы не становится model Ready.
+
+Проверена реальная isolated CLI 0.164 запись: два заранее фиксированных чтения
+собственного файла (80 строк stdout), Sleep15s, commentary, два final messages,
+включая обычную фразу Ran. 42 360 native VT bytes, 15 233 мс неизменного VT,
+1437 реальных пустых polls в тихом интервале. Session replay получает heartbeat
+внутри этого интервала, только final в answer body и два отдельных Ready.
+Native Running label не наблюдался, его grammar проверяется synthetic tests.
+Скрытые рассуждения не извлекались. Private readonly профили отклонили даже
+safe spawn; положительный renderer test использует явно разрешённый собственный
+test-only no-sandbox профиль, whitelist точных команд/cwd и loopback provider.
+Это не проверка sandbox/approvals рабочего профиля; настройки пользователя не менялись.
+Fixtures/README: `crates/bks-app/tests/fixtures/tui-codex-tools34/`.
+Provenance/cleanup: `target/codex-tools34/validation-cleanup.json`, собственных процессов 0.
+
+Класс M; доступные агенты Codex, один independent code-review. Review нашёл
+два P2: Running stdout fence мешал footer scan; menu стирал provisional headers.
+Оба воспроизведены ДО исправления и passed ПОСЛЕ: footer pass только защищает
+стилизованные continuations, реальная роль Running всё ещё требует Busy;
+menu/protected сохраняют прежнее доказательство commentary. Новый полный
+review не запускался, адресная проверка закрыла оба замечания.
+
+Проверки: 60 Codex regressions и 21 speech tests passed. После двух review
+fixes повторены все mandatory: fmt, clippy workspace/all-targets `-D warnings`,
+workspace tests, release — **passed**. **947 tests passed**, 0 failed/ignored:
+app 859, worker 3, PTY 21, ConPTY 14, environment 2, terminal 48.
+Логи: `target/codex-tools34/checks/`, initial —
+`pre-review-*.log`, точные before/after — `review-{running,menu}-{before,after}.log`.
+Добавлены 12 timed speech tests, 8 activity grammar tests, lifecycle и actual
+Session workflow. Обновлены справка, manual, ограничения, CHANGELOG и ADR 0024.
+
+Собрана **0.4.0-preview.34**, SHA256
+`219386D902C8609BCD98CE59D01AC58B56402D0F5DB1BDEE55E16B44B3FCEBF6`.
+EXE: `target/release/bks-app-0.4.0-preview.34.exe`.
+
+Private native GUI: **31 passed**, 0 failed/error, 1 skipped. Строго проверены
+настоящие tool calls/Sleep17/stdout, final-only journal, обычный Ran final,
+native/UIA text, позиции чтения, фокус, отсутствие лишних POST и `/quit` → shell.
+Автоматические UIA progress events честно skipped: registration=true, но
+control delivery=false и foreground=false на неактивном private desktop;
+gate не обходился, fake events нет. Это не подтверждение речи NVDA.
+Логи: `target/codex-tools34/native-gui/runs/run-20261106-200821-04199b0d/`.
+Cleanup receipt Passed=true, own processes 0, desktop/job/listener закрыты;
+EXE hash совпал. Частная настройка CLI не затрагивает профили пользователя.
+
+Portable/setup: `target/packages/bks-term-0.4.0-preview.34-windows-x64-*`.
+Package/install/uninstall в Windows PowerShell 5.1: **48 passed**, 1 skipped
+(file-symlink fixture, Windows 1314); пользовательская интеграция не менялась.
+Итоговый diff/whitespace check passed; логи остаются в target.
+
+Открыто пользовательское окно `.34` с `--profile cli-codex`, PID **13292**,
+HWND **25561916**, Responding=true; ввода агент не отправлял. Квитанция:
+`target/codex-tools34/launched-user-app.json`. Прежние пользовательские окна
+не закрывались. Commit/push нет, прежние незакоммиченные правки сохранены.
+**Дальше:** человек проверяет слышимость сообщений о ходе работы/напоминания
+после 15 секунд и чтение только финального ответа в новом окне `.34` по
+`docs/manual-final.md`. Агент не объявляет NVDA-проверку пройденной.
+
+### Предыдущая точка остановки — 06.11.2026, preview.33 — сохранённые блоки вывода команд
+
+Пользователь подтвердил чтение `/status` в preview.32, но уточнил требование:
+результат команды должен оставаться блоком в общей истории после простого
+набора, следующего запроса и перерисовки. Открытие текущего исходного экрана
+не решает сохранение. Скриншоты и данные учётной записи в репозиторий не копировались.
+
+**Реализовано:** `TurnLog` хранит Answer/Command с общими стабильными ID,
+отдельными модельными и общими индексами. Ctrl+Up/Down проходят все сохранённые
+блоки по порядку, Ctrl+Shift+R открывает последний новый блок. В общем документе
+команда получает заголовок «Вывод команды», ответ модели сохраняет запрос.
+Команда не создаёт model Ready/Phase, не раскрывается через request action
+и не становится исполняемым текстом. Общий лимит — 128 блоков / 2 МиБ;
+retention защищает активный ответ и новейший результат, обрезая старый текст.
+
+Новый `tui_command_output.rs` сохраняет текст/оформление реального результата:
+принятый Enter исходной slash-команды/подсказки, подтверждённое очищенное поле,
+закрытое меню, exact plain echo и устойчивый 150 мс body до composer.
+Повторный `/status` может не печатать новых slash-байтов и сохранять то же
+тело: это отдельный snapshot результата принятой команды, не модельная новизна.
+Для Tab требуется недавний подтверждённый выбор и точное фактическое поле с
+кареткой перед Enter; учитывается добавленный Codex пробел. Новый ввод,
+смена геометрии/буфера/адаптера, direct mode и clear сбрасывают незавершённый
+захват. Результат команды ограничен 128 КиБ с отметкой об обрезке.
+При неоднозначности остаётся исходное чтение. История не переносится из старых окон.
+
+Изменены `tui_turns.rs`, `tui_transcript.rs`, `session.rs`, `main.rs`, меню и
+справка; добавлены ADR 0023 и регрессии. Источник приёма ввода, вывод первого
+символа и модельное распознавание сохранены. Класс M; реализация доступным
+агентом Codex, один независимый code-review. Маршруты Kimi/K3 из скилла
+не предоставлены текущими инструментами, работа не блокировалась.
+
+**Проверки:** fmt, clippy workspace/all-targets `-D warnings`, workspace tests,
+release — **passed**. **925 tests passed**, 0 failed/ignored: app 837,
+worker 3, PTY 21, ConPTY 14, environment 2, terminal 48. Независимый review
+существенных замечаний не выявил. Новые 12 pure tests проверяют admissions,
+отрицательные случаи, Unicode/styles, Tab, expiry и отмены. Session replay
+проходит пять настоящих сценариев из fixtures .32/.33: первый статус до
+модели, typing, три command blocks/два ответа, одинаковые повторы, menu/empty
+Enter, clear/reflow, search и место чтения. Отдельно проверены общие memory/count
+лимиты при продолжающемся активном ответе. Логи: `target/codex-command33/checks/`.
+
+Новые реальные captures: `crates/bks-app/tests/fixtures/tui-codex-command33/`,
+53 912 исходных VT-байт с полными реальными polls и logical/wire ledger.
+Локальный фиксированный SSE без пользователя/авторизации/внешней модели;
+оба CLI естественно `/quit` с кодом 0, своих процессов 0. Picker использует
+отдельный native Win32 Escape; его replay не объявляется проверкой literal
+transport самого приложения. Provenance/cleanup — `target/codex-command33/`.
+
+Собрана **0.4.0-preview.33**, SHA256
+`D112FED085BE005C2C71AC44AE391214E2F5DDEA5F2A272B0FB47CAAA037C9DB`.
+EXE: `target/release/bks-app-0.4.0-preview.33.exe`. Commit/push не выполнялись,
+предыдущие незакоммиченные изменения сохранены.
+
+Нативный GUI на private desktop: **50 passed**, 0 failed/error, 1 skipped
+(фактическая каретка/NVDA недоступны в private desktop). Проверены первый
+статус до модели, точные сохранённые тела трёх команд, пять отдельных позиций
+чтения, Ctrl+Up/Down, поиск с Enter, Ctrl+Home, два точных модельных запроса
+и `/quit` → OpenShell. EXE hash совпал; чужие окна/клавиши/clipboard не трогались.
+Логи: `target/codex-command33/native-gui/runs/run-20261106-191002-cbf62d44/`.
+Cleanup receipt: `target/codex-command33/native-gui/cleanup-verification.json`,
+Passed=true, собственных процессов 0, desktop/job/listener закрыты.
+
+Portable/setup: `target/packages/bks-term-0.4.0-preview.33-windows-x64-*`.
+Упаковка, частная установка/удаление в Windows PowerShell 5.1: **48 passed**,
+1 skipped (symlink fixture, Windows 1314); пользовательская интеграция не менялась.
+Итоговый whitespace check passed. Служебные логи — только в `target/`.
+
+Открыто новое пользовательское окно `.33` с `--profile cli-codex`, PID **22712**,
+HWND **1967594**, Responding=true; ввода агент не отправлял. Окно `.32`, PID
+**19848**, оставлено работающим. Квитанция: `target/codex-command33/launched-user-app.json`.
+**Дальше:** человек проверяет `/status` → обычный запрос → Ctrl+Up/Down и речь
+NVDA в новом окне `.33` по `docs/manual-final.md`. Старый журнал `.32` в новое
+окно не переносится; агент не объявляет NVDA-проверку пройденной.
+
+### Предыдущая точка остановки — 06.11.2026, preview.32 — чтение служебных команд Codex
+
+Пользователь подтвердил исправление первого символа в preview.31. Новая
+проблема на его скриншотах — результат `/status` виден на исходном экране,
+но Ctrl+Shift+R открывает только прежний ответ модели. Скриншоты и сведения
+учётной записи в репозиторий не переносились.
+
+Исправлен выбор документа: после принятого Enter служебной команды, меню
+или неизвестной формы Ctrl+Shift+R открывает исходный вывод. Новый запрос
+выбирает архив после появления нового ID ответа; до этого остаётся доступен
+исходный вывод. Вход в исходный документ явно снимает `answers_view`, закрывает
+поиск и сбрасывает ключ VT-кеша. Ctrl+Up/Down сохраняют навигацию по ответам.
+Политика обновляется только после успешной передачи явного ввода; команды
+из текста вывода не исполняются. Оболочка и принятие echo первого символа
+не менялись.
+
+Изменения: `LatestOutput` в `tui_transcript.rs`, методы сессии в `session.rs`,
+маршрут Ctrl+Shift+R и принятый ввод в `main.rs`. Общий `ReplyAnchor` сохранён:
+при неоднозначной перерисовке чтение начинается с текущей страницы. Вывод
+служебных команд остаётся в исходном буфере/истории терминала, не становится
+телом ответа модели и может быть удалён самим CLI при очистке или перерисовке.
+Уточнены справка, ручная приёмка, ограничения и ADR 0015.
+
+Добавлены три настоящие изолированные записи Codex 0.164.0 с фиксированным
+loopback SSE: `/status` + Enter, `/st` + Enter по выбранной подсказке,
+`/st` + Tab + Enter. В каждой — два запроса и ответа, локальный статус между
+ними, точные logical/wire bytes, все реальные polls и естественный `/quit`
+с кодом 0. Служебная команда не добавляет POST модели. Fixtures:
+`crates/bks-app/tests/fixtures/tui-codex-command32/`; собственные процессы
+capture завершены. Session replay проверяет source/answers выбор, выход из
+ранее открытого архива, поиск статуса и сохранность двух ответов. В этих
+коротких captures первая запись может остаться незавершённой до следующего
+запроса: завершение провайдера само по себе не подменяет source completion.
+
+**Проверки:** fmt, clippy workspace/all-targets `-D warnings`, workspace tests,
+release — **passed**. **911 tests passed**, 0 failed/ignored: app 823,
+worker 3, PTY 21, ConPTY 14, environment 2, terminal 48. Независимый узкий
+проход code-review не выявил существенных замечаний; diff и whitespace
+check passed. Логи: `target/codex-command32/checks/`.
+
+Собрана **0.4.0-preview.32**, SHA256
+`9A96E160EA0800548968AEFED6424C4AAB400B2B46C54F0FEDB9473B10813321`.
+EXE: `target/release/bks-app-0.4.0-preview.32.exe`; portable/setup:
+`target/packages/bks-term-0.4.0-preview.32-windows-x64-*`.
+Упаковка и частная установка/удаление: **48 passed**, 1 skipped
+(file-symlink fixture, Windows 1314). При первом запуске из PowerShell Core
+установщик получил неверный унаследованный PSModulePath и не нашёл Get-FileHash;
+повтор в штатном Windows PowerShell 5.1 с его module paths — passed.
+Установочные скрипты не менялись, пользовательская интеграция не затрагивалась.
+Нативный GUI на private desktop: **24 passed**, 0 failed/error, 1 skipped
+(реальная каретка/NVDA недоступны на private desktop). Проверены source-текст
+RichEdit 1018 и UIA, поиск `Token usage` с Enter, Ctrl+Up к прежнему ответу,
+Ctrl+Shift+R обратно к статусу из архива, второй точный запрос/новый ответ
+и `/quit` с OpenShell. Первая попытка harness ошибочно ожидала выделение
+до Enter в поиске; исправлен только target-helper, итоговый прогон passed.
+Логи: `target/codex-command32/native-gui/runs/run-20261106-182334-d38d16ac/`.
+Собственные процессы, job и private desktop закрыты, EXE hash совпал.
+Commit/push не выполнялись, прежние незакоммиченные изменения сохранены.
+
+Открыто новое пользовательское окно `.32` с `--profile cli-codex`, PID **19848**,
+HWND **10881382**, Responding=true. Ввод в него агент не отправлял;
+пользовательские окна не закрывал. Квитанция:
+`target/codex-command32/launched-user-app.json`.
+**Дальше:** человек проверяет чтение служебных команд и фактическую речь NVDA
+в новом окне по `docs/manual-final.md`. Агент не объявляет NVDA-тест пройденным.
+
+### Предыдущая точка остановки — 06.11.2026, после preview.31 — первый символ TUI
+
+Пользователь в целом принял работу Codex, но сообщил о пропуске озвучивания
+первой буквы TUI; в обычной оболочке она слышна. Ошибка воспроизведена на
+настоящих paced/fast VT-записях: generic echo считал первую букву обычной
+вставкой, тогда как она заменяет непустую экранную подсказку пустого поля.
+Смена истории при первой перерисовке Codex также обрывала pending echo.
+
+Исправлены `tui_input_echo.rs` и вызовы в `main.rs`: свежая подтверждённая
+пустая форма исключает hint только из приватной baseline. Речь по-прежнему
+требует реально видимых glyphs и каретки; при reflow Codex используется
+текущая source projection. Перед arm обновляется состояние composer. Скрытый,
+маскированный, невидимый или protected ввод, истечение срока, переключение
+буфера и неизвестный hint не становятся предсказанной речью. Оболочка не менялась.
+
+**Проверки:** fmt, clippy workspace/all-targets `-D warnings`, workspace tests,
+release — **passed**. **908 tests passed**, 0 failed/ignored: app 820,
+worker 3, PTY 21, ConPTY 14, environment 2, terminal 48. Новая регрессия
+сравнивает весь озвучиваемый ввод на реальных fast/paced captures, включая
+первую букву и отсутствие повторов; отдельно проверены masking/concealment,
+защищённые метаданные, неизвестная подсказка, buffer switch и expiry.
+Логи: `target/first-input-echo31/checks/`. Diff просмотрен, whitespace check passed.
+
+Собрана **0.4.0-preview.31**, SHA256
+`58EFFADE17E85513D6E33C44DE3D40617378DF7A10F42E7007B497A0486809F3`.
+EXE: `target/release/bks-app-0.4.0-preview.31.exe`; portable/setup —
+`target/packages/bks-term-0.4.0-preview.31-windows-x64-*`.
+Упаковка и частная установка/удаление: **48 passed**, 1 skipped
+(file-symlink fixture, Windows 1314); пользовательская интеграция не менялась.
+
+По ранее разрешённому запуску открыто новое окно `.31` с `--profile cli-codex`,
+PID **20540**, HWND **3082980**, Responding=true. Ввод агент не отправлял.
+Прежнее пользовательское окно `.30`, PID **19508**, сохранено. Commit/push нет.
+**Дальше:** пользователь проверяет фактическое озвучивание первой буквы с NVDA
+в новом окне по `docs/manual-final.md`. Агент не объявляет NVDA-проверку пройденной.
+
+### Предыдущая точка остановки — 06.11.2026, после preview.30 — интеграция Codex
+
+Пользователь выбрал Codex следующим приоритетом; отдельную работу над OpenCode
+пока отложил, Kimi остаётся ориентиром качества. Доработан нативный Codex CLI
+**0.164.0**, собрана и упакована **0.4.0-preview.30**. Это release-кандидат:
+человеческая NVDA/clean-VM приёмка не выполнена. Commit/push не выполнялись,
+прежние незакоммиченные изменения сохранены.
+
+**Что изменено:**
+
+- `codex.rs` — отдельная политика, Win32 input records и проверка раскладки.
+  Режим 9001 отслеживается VT parser в `bks-terminal`, включая split/reset,
+  строковые payload и synchronized frames. Для выбранного Codex после запроса
+  этого режима BMP literal передаётся VK_PACKET, supplementary scalars — UTF-8.
+  Модификаторы Enter сохраняются; Shift+Enter реально добавляет строку.
+  Протокольные ответы терминала не проходят через literal encoder.
+- Первая полная вставка до 32768 UTF-16 получает bounded source proof; большая
+  вставка Codex имеет срок 15 секунд, обычный ввод/удаления — 750 мс. Публичное
+  поле содержит только actual source window. Приватное намерение полного
+  текста не озвучивается как поле; полный новый echo после Enter подтверждает
+  запрос для архива. Поддержаны переносы, startup repaint с ростом истории,
+  resize и обрезанное по высоте поле. Его имя — «видимая часть ввода».
+- Исправлен общий приоритет source proof: промежуточный неизменённый кадр
+  обновлял revision панели и мешал подтверждению следующей вставки. Успешный
+  recovery от исходного accepted origin теперь сильнее обычной palette
+  projection. Это проверено и прежним реальным OpenCode resize capture;
+  сам OpenCode не получал новых функций. Replay helpers используют согласованное
+  время и каждый полный sync frame, без искусственного parser timeout.
+- Tab во время ответа регистрирует Queue, Enter — Steer. TurnLog выбирает
+  запрос по полному свежему echo, поэтому steering обгоняет очередь и одинаковые
+  запросы остаются отдельными. Прерванный ответ сохраняется incomplete без Ready;
+  исчезновение Working при первом токене не означает завершение. Preview
+  queue/steering не попадает в ответы и речь. Полная identity Codex не обрезается
+  до 8К лимита уведомления; prefix не подтверждает более длинный запрос.
+- Управляемый профиль проверенной версии получает только
+  `-c tui.disable_paste_burst=true`. Мигрирует лишь точный неизменённый старый
+  шаблон после сверки файла/версии. Custom args/name/cwd/settings и KeepTab
+  сохраняются; глобальный Codex config не меняется. `--no-alt-screen` не добавлен.
+- ADR: `docs/decisions/0022-codex-native-input-and-turns.md`; обновлены справка,
+  описание адаптера, ограничения и ручная приёмка.
+
+**Проверки:**
+
+- `cargo fmt --all -- --check`, clippy workspace/all-targets `-D warnings`,
+  `cargo test --workspace`, `cargo build --release` — **passed**.
+  **903 tests passed**, 0 failed/ignored: app 815, worker 3, PTY 21, ConPTY 14,
+  environment 2, terminal 48. Логи: `target/codex-production30/checks/`.
+- Настоящие изолированные Codex ConPTY captures и фиксированный loopback
+  Responses SSE без пользовательских ключей/внешней модели/tool calls:
+  `crates/bks-app/tests/fixtures/tui-codex-production30/`. Реальные Session/Submission/TurnLog
+  regressions покрывают Unicode, 80/400/4К, newline, resize/menu, очередь,
+  steering, повторные запросы и 75-параграфный ответ. Отдельный adversarial
+  source-equivalent тест проверяет полную identity >8К и отказ по одному prefix.
+- Финальный release EXE проверен настоящим GUI и Codex: **13 passed**,
+  0 failed/error, 1 skipped (UIA caret/range на private desktop; native EM_GETSEL
+  и UIA Text проверены строго). `Ж界🙂 []`: caret 7; Shift+Enter: CRLF/caret 9;
+  вторая строка: caret 23. До Enter conversation counts `[0,0,0]`; provider
+  получил точный multiline запрос, ответ полностью появился в 1018, `/quit`
+  вернул пустую editable OpenShell. Receipt:
+  `target/codex-production30/final-native-gui-verification.json`;
+  run `native-gui/runs/run-20261106-161525-60dc7cda/`.
+  App/bootstrap exit 0, private desktop/job закрыты, собственных BKS/Codex 0.
+- Portable и Setup: **48 package/install/uninstall checks passed** с реальными
+  артефактами и частной установкой без интеграции/запуска приложения.
+  **1 skipped**: file-symlink fixture, Windows 1314 (нет нужной привилегии).
+  Никаких записей пользовательского реестра/ярлыков. Логи package*.log.
+- Независимое ревью: закрыты P2 сохранения partial intent при resize и сброса
+  private hint при смене primary/alternate/новом пустом composer. Регрессии passed.
+
+**Существенное ограничение:** Windows ConPTY воспроизводимо искажает cursor
+correction после некоторых combining marks: typed `Ж界🙂 é []` доходит до
+провайдера точно 10 UTF-16, но VT/нижнее поле временно содержат 9 без пробела.
+Полный новый echo после Enter уже содержит 10; приватный literal hint позволяет
+сохранить правильный полный запрос только после этого подтверждения. Физическая
+каретка/нижний текст не угадываются. Для ZWSP/части ZWJ sequences без полного
+faithful echo остаётся обычное чтение source, без выдуманного архива/Ready.
+Прямое окно и `--no-alt-screen` одинаково воспроизводят этот upstream gap.
+См. `docs/known-limitations.md` и отдельные positive/negative capture contracts.
+
+**Release:** `target/release/bks-app.exe` и
+`target/release/bks-app-0.4.0-preview.30.exe` совпадают: **3477504** байт,
+SHA256 `D549CD4FA64CC190AF7D8F95CA6BE6B756921021FBADBF0896741B0B06DC281B`.
+Portable ZIP, Setup EXE, manifests, dependencies и SHA256SUMS —
+`target/packages/bks-term-0.4.0-preview.30-windows-x64-*`.
+
+**Дальше:** ручная приёмка Codex с NVDA/физической клавиатурой и рабочей
+авторизацией по `docs/manual-final.md`, затем чистая Windows VM. Автопроверки
+не считаются подтверждением речи NVDA или окончательного production release.
+В пользовательские окна ввод не отправлялся; пользовательский Codex не запускался.
+
+### Предыдущая точка остановки — 05.11.2026, после preview.29 — первый ввод OpenCode
+
+Исправлена жалоба пользователя: сразу после появления формы OpenCode ввод
+оставался в исходном поле наверху, а общее поле внизу было пустым. Собрана и
+запущена **0.4.0-preview.29**. Commit/push не выполнялись; прежние изменения
+сохранены.
+
+**Причины и исправления:**
+
+- В начале OpenCode показывает textarea раньше полного footer. Первый символ
+  мог быть принят при `composer=None`; после этого строгий recognizer уже не
+  подхватывал непустое поле. Теперь только для выбранного OpenCode полная
+  геометрия, новый source revision, начальные координаты принятого ввода и
+  видимая каретка подтверждают точный префикс явно принятых символов. Без
+  прежнего поля сохраняется лимит 64 символа; неизвестный prefill не переносится.
+- Отдельно воспроизведена потеря поля после resize. При явном resize частная
+  baseline сохраняется до двух секунд; новая исходная перерисовка должна
+  подтвердить весь канонический текст, буфер, режим и палитру. Старая копия
+  сетки после `TerminalModel::resize` сама не подтверждает reflow.
+- Принятое новое нажатие отменяет resize-baseline. Независимый review выявил
+  потерю Shift+Enter сразу после восстановления; исправлено и проверено
+  реальной фазой resize → newline → Backspace, до нового печатного символа.
+- Временная числовая трассировка удалена. Ни одна правка не отправляет
+  автоматически распознанные из TUI команды или подтверждения.
+
+**Проверки:**
+
+- Установленный OpenCode **2.0.32**, настоящие изолированные ConPTY-записи
+  раннего ввода и resize, без реальных LLM/tool запросов; штатный `/exit`, code0.
+  Fixtures: `crates/bks-app/tests/fixtures/tui-opencode-input29/`; полные
+  captures: `target/opencode-input29/captures/{first-source,resize-newline}/`.
+- Первый ввод воспроизведён на `.28` трижды и на optimized trace `.29` до
+  исправления. Debug-сборка меняла время запуска и скрывала этот race;
+  окончательная GUI-проверка использовала обычную release-сборку.
+- `cargo fmt --all -- --check`, clippy workspace all-targets `-D warnings`,
+  `cargo test --workspace`, `cargo build --release` — **passed**.
+  **865 tests passed**, 0 failed: app780, worker3, PTY21, ConPTY14,
+  environment2, terminal45. Логи: `target/opencode-input29/checks/`.
+- Три actual GUI-сценария release `.29` + настоящий OpenCode — **passed**:
+  два немедленных первых ввода (450/100 мс между буквами), resize
+  `100×29 → 124×35 → 100×29` и последний символ после возврата. На каждом шаге
+  нативное нижнее поле содержит точный текст и UTF-16 caret, верхнее исключает
+  активную форму. Summary: `target/opencode-input29/final-gui-regression29.json`.
+  Private desktops и собственные процессы проверки закрыты.
+- Целевой независимый review нового first-input подтверждения не нашёл
+  значимых дефектов; P2 resize/newline закрыт. Diff/whitespace checks passed.
+
+**Release и запуск:** `target/release/bks-app.exe` и
+`target/release/bks-app-0.4.0-preview.29.exe` совпадают: **3 418 624** байт,
+SHA256 `E9A7EDA0165C7FAD0C9A9EE9F14B5CC173055E508B244BE39A4EF133B4DF8C85`.
+05.11.2026 15:50:58 +04 запущен основной EXE с `--profile cli-opencode`,
+PID **21680**, HWND **13959744**, Responding=true; подтверждён настоящий
+дочерний `opencode.exe --standalone`, PID **6368**. Начальный discovery
+`--version` не считается запущенным пользовательским CLI. В новый живой
+пользовательский CLI агент ввод не отправлял. Прежний основной образ `.28`
+сохранён в `target/release/bks-app-active-preview.28.exe`; пользовательские
+окна/процессы агент не завершал.
+
+**Дальше:** пользователь проверяет первый ввод в открытой `.29`, затем
+остальные сценарии отдельного OpenCode-профиля. NVDA, физическая клавиатура
+и авторизованные провайдеры остаются человеческой приёмкой.
+
+### Предыдущая точка остановки — 05.11.2026, после preview.28 — отдельный OpenCode
+
+Пользователь принял сворачиваемые запросы и прежнюю работу Kimi. По поручению
+проверен код отдельного OpenCode-профиля и доработан до тех же сценариев ввода,
+чтения и навигации. Собрана **0.4.0-preview.28**; основной EXE и копия
+`target/release/bks-app-0.4.0-preview.28.exe` совпадают. Commit/push не выполнялись,
+все прежние незакоммиченные изменения сохранены.
+
+**Что исправлено:**
+
+- `opencode.rs` — отдельный модуль политики, явных клавиш и defaults профиля.
+  Реальное `opencode v2.0.32` теперь распознаётся. Ограниченный help probe
+  подтверждает `--standalone` перед добавлением аргумента; неизвестная версия/
+  возможность сохраняет прежний обычный запуск. Встроенный профиль использует
+  приватный сервер клиента и процессный полный показ вставки. Глобальная служба
+  и файлы конфигурации не перенастраиваются; существующая inline-переменная
+  `OPENCODE_CLI_CONFIG_CONTENT` имеет приоритет. Сохранённые custom profiles
+  не переписываются, прежний OpenShell после CLI сохранён.
+- Shift/Ctrl/Alt+Enter передаются CSI-u с исходными модификаторами вместо CR,
+  который ошибочно отправлял запрос. Обычный Enter прежний; остальные CLI и
+  прочие клавиши используют прежний encoder. Решение о действии остаётся у CLI.
+- Первая полная bracketed paste длиннее 64 символов подтверждается до 32K
+  только в выбранном OpenCode с доказанным исходным полем. Предел UTF-16,
+  protected/source/geometry/style/caret guards и 750 мс сохранены. Исправлен
+  ложный WRAPLINE фоновой заливки. Собственный word wrap renderer сверяется
+  со всем явно принятым текстом, не добавляя экранные переносы в запрос.
+- Backspace/Delete после такого wrap сохраняют канонические текст и каретку:
+  проверяется фактическое однозначное удаление, а не предполагаемое число
+  UTF-16/scalar/grapheme единиц. Смена высоты поля допустима только в проверенном
+  OpenCode; source, columns, palette и результат удаления остаются обязательными.
+- Ctrl+X → Enter сохраняет краткое намерение очереди (3 секунды) и документ
+  до скрывающей поле leader-перерисовки. Текст редактора больше не считается
+  предыдущим semantic echo. Меню, защита, смена текста, другая клавиша и timeout
+  отменяют намерение; новый полный source echo по-прежнему обязателен для
+  разделения ответов. Оба запроса/тела/ID и disclosure доступны. Без стабильной
+  idle-границы первый queued-ответ остаётся incomplete, последний получает
+  собственный Ready; ожидания обычных двух ответов не ослаблялись.
+- Shell определяется только в исходном toolbar-слоте. `!` и Escape не портят
+  последующее подтверждение текста, shell-черновик читается и не становится
+  запросом к модели. Никакие команды/разрешения из вывода не выполняются.
+
+**Проверки и происхождение:**
+
+- Установлен OpenCode **2.0.32**. Повторно прочитаны официальные TUI/settings/
+  keybinds/standalone docs; детали и ссылки в `docs/cli-adapters.md#opencode`.
+- Actual owned ConPTY, private home/config/data/cwd, запрет tools/MCP/plugins,
+  без user auth и настоящей LLM-сети. Editor run: ноль HTTP/model/tool запросов,
+  Unicode/новые и пустые строки, большая первая вставка, wrap, Backspace/Left/
+  Delete, Shell/Escape и natural `/exit` code 0. Queue run: два фиксированных
+  loopback SSE ответа, штатная очередь во время stream, natural `/exit` code 0.
+  Canonical raw и временные ledgers —
+  `crates/bks-app/tests/fixtures/tui-opencode-profile28/`; полный provenance —
+  `target/opencode-profile28/captures/{editor-full-profile3,queued-default}/`.
+  Ранний editor-default — диагностический запуск, не успешная приёмка выхода.
+- `cargo fmt --all -- --check`, clippy workspace all-targets `-D warnings`,
+  `cargo test --workspace`, `cargo build --release` — **passed**.
+  Тесты **860 passed**, 0 failed: app775, worker3, PTY21, ConPTY14,
+  environment2, terminal45. RUST_TEST_THREADS=4. Семь actual Session replays
+  включают прежние Kimi/Codex/Claude/OpenCode и новые редактор/очередь OpenCode;
+  точные UTF-16 caret проверены на каждой редакторной фазе. Логи:
+  `target/opencode-profile28/checks/{fmt,clippy,tests,release}.log`.
+- GUI SingleInput: **211 passed / 29 skipped / 0 failed / 0 error**,
+  `target/opencode-profile28/gui-single/run-20261105-113342-e513d3fc/summary.json`.
+  GUI TuiTurns: **259 passed / 4 skipped / 0 failed / 0 error**,
+  `target/opencode-profile28/gui-turns/run-20261105-113342-7caa1d02/summary.json`.
+  Итого **470 passed / 33 skipped**; оба GUI hashes совпадают с release.
+  Skips — private-desktop foreground/interactive UIA и человеческая NVDA.
+- Один независимый code-review выявил P2: потеря канонизации после удаления
+  в wrapped input. Исправлено, добавлены настоящие Backspace/Left/Delete
+  фазы и отрицательные проверки; последующие fmt/clippy/860tests/release passed.
+  Нового полного круга ревью не было. Статический diff --check passed.
+- Release: **3 411 456** байт, SHA256
+  `8B5C55F23A00D8E599C3BB0A05E01547575E9FE3069D75A4149DBD250343B3A3`.
+
+**Запуск:** 05.11.2026 11:36:27 +04, PID **20548**, HWND **394260**,
+Responding=true. Запущен основной EXE с `--profile cli-opencode`; подтверждён
+настоящий дочерний `opencode.exe` PID **21252**, ParentPID20548,
+`--standalone=true`. В пользовательский CLI запросы агент не отправлял.
+Пользовательские окна/процессы агент не завершал.
+
+**Дальше:** ручная проверка нового OpenCode-профиля: ввод/многострочная вставка,
+меню и варианты моделей, очередь, чтение/раскрытие запросов, Ctrl+Up/Down,
+выход `/exit` и новая команда в оболочке. Речь NVDA, физические клавиши и
+реальные авторизованные провайдеры остаются человеческой приёмкой. Новых
+известных незавершённых правок кода нет.
+
+### Предыдущая точка остановки — 05.11.2026, после preview.27
+
+Пользователь подтвердил: по Kimi вопросов нет. По согласованному предложению
+добавлены сворачиваемые отправленные запросы перед ответами в журнале чтения.
+Собрана и запущена **0.4.0-preview.27**: `target/release/bks-app.exe`, копия
+`target/release/bks-app-0.4.0-preview.27.exe`. Commit/push не выполнялись;
+прежние незакоммиченные изменения сохранены.
+
+**Поведение:** Ctrl+Shift+R открывает последний ответ; выше находится жирный
+заголовок «Ваш запрос, свёрнуто» с началом сообщения (до 80 символов).
+Enter/пробел при каретке на заголовке раскрывают полный текст, повторное
+нажатие сворачивает. Текст можно выделять и копировать. Выделенный заголовок,
+тело запроса и ответ не являются действием; повторы удержанной клавиши
+не переключают блок. Состояние указано в тексте и объявляется при переключении.
+Ctrl+Up/Down по-прежнему ставят каретку на начало ответа; автоматическое
+чтение берёт только его тело. Поле ввода и PTY при раскрытии не изменяются.
+
+`tui_turns.rs` сохраняет отдельный полный request рядом с answer, независимо
+от прежнего ограниченного input для семантического доказательства. Исходные
+правила подтверждения отправки, menus/protected/slash и завершения ответов
+сохранены. RequestTarget использует канонические UTF-16 позиции; клавиатурное
+действие требует актуальной ревизии опубликованного нативного документа.
+CR/LF нормализуются для RichEdit без потери пустых строк и Unicode.
+Общий лимит 128 пар/2 МиБ учитывает также скрытый запрос; отдельный запрос
+ограничен 128 КиБ с явной отметкой о несохранённом конце. Раскрытие хранится
+в своей записи и переживает обновления/смену вкладки/адаптера. Архив по-прежнему
+только в памяти вкладки: старые запросы из прежнего процесса не восстанавливаются.
+
+**Проверки:**
+
+- `cargo fmt --all -- --check` — passed.
+- `cargo clippy --workspace --all-targets -- -D warnings` — passed.
+- `cargo test --workspace` — **848 passed**, 0 failed: app763, worker3,
+  PTY21, ConPTY14, environment2, terminal45; RUST_TEST_THREADS=4.
+  Семь новых request-regressions: Unicode/multiline, выделение и ложные
+  заголовки, offsets/styles/navigation, длинный ввод, limits/retention,
+  bookmark при новом ответе. Все пять actual Session-replays Codex/Claude/
+  OpenCode/Kimi ordinary/queued дополнены проверкой точного сохранённого
+  запроса, независимых блоков и отсутствия новых PTY writes/events.
+- `cargo build --release` — passed. Размер **3 397 120** байт, SHA256
+  `317C984F31316D5E19FBC8E9C0A8AA8C09401F80E62F249C9E002E00611A34BF`.
+  Логи проверок: `target/request-reader27/{fmt,clippy,tests,release}.log`.
+- GUI TuiTurns — **259 passed / 4 skipped / 0 failed / 0 error**:
+  `target/request-reader27/gui-turns/run-20261105-093408-362b11de/summary.json`.
+  Enter/Space/held repeats, selected heading/body negatives, readonly/UIA,
+  фокус, два независимых блока, navigation и ноль PTY bytes — passed.
+  Skips: два foreground-зависимых focus-перехода на private desktop и две
+  группы интерактивной/человеческой приёмки. NVDA и clipboard не имитировались.
+  Снимок `tui-request-expanded.png` просмотрен: раскрытый первый и свёрнутый
+  второй запрос читаемы, исходное оформление ответов сохранено.
+- Один независимый read-only проход code-review — без значимых подтверждённых
+  замечаний. Статический diff --check passed. Документация/справка обновлены.
+
+**Запуск:** 05.11.2026 09:35:52 +04, PID **18280**, HWND **1378802**,
+Responding=true. SHA release совпадает с GUI observations и versioned copy.
+Прежний PID6328 продолжает работу; его EXE сохранён под именем
+`target/release/bks-app-running-preview.26-6328.exe`, пользовательские сессии
+не завершались. Проверка WaitForInputIdle вернулась до появления HWND;
+последующий опрос подтвердил созданное окно, повторный процесс не запускался.
+
+**Дальше:** пользователь проверяет в новом окне отправку многострочного запроса,
+Ctrl+Shift+R → вверх к заголовку → Enter/пробел, чтение/выделение/копирование
+и речь NVDA о состоянии. Физическая клавиатура и NVDA остаются ручной приёмкой.
+Новых известных незавершённых правок кода нет.
+
+### Предыдущая точка остановки — 02.11.2026, после preview.26
+
+Реализованы исправления после жалобы Kimi: нет переходов между ответами,
+после выхода недоступна оболочка. По поручению пользователя повторно проверены
+все пять заявленных CLI. Собрана и запущена **0.4.0-preview.26**:
+`target/release/bks-app.exe`, копия `target/release/bks-app-0.4.0-preview.26.exe`.
+Commit/push не выполнялись; прежние незакоммиченные изменения сохранены.
+
+Пользователь уточнил: Kimi запускался **отдельным профилем из меню**.
+Точный текст/код ошибки дополнительно запрошен, ответа пока нет. В изолированном
+прямом профиле выход Kimi даёт natural code 0; KeepTab оставлял завершённую
+вкладку по прежнему default. Конкретный пользовательский OS crash не воспроизведён;
+не объявлять его причиной найденное отдельно PS5-зависание.
+
+**Что изменено:**
+
+- Kimi 2.4.1: распознаётся обычный plain ● после принятого ❯, сохраняются два
+  ответа и уникальные ID; работают latest/previous/next. Source-styled Working
+  над full-width rounded composer даёт границу работы; software inverse caret
+  нормализуется тем же reading_cursor, что используется projector. Реальный
+  Session-тест поймал несовпадение raw/normalized frame после lowlevel pass;
+  guard исправлен, complete-ожидания не ослаблены.
+- Проверен повтор одинакового запроса во время stream. Оба ответа доступны,
+  первый остаётся incomplete, если нет самостоятельной стабильной idle-границы;
+  второй complete. Queue hint остаётся исходным control text, не телом ответа.
+  Actual captures и source/styles/ACK/negative guards —
+  `tests/fixtures/tui-kimi-2.4.1-two-answers/`.
+- Встроенные CLI-шаблоны всех пяти tools, специальный direct Codex и новые
+  пользовательские варианты теперь выбирают OpenShell по умолчанию. После CLI
+  открывается свежая выбранная оболочка с журналом. Сохранённый пользовательский
+  KeepTab не переписывается; serde/schema defaults и обычный exit оболочки прежние.
+  Изменены только factories cli_profiles/codex_cli и New в launch_profile_editor.
+- Отдельно воспроизведён настоящий Kimi → ответ → /exit → PS5 в длинном cwd:
+  PowerShell жива, но ConPTY wrap меняет linear prompt fingerprint (CRLF,
+  повтор граничной ячейки, отсутствует trailing space), интерфейс остаётся в TUI.
+  Стандартные PowerShell 5/7 получают runtime-only process identity в полной
+  паре OSC 133;A/B;BKS=<16hex>. Чужие/legacy/одиночные markers не дают handoff;
+  пользовательские startup scripts и сохранённые args не меняются. Native
+  before failed / after passed + первая новая команда. ADR 0021 описывает решение.
+  Crash recovery по-прежнему только standard pwsh + exact CLR0x80131623 +
+  ownership/full drain; команды и старые клавиши не повторяются.
+- Claude 2.1.240: выбранный callback claude_chrome.rs исключает right effort и
+  muted elapsed-строки из архива/речи ответа только при подтверждённых source
+  geometry/style. Quotes/code/ordinary ink/другой slot/неизвестный текст сохраняются.
+  Elapsed сам по себе не завершает ответ. Codex/OpenCode semanticfix не требовался:
+  initial endpoint-only findings исчезли при настоящем chunk/poll pipeline.
+- Новый session_cli_replay_tests.rs: пять actual Session-regressions для
+  Codex/Claude/OpenCode/Kimi ordinary/queued через source ACK, composer/history,
+  menu, Submission, archive, Ready, text/styles и navigation. .gitattributes
+  запрещает преобразование CR/LF для .vt, сохраняя byte offsets/hash fixtures.
+
+**Повторная матрица:**
+
+Codex 0.164.0, Claude 2.1.240 и OpenCode 2.0.32: реальные Unicode editors/menu,
+два фиксированных ответа от собственных Responses/Anthropic/OpenAI-compatible
+loopback providers, два Ready/ID, previous/next, natural /quit|/exit code 0.
+Kimi 2.4.1: два ответа, queued repeat, source/Session/navigation и /exit;
+KeepTab code 0, OpenShell → новая оболочка → новая команда passed.
+PowerShell 5 long-cwd и PowerShell 7 interactive return также passed.
+Gemini отсутствует в 29 discovery/PATH directories: installed smoke skipped,
+существующий bounded fallback проверен. Установка/обновление CLI, user auth/config,
+реальная LLM-сеть и пользовательские окна не использовались. Только own empty
+workspaces/private per-process trust; никакие UI trust/actions по тексту не
+подтверждались. Own PTY/listeners закрыты, exact-path cleanup remaining 0.
+Матрица/provenance — docs/cli-adapters.md и target/cli-audit26/others/matrix.md.
+
+**Итоговые проверки:**
+
+- fmt --all --check, clippy --workspace --all-targets -D warnings — passed.
+- cargo test --workspace — **841 passed**, 0 failed: app756, worker3, PTY21,
+  ConPTY14, environment2, terminal45. RUST_TEST_THREADS=4. Логи:
+  `target/cli-audit26/{fmt,clippy,tests,release}.log`.
+- cargo build --release — passed; **3 388 416** байт, SHA256
+  `95A50A486B63E652FBB6376E8145DCE991D284883508116AD06CF73AAC05156D`.
+  Метаданные — target/cli-audit26/release.json.
+- GUI SingleInput — **211 passed / 29 skipped / 0 failed / 0 error**:
+  `target/cli-audit26/gui-single/run-20261102-223850-a73bdc0a/summary.json`.
+- GUI TuiTurns — **216 passed / 3 skipped / 0 failed / 0 error**:
+  `target/cli-audit26/gui-turns/run-20261102-223850-ced11bca/summary.json`.
+  Итого **427 passed / 32 skipped**; обе manifest SHA совпадают с release.
+  Skips — foreground/interactive UIA на private desktop и человеческая NVDA,
+  не подтверждение доступности. Только own fixture-процессы закрывались.
+- Адресно: owned prompt12, Session64, actual CLI Session5, turns55,
+  Claude chrome3 passed. Единственный независимый read-only review завершён
+  без значимых подтверждённых замечаний; новые defaults также просмотрены.
+- Статический diff --check passed. После итоговой сборки изменялись только docs.
+
+**Запуск:** 02.11.2026 22:40:21 +04, PID **24000**, HWND **12716900**,
+Responding=true. target/cli-audit26/launch.json. Прежние пользовательские окна
+агент не завершал. Проверка hash сделана для обоих GUI и versioned copy.
+
+**Дальше:** пользователь проверяет свой Kimi-профиль, два ответа/переключение,
+выход и новую команду оболочки. Если у сохранённого пользовательского варианта
+выбрано KeepTab, действие меняется в редакторе вручную; built-in уже OpenShell.
+Если сообщит настоящий код ошибки, сопоставить с этим выходом, не считать его
+объяснённым одним PS5 wrap. NVDA, физическую клавиатуру/foreground и реальные
+авторизованные сервисы принимает человек. Не объявлять все режимы CLI или
+живой Gemini проверенными. Новых известных незавершённых правок кода нет.
+
+### Предыдущая точка остановки — 02.11.2026, после preview.25
+
+Реализован согласованный переход на профили CLI. Собрана и запущена
+**0.4.0-preview.25**. Основной файл — `target/release/bks-app.exe`, копия —
+`target/release/bks-app-0.4.0-preview.25.exe`. Работа сохранена в рабочем дереве,
+без commit/push. Чужие и прежние незакоммиченные изменения сохранены.
+
+**Новый подход:** общее ConPTY/VT/native ядро и отдельные стратегии Codex,
+Claude, OpenCode, Kimi, Gemini; Universal для остальных TUI. Адаптер выбирается
+независимо от команды. Несколько вариантов одного CLI могут иметь разные
+аргументы, папку, переменные среды, оболочку и действие после выхода.
+Официальная документация всех пяти CLI изучена; ссылки и границы подтверждения
+находятся в `docs/cli-adapters.md`, архитектура — ADR 0020.
+
+- `launch_profile.rs`: план прямого запуска либо запуска через выбранную
+  PowerShell/cmd/Git Bash, общая оболочка и переопределение в профиле.
+  Аргументы передаются буквально. CMD принимает только гарантированно
+  представимые значения; сложные/пустые аргументы требуют другого способа.
+  Скрипт можно запускать явным интерпретатором с отдельными аргументами.
+- `launch_profile_editor.rs`: нативные EDIT/COMBOBOX/LISTBOX, страницы общих
+  параметров, запуска, аргументов и среды; добавление/копирование/удаление
+  пользовательских профилей. Встроенные шаблоны копируются для настройки.
+  Вход: «Настройки → Профили и оболочка…» либо меню профилей →
+  «Профили запуска и оболочка…». Сохранение применяется при следующем запуске,
+  не исполняет команды и восстанавливает черновик при ошибке записи.
+- `profile.rs`: чтение schema 1/2, сохранение schema 2, lock и трёхстороннее
+  merge-save с сохранением чужих SSH/Local изменений и отказом при конфликте
+  одного профиля. Коллизии новых Local ID разрешаются с обновлением ссылок.
+- `terminal_environment.rs`: private environment дочернего процесса,
+  Windows case-insensitive overlay, сохранение native UTF-16/hidden entries.
+  Родитель и другие вкладки не меняются, значения не выводятся в логи.
+- `session.rs`: после полного drain CLI можно оставить завершённую вкладку
+  либо один раз открыть новую выбранную оболочку в той же вкладке с журналом
+  и архивом. Это новый процесс без переменных/функций старого и без повторения
+  CLI/недоставленных клавиш. Старое ограниченное recovery ADR0018 сохранено.
+- `tui_adapters.rs`: выбранные стратегии composer/turn semantics. Смена
+  адаптера отменяет текущие proofs, сохраняя архив и уже подтверждённую
+  фильтрацию исторических строк. Неизвестные экраны целиком доступны для чтения.
+  Для Kimi/Gemini добавлен строго ограниченный box/rules prefill fallback.
+- Исправлена обнаруженная GUI гонка Unicode-удаления: между скрытым redraw
+  и `ESC[?25h` общее поле теряло ownership. `SourceInput::edit_confirmation`
+  и `project_edited_for_adapter` восстанавливают его только по видимому VT,
+  точному наблюдаемому удалению и прежним source/geometry/style/adapter.
+  Предел 750 мс от первого нажатия; повтор не продлевает его. Меню отменяет
+  только edit proof, сохраняя pending slash insertion. Настоящий byte-exact
+  fixture — `tui-padded-hidden-delete.vt`; отрицательные проверки сохранены.
+
+**Проверки окончательного кода:**
+
+- `cargo fmt --all -- --check` — passed.
+- `cargo clippy --workspace --all-targets -- -D warnings` — passed.
+- `cargo test --workspace` — **823 passed**, 0 failed: app 738,
+  worker 3, PTY unit 21, ConPTY integration 14, environment integration 2,
+  terminal 45. `RUST_TEST_THREADS=4`. Логи —
+  `target/profile-pipeline/{fmt,clippy,tests,release}.log`.
+- `cargo build --release` — passed. Размер **3 371 008** байт, SHA256:
+  `06C08CC5B9B2526241A9EFF05542E2F1EAFFE4BFEE5C9132FA94881B66AFCD58`.
+  Метаданные — `target/profile-pipeline/release.json`.
+- GUI SingleInput — **211 passed / 29 skipped / 0 failed / 0 error**:
+  `target/profile-pipeline/gui-single-final25/run-20261102-214932-0c41bd70/summary.json`.
+  Создание и roundtrip профиля, точные argv с пустым значением и пробелами,
+  environment/default shell, отсутствие PTY writes от настроек, Unicode,
+  выделение/удаление, меню и handoff. Тёмные native controls и раскрытый
+  ComboLBox просмотрены на PNG этой сборки.
+- GUI TuiTurns — **216 passed / 3 skipped / 0 failed / 0 error**:
+  `target/profile-pipeline/gui-turns-final25/run-20261102-214932-636cd1cf/summary.json`.
+  Оба GUI manifest подтверждают тот же SHA256, собственные процессы закрыты.
+  Итого GUI **427 passed / 32 skipped**; skips — foreground/interactive UIA
+  private desktop и человеческая речь NVDA, не пройденная доступность.
+- Нативные editor-тесты: 10 passed (в составе app), включая Add/Replace
+  аргументов, восстановление черновика, DPI 100/150%, dark popup и HC fallback.
+  Private children подтвердили точные argv PowerShell 5/7/Git Bash, допустимые
+  CMD args/явный отказ сложных, независимые environment и полный exit drain.
+- Один независимый code-review выполнен. Найдено перезаписывание предыдущего
+  аргумента при «Добавить»: исправлено и проверено native regression + GUI.
+  Дополнительные GUI дефекты bounded prefill/history/delete устранены
+  отдельными регрессиями; тестовые ожидания и producer protocol не ослаблены.
+
+**Запуск:** 02.11.2026 21:50:59 +04, PID **21640**, HWND **7867236**,
+Responding=true; `target/profile-pipeline/launch.json`. Прежние пользовательские
+процессы агент не завершал; список `bks-app*` перед этим запуском был пуст.
+
+**Следующий шаг — ручная приёмка и постепенное развитие отдельных адаптеров.**
+NVDA проверяет человек: имена/переходы editor, меню, выделение, речь и звук.
+Настоящие ответы Codex/Claude, выход OpenCode и команды новой оболочки также
+нужно проверить пользователю. Авторизованные модельные запросы не выполнялись.
+Codex 0.164.0/Claude 2.1.240 имеют реальные offline editor captures;
+OpenCode 2.0.32 — captures меню/ответов/ошибок. У установленного Kimi 2.4.1
+подтверждён только trust-screen без подтверждения; Gemini не установлен,
+проверены документация и structural fallback. Не объявлять их полную
+индивидуальную интеграцию и NVDA принятыми. Пользовательские auth/config,
+CLI installation/update не менялись. Старые сборки не должны редактировать
+profiles.json schema 2. Новых известных незавершённых правок кода нет.
+
+### Предыдущая точка остановки — 02.11.2026, после preview.24
+
+Последняя задача реализована: исправлена дополнительная гонка ошибки 232
+после OpenCode, доработано общее поле Codex, проверено редактирование Claude.
+Собрана и запущена **0.4.0-preview.24**; исполняемый файл —
+`target/release/bks-app.exe`, сохранённая копия —
+`target/release/bks-app-0.4.0-preview.24.exe`. Все обязательные проверки прошли:
+fmt, clippy, 779 workspace-тестов и release; GUI — 418 passed, 32 skipped.
+Подробности, ограничения и ссылки на логи приведены ниже.
+
+**Продолжить с ручной приёмки этой сборки:** выход из OpenCode через `/exit`
+и первая команда PowerShell сразу после выхода; общее поле Codex/Claude
+после настоящего ответа, выделение/удаление и работа с NVDA. Пользователь ещё
+не подтвердил результат preview.24; автоматические и offline-проверки такого
+подтверждения не заменяют. Незавершённой правки кода в последней задаче нет.
+Рабочие изменения сохранены без commit/push; прежние незакоммиченные изменения
+нужно сохранить при продолжении.
+
+### Последний результат — 02.11.2026, 0.4.0-preview.24
+
+Продолжение пользовательских снимков 172528/172655. Пользователь уточнил:
+ошибка 232 появляется после OpenCode; Codex/Claude — отдельная задача общего ввода.
+
+- Найдена ещё одна гонка handoff: первая ordinary shell-команда снимала
+  CliExitWatch сразу после enqueue, до фонового WriteFile. Теперь исходное
+  фиксированное окно 5 секунд после возвращения parent prompt сохраняется
+  также при следующих enqueue; команды и повторные prompt его не продлевают.
+  Exact natural CLR 0x80131623 и полный drain остаются обязательными.
+  Ошибка канала сама по себе, normal exit и произвольный профиль не разрешают
+  restart. Прежние команды/клавиши не переносятся в новый процесс.
+- shell_command_queued разрешает явный пользовательский Clear-Host, пока
+  writer исправен. Известная ошибка writer проверяется ДО обработки первого
+  финального clear, ещё до обычного state poll. Closing/Failed/Exited также
+  сохраняют журнал. Один независимый read-only проход нашёл именно ранний
+  clear после enqueue; исправлено, native регрессия проверяет этот порядок.
+- Native unprobed writer закрытого ConPTY принимает первую команду в очередь,
+  затем даёт настоящий OS pipe error. Добавленный queued-command вариант
+  existing recovery regression до fix **failed** (Failed вместо Closing),
+  после fix **passed**, с history/draft, одной recovery и отсутствием replay.
+  Логи — `target/cli-followup/queue-race-{before,after}.log`.
+  Новый отдельный тест запрещает продление исходного handoff deadline.
+- Codex padded composer не распознавался при footer сразу после единственной
+  padding-строки или при правом footer (weekly limit на пользовательском
+  снимке). plain_padded_shape теперь допускает обе геометрии, сохраняя строгие
+  margins/единственность/границы. Literal hint больше не попадает в EDIT.
+- Удаление префикса подтверждённого draft до caret0 больше не превращает
+  оставшийся строгий суффикс с тем же source ink в новый hint. Отрицательные
+  проверки новых hints, source identity и palette сохранены. SourceInput и
+  main не требовали правок: существующий ACK/selection путь подходит.
+- Получены настоящие offline editors Codex 0.164.0 и Claude 2.1.240, 100×29:
+  Unicode, Home, Right, Backspace, End, clear, slash, Down/Esc. Все 10 endpoints
+  обоих CLI alive/без exit status, собственные процессы закрыты. Ни Enter,
+  ни LLM-запрос, ни пользовательский auth/config не использованы. Claude
+  --bare с private onboarding/trust и fixed fake API key на закрытом loopback.
+  Подтверждённого отдельного дефекта Claude в этих сценариях не обнаружено.
+  Три новые byte-exact fixtures и metadata —
+  `crates/bks-app/tests/fixtures/tui-codex-claude-composers/`;
+  4 новые projection-регрессии, projection54/source_input10 passed.
+  Рабочие captures — `target/codex-input/` (не считать startup с длинным
+  daemon socket доказательством live editing; реальные editor traces имеют
+  короткий private CODEX_HOME). Native GUI дополнен generic padded/ruled
+  shapes с right footer, source-held ACK, Unicode, Home/Right, selected
+  Backspace и очисткой, с тем же HWND и UIA text/native selection.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace **779 passed**
+(app697 + worker3 + PTY19unit/15integration + terminal45), release passed.
+Итоговый cargo test --workspace выполнен с RUST_TEST_THREADS=4. Один предыдущий
+session-only parallel run дал 58 passed/1 failed: EXIT_SEVEN остался Running
+к deadline15s; итоговый полный прогон прошёл без изменения этого теста.
+Логи — `target/cli-followup/{fmt,clippy,tests,release}.log`.
+Просмотрены затронутые изменения и git diff --check, passed.
+
+Настоящий OpenCode через npm opencode.ps1 БЕЗ --standalone с собственным
+service port46397: /exit → natural CLR → recovery → unique echo, passed,
+`target/cli-followup/opencode-fast-actual.log`. Собственный service остановлен.
+Настоящий npm Codex с private коротким CODEX_HOME: /quit → прежняя PowerShell
+Running → unique echo, passed, `codex-exit-actual.log`. Ранняя проба с длинным
+daemon socket и первый stale Cargo artifact не являются exit acceptance.
+Два собственных Codex daemon с exact private socket path остановлены.
+Два daemon/worker editor-capture также остановлены; повторный CIM-аудит
+дал 0 собственных оставшихся процессов, `target/codex-input/cleanup-result.json`.
+
+Release GUI (SHA совпадает с EXE), paths от `target/cli-followup/`:
+
+- `gui-single/run-20261102-180806-0a68186e/summary.json`
+  — **202 passed / 29 skipped / 0 failed/error**.
+- `gui-turns/run-20261102-180806-7e7c88ed/summary.json`
+  — **216 passed / 3 skipped / 0 failed/error**.
+
+Skips — interactive UIA selection/caret, physical input/foreground/NVDA;
+не passed. Авторизованные ответы Codex/Claude и NVDA принимает человек.
+Восстановление PowerShell сохраняет журнал/черновик, но теряет локальные
+переменные, cwd берётся из профиля; это новый процесс.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.24.exe`,
+3 132 928 байт, SHA256
+`FA4D85E31BDF1734C4C5D6444ED1B960FA8608ECC253CC2596AE2A4759796972`.
+EXE открыт 18:11:28 +04:00, PID21244, HWND3738206, responding/input-idle true.
+Метаданные — `target/cli-followup/{release,launch}.json`.
+Версия, changelog, manual-final, known-limitations и ADR0018 обновлены.
+Commit/push и упаковка не выполнялись.
+
+### Предыдущий результат — 02.11.2026, 0.4.0-preview.23
+
+Исправлена гонка выхода OpenCode → PowerShell по снимку 154411.
+Сообщение «Идет закрытие канала» — Win32 232; также обработаны 109/233.
+
+- Ранний writer-close вызывал `fail()` → TerminateProcess(1) до natural
+  0x80131623, теряя eligibility. UI handoff и stopped-input cleanup также
+  стирали auto_cli-флаги. Теперь отдельный CliExitWatch принадлежит текущему
+  PTY и принятому CLI/parent prompt стандартной локальной pwsh. Возврат
+  prompt ограничивает watch пятью секундами, обычная принятая команда снимает
+  его. UI-флаги больше не являются единственным доказательством владения.
+- При подходящем native pipe-close ввод отключается, но до 5 секунд от
+  первой ошибки продолжаются nonblocking poll/drain вместо принудительного
+  убийства. Повторные ошибки не продлевают дедлайн; timeout работает и без
+  новой ошибки. Только exact CLR-code и полный drain допускают одну новую
+  оболочку. Normal exit, CLI-only/custom startup/remote и отсутствие ownership
+  не перезапускаются. Клавиша/команда в момент закрытия не повторяются.
+- `win_err` сохраняет Win32 HRESULT как raw OS code через writer queue,
+  вместо Other/string без кода. Другие HRESULT сохраняют прежний формат.
+  Проверены настоящий закрытый ConPTY writer и WindowsError 109/232/233.
+- User-write замечает закрытие до обычного poll, не создаёт ложный modal
+  для ожидающего завершения; сообщения различают Closing, Starting и готовую
+  оболочку. Журнал не очищается финальным CLI clear в Closing/Failed/Exited
+  и свежем handoff. Новая явно принятая Clear-Host сохраняет обычное действие.
+- Добавлены 6 тестов: один в PTY и пять session. Native fault injection
+  проверяет pipe-close до/после prompt handoff, VT-query, late user key,
+  точный natural exit, отсутствие replay, history/draft и успешную новую
+  команду. Также fixed timeout, истёкший watch, новая обычная команда и
+  teardown clear после exit status без PendingChannelClose.
+- Один независимый read-only code-review выявил потерю журнала при late clear.
+  Отрицательная проверка — `target/cli-exit/review-journal-before.log` (failed);
+  замечание исправлено, затронутые проверки прошли. Других подтверждённых
+  замечаний в этом проходе не было; полный повторный круг не выполнялся.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **774 passed**
+(app692 + worker3 + PTY19unit/15integration + terminal45), release passed.
+Логи — `target/cli-exit/{fmt,clippy,tests,release}-final.log`.
+
+Настоящий установленный OpenCode 2.0.32 в отдельной стандартной PowerShell:
+`/exit` → natural 0x80131623 → восстановление → уникальный составной echo,
+**passed**, `target/cli-exit/actual-final.log`. Helper — `probe/`, частные
+данные — `isolated/` внутри того же каталога. Без LLM, внешних запросов,
+пользовательского профиля; собственные процессы закрыты. Чистый baseline
+иногда уже работал; перестановку раннего pipe-close воспроизводят native
+регрессии, а не утверждение о постоянном падении чистого запуска.
+
+Release GUI, SHA совпадает с открытым EXE, пути от `target/cli-exit/`:
+
+- `gui-single-input/run-20261102-170405-449ade9c/summary.json`
+  — **160 passed / 21 skipped / 0 failed/error**.
+- `gui-turns/run-20261102-170406-d73a6edd/summary.json`
+  — **216 passed / 3 skipped / 0 failed/error**.
+
+Skips — foreground/physical input/interactive UIA selection/NVDA; не passed.
+NVDA принимает человек. Восстановление создаёт новый процесс: переменные и
+произвольный cwd прежней оболочки не восстанавливаются, используется профиль.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.23.exe`,
+3 131 392 байт, SHA256
+`1F94BB7BB6BBF091766A4A4D47925A0F59E4EAC5B10B06C16B6536F9545DCB24`.
+Метаданные — `target/cli-exit/release.json`. EXE открыт в 17:07:34 +04:00,
+PID 21520, HWND 1182454, responding/input-idle true; `target/cli-exit/launch.json`.
+Обновлены версия, changelog, ADR0018 и ручная приёмка. Пакеты, commit/push
+не делались; пользовательские процессы не завершались.
+
+### Предыдущий результат — 02.11.2026, 0.4.0-preview.22
+
+Исправлены три замечания по снимкам 141957/142017/142024: повторный чёрный
+фон меню, потеря финальной ошибки в чтении, удаление локального выделения TUI.
+
+- В `TuiSurface` добавлена проверка периметра live alternate screen. Большой
+  popup и несколько панелей делили фон на оттенки без единственного большинства,
+  из-за чего тема отключалась. Нужны >1/2 края одного нейтрального truecolor,
+  >=1/8 площади этого оттенка и >1/2 общей нейтральной площади. Тонкая рамка
+  вокруг ANSI не принимается за канву. Прежний dominant-shade fallback сохранён.
+  Grid и native-reader используют одну политику. Проверены Model/Variant,
+  error-подложка и source-equivalent панели при 100x29.
+- `read_panel_body` больше не вырезает красную финальную ошибку перед elapsed
+  summary: полный текст/стили сохраняются, retry заменяется, active закрывается
+  со статусом «Ошибка TUI», successful Ready не создаётся. `AnswerTarget.failed`
+  используется также в объявлении перехода к ответу. Новый одинаковый prompt
+  получает ownership при сохранённом старом live-body и неизменном footer
+  после нового echo на тех же строках. Защиты ED2/history/quote/code сохранены.
+- `NativeSelectionEdit` переводит локальное выделение EDIT в движение исходной
+  каретки и Backspace, только после точного подтверждения каждого шага через VT.
+  Source scalar/grapheme/CRLF не считается числом UTF-16 клавиш. Набор/вставка
+  после удаления сохраняет порядок. Source/session/focus/menu/protected,
+  timeout 750 мс без ack и ошибка записи отменяют очередь; она не переносится
+  в другой источник. Обычные клавиши unknown/protected/без выделения сохраняют
+  прежнюю обработку. GUI fixture теперь поддерживает реальную каретку и deletion.
+- Добавлены 15 тестов: 5 по материалу/подменю/reader, 6 по selection edit,
+  4 по error/archive ownership. Реальные captures OpenCode 2.0.32:
+  `tui-opencode-menu-stack.vt`, `tui-opencode-error-menu.vt` и
+  `tui-turns-opencode-errors.vt`; endpoints/SHA — в соседних `.md`.
+  Ошибки от фиксированного loopback HTTP 503→403, два «привет», никакого
+  внешнего LLM, пользовательских профилей или инструментов. Собственные
+  процессы/слушатели закрыты. Диагностический запуск без standalone показал
+  только Starting background server и не использовался для приёмки UI.
+- Исходное отрицательное воспроизведение материала —
+  `target/tui-followup/menu-before.log`; просмотрены native GDI preview
+  `menu/{panelled-models,variant,error-model-menu}.png`. Это непрозрачный
+  рендер записей/производной подложки, не ручная DWM/NVDA-приёмка.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **768 passed**
+(app687 + worker3 + PTY18unit/15integration + terminal45), release passed.
+Логи — `target/tui-followup/{fmt,clippy,tests,release}-final.log`.
+Release GUI, SHA совпадает с открытым EXE:
+
+- SingleInput: `gui-single-input/run-20261102-145002-0cd2cb69/summary.json`
+  — **160 passed / 21 skipped / 0 failed/error**.
+- TuiTurns: `gui-turns/run-20261102-145002-a9fa9b44/summary.json`
+  — **216 passed / 3 skipped / 0 failed/error**.
+
+Оба пути относительно `target/tui-followup/`. Skips — foreground/physical
+keyboard/интерактивное UIA selection и человеческая NVDA-приёмка; не passed.
+SingleInput проверяет selected Unicode+CRLF Backspace/Delete, fast replacement,
+held ack, focus cancel и отсутствие синтетики на unknown/protected source.
+TuiTurns проверяет текущий UI чтения/архива и возвраты. Legacy PaintIsolation
+не запускался повторно. Два узких агента помогли с вводом и error ownership;
+интеграция, просмотр изменений и обязательные проверки выполнены основным.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.22.exe`,
+3 127 296 байт, SHA256
+`E20A607E2C8651BE5F77A879603CDBBD18E203846A6E515869B814C771BC975F`.
+Метаданные — `target/tui-followup/release.json`. EXE открыт в 14:52:47 +04:00,
+PID 21588, HWND 9046332, responding/input-idle true; `target/tui-followup/launch.json`.
+Обновлены версия, changelog, ADR0014/0017 и ручная приёмка. Пакеты, commit/push
+не делались; пользовательские процессы не завершались.
+
+### Предыдущий результат — 02.11.2026, 0.4.0-preview.21
+
+Исправлено оформление OpenCode по снимку `Снимок экрана 2026-11-02 123958.png`.
+Пользователь уточнил объём: чёрные фоны и резкие цвета меню, именно интерфейс.
+
+- `TuiSurface` определяет материал по полному текущему VT-кадру, включая
+  пустые клетки. Этот результат используют GDI-сетка и native RichEdit;
+  прежде GDI вообще не применял адаптацию нейтрального truecolor-фона.
+  Доминирующий фон становится графитовым материалом терминала, вторичные
+  нейтральные панели сохраняют иерархию. Grid-политика ограничена полным live
+  alternate screen; shell и scrollback за такой экран не принимаются.
+- Яркая полоса в однозначной плавающей панели получает 22% синего акцента
+  относительно её фона; тёмный текст выбранного пункта становится читаемым.
+  Требуются боковые поля, нейтральное окружение, непрерывные строки панели
+  сверху/снизу и уникальная заливка. Неоднозначные, обрезанные, inverse и
+  повторные полосы сохраняют исходный акцент. Это оформление без распознавания
+  действий. Геометрия, VT-атрибуты, обычные ANSI-цвета, ввод и selection не меняются;
+  HC сохраняет системную обработку. Кеш native-reader учитывает смену политики
+  даже при одинаковых spans; закрытие/resize не оставляет прежнюю палитру.
+- Записан установленный OpenCode 2.0.32 в отдельном ConPTY: три локальные
+  тестовые модели, открытие `/models`, Down, Esc, resize 110x36→80x24 и повтор.
+  Запросы модели, инструменты и пользовательские профили не использовались;
+  внешний доступ отключён, собственный процесс завершён. Запись 39 456 байт —
+  `crates/bks-app/tests/fixtures/tui-opencode-model-menu.vt`, endpoints и SHA
+  описаны в соседнем `.md`. Временный helper — `target/opencode-ui/capture/`.
+- Добавлены пять регрессий: три для палитры/неоднозначных форм/границ кадра,
+  native RichEdit для цветов, сохранения текста/selection и смены политики,
+  native GDI для пяти состояний меню, движения, закрытия и resize. Последний
+  повторно использует нарисованный target и проверяет каждый пиксель пустых
+  клеток: новые поверхности сами по себе не доказывают очистку старых букв.
+  Отрицательное воспроизведение — `target/opencode-ui/native-before.log` и
+  `models-before.png`. Просмотрены `models.png`, `models-down.png`, `closed.png`
+  и `narrow-models.png`: это настоящая непрозрачная GDI-отрисовка записи,
+  без утверждения о ручной приёмке DWM/NVDA.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **753 passed**
+(app672 + worker3 + PTY18unit/15integration + terminal45), release passed.
+Логи — `target/opencode-ui/{fmt,clippy,tests,release}-final.log`.
+Актуальный `-SingleInput` release GUI:
+`target/opencode-ui/gui-single-input/run-20261102-140330-30af4d36/summary.json`
+— **128 passed / 16 skipped / 0 failed/error**. SHA GUI совпадает с открытым EXE.
+Skips относятся к foreground/физическому вводу и человеческой NVDA-приёмке.
+
+Дополнительный `-PaintIsolation` был выбран ошибочно: header скрипта относит
+его canvas/companion-контракт к preview.8/9. Он завершился **error** на ожидании
+скрытых legacy HWND и на preview.21, и на контрольном preview.20; это не passed.
+Логи — `gui-paint*`; временная перестановка запроса paint-scene не помогла и
+отменена. Скрипт не изменён этой итерацией; приёмка новой версии — SingleInput
+и перечисленные native-регрессии. Не продолжать старый сценарий без отдельной
+адаптации к текущему native-reader, который виден вместо legacy overlay.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.21.exe`,
+3 104 768 байт, SHA256
+`CE98AF5FDC3B1F2A9A12C6AE1D878E7AC62443ECB5F92746093C7D2D7E487959`.
+Метаданные — `target/opencode-ui/release.json`. EXE открыт в 14:14:17 +04:00,
+PID 908, HWND 6161406, responding/input-idle true; `target/opencode-ui/launch.json`.
+Обновлены версия, changelog, ADR0017 и ручная приёмка. Пакеты, commit/push
+не делались; пользовательские процессы не завершались.
+
+### Предыдущий результат — 02.11.2026, 0.4.0-preview.20
+
+Добавлена мягкая подсветка строки с кареткой и выделения текста в стиле
+Frosted Glass. Пользователь подтвердил предыдущие исправления preview.19.
+
+- В активном документе чтения строка с пустым выделением получает 8% синего
+  акцента; при уходе фокуса полоса исчезает. Геометрия берётся из нативного
+  TOM, поэтому подсветка следует за реальными строками, кареткой и прокруткой.
+- Выделение в документе и поле команды — 22% акцента, неактивное — 14%.
+  Обычные Shift/Ctrl+Shift+стрелки и остальные native-сочетания сохраняются.
+  `text_decorations.rs` меняет только пиксели: текст, диапазоны, форматирование,
+  фокус и доступный HWND остаются нативными. Нет новых клавиатурных обработчиков.
+- Альфа восстанавливается перед наложением оформления; сглаженные края
+  выделенных букв пересчитываются поверх мягкого фона без ярких синих ореолов.
+  Ядра букв и исходные ANSI-атрибуты сохраняются. Подсветка строки не заливает
+  явные цветные ANSI-фоны. Непрозрачный режим использует ту же палитру;
+  High Contrast сохраняет системную отрисовку и выделение.
+- Добавлены восемь тестов: четыре для геометрии/пикселей, три с реальными
+  RichEdit/EDIT и один для альфы GlassBuffer. Native fixtures сериализованы
+  общим существующим mutex на время жизни HWND. Просмотрены образцы
+  `target/text-highlights/caret-row.png`, `text-selection-final.png` и
+  `input-selection-opaque.png`: нативный рендер на нейтральном фоне,
+  без утверждения о ручной DWM/NVDA-приёмке.
+- Уточнён контракт live PowerShell-регрессии из preview.19: при неоднозначном
+  повторном эхо PSReadLine сохраняется доступная исходная граница блока.
+  Тест проверяет три разных непустых начала, принадлежность полного результата
+  своей команде и все переходы. Строгое начало на первой строке результата
+  остаётся в captured-echo и GUI caret/TextPattern-проверках. Только тестовая
+  оболочка ждёт устойчивого prompt, импортирует PSReadLine и отключает запись
+  его истории. Production-отправка команд не менялась. Ранние провалы старого
+  ожидания сохранены в `tests-initial-failed.log` и `tests-before-echo-contract.log`.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **748 passed**
+(app667 + worker3 + PTY18unit/15integration + terminal45), release passed.
+Логи — `target/text-highlights/{fmt,clippy,tests,release}-final.log`.
+Release GUI: `target/text-highlights/gui-release/run-20261102-132929-073d2db9/summary.json`
+— **128 passed / 16 skipped / 0 failed/error**. Сохранились проверки Esc,
+трёх блоков, исходного TUI-ввода и UIA. Skips — foreground, физический ввод
+и человеческая NVDA-приёмка на private desktop; они не объявлены пройденными.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.20.exe`,
+3 098 112 байт, SHA256
+`AF4F753631327E0F007FF81ADDE2A8048E6ECAA0F36387DEB4B464460FF1EDF5`.
+Метаданные — `target/text-highlights/release.json`. EXE открыт в
+13:31:10 +04:00, PID 18408, HWND 9045636, responding/input-idle true;
+`target/text-highlights/launch.json`. Обновлены версия, changelog и ручная
+приёмка. Пакеты, commit/push не делались; пользовательские процессы не завершались.
+
+### Предыдущий результат — 02.11.2026, 0.4.0-preview.19
+
+Исправлены два замечания по навигации shell: каретка выше результата и
+пропадающий третий блок в последовательности `ls`, `docker ps`, `ls`.
+
+- CommandBlocks больше не фиксирует окончательное начало на пустой строке
+  сразу после эха: дожидается непустой строки и сохраняет её отступы.
+  Переносы/пустые строки между частями эха учитываются. Для коротких
+  однострочных integrated-команд поддержаны части эха, которые ConPTY
+  повторно не передал; generic/no-echo shell сохраняет исходный текст.
+  Завершённый блок с неизвестным эхо остаётся доступен от своей границы;
+  поиск ограничен его концом и не принимает следующий prompt за результат.
+- В обычном shell TerminalOutput добавляет границу абзаца, когда ConPTY
+  сериализует вертикальный переход управляющим кодом вместо CRLF. Это
+  устраняет склейку команды с первым результатом. Direct/auto CLI/alternate
+  screen отключают преобразование; это не полная VT-проекция журнала.
+- Добавлены пять регрессий CommandBlocks, две для переводов строк/стилей/
+  UTF-16 offsets и реальный ConPTY/PowerShell-тест трёх команд. В последнем
+  docker — локальная функция только тестовой оболочки с постоянной ошибкой;
+  пользовательский Docker/сеть не вызываются. Восемь повторных прогонов
+  после добавления границ строк прошли (`session-with-lines-1..8.log`).
+- GUI-проверка создаёт три длинных результата, подтверждает реальные native
+  selection и UIA Line на первой строке каждого, переходы 3→2→1→2→3,
+  края, вход из command field в последний/первый, сохранение черновика и
+  нулевые PTY-байты навигации. Используются private F7/F8 aliases тех же
+  PreviousBlock/NextBlock, что Ctrl+Up/Down, без глобального ввода и изменения
+  пользовательских настроек. Физический Ctrl и речь NVDA остаются ручными.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **740 passed**
+(app659 + worker3 + PTY18unit/15integration + terminal45), release passed.
+Логи — `target/output-block-fix/{fmt,clippy,tests,release}-final.log`.
+Отрицательное исходное воспроизведение — `session-baseline.log`; промежуточные
+GUI-прогоны в `gui-debug*`/`gui-navigation-diagnostics` не считать приёмкой.
+Финальный debug GUI — **128 passed / 16 skipped / 0 failed/error**.
+Финальный release GUI: `target/output-block-fix/gui-release/run-20261102-123132-3ae91624/summary.json`
+— **128 passed / 16 skipped / 0 failed/error**. Skips относятся к foreground,
+физической каретке/вводу и человеческой NVDA-приёмке на private desktop.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.19.exe`,
+3 092 480 байт, SHA256
+`38A3DA1580FCDF44FBD682E8D4B7A3DCA00D3B9D4C24CC11000CEBB2FFF5ED83`.
+Метаданные — `target/output-block-fix/release.json`. Проверенный EXE открыт
+в 12:33:12 +04:00, PID 16848, HWND 4195416;
+`target/output-block-fix/launch.json`. Пользовательские процессы не завершались.
+Обновлены версия, changelog и ручная приёмка. Пакеты, commit/push не делались.
+
+### Предыдущий результат — 02.11.2026, 0.4.0-preview.18
+
+Исправлено закрытие главного окна по Esc в обычном поле команды и журнале.
+На preview.17 нажатие в поле завершало процесс с кодом 0. Нативная
+диалоговая обработка Windows/RichEdit отправляла WM_CLOSE. Одного обхода
+IsDialogMessage оказалось недостаточно: повторный Esc отправлял WM_CLOSE
+уже через нативную обработку поля. Теперь dispatch_main_message поглощает
+необработанные Esc key/char до обоих путей. Обработчики поиска, вспомогательных
+окон, чтения TUI и исходного TUI-ввода выполняются раньше и сохраняют отмену.
+
+Добавлена нативная регрессия с настоящими editable/read-only RichEdit:
+три Esc с корректными key-up не создают WM_CLOSE/IDCANCEL и не меняют текст.
+Test-ShellEscape в check-unified-tui.ps1 проверяет очередь сообщений (прямой
+SendMessage ошибку не воспроизводил), повторный Esc, поле/журнал/главное окно/
+кнопку новой вкладки, сохранение черновика/выделения/журнала, локальную отмену
+поиска/справки и отсутствие PTY-байтов до TUI и после возврата из CLI.
+Прежняя проверка check-stage5 покрывала Esc только в прямом вводе.
+Обновлены текущая версия, changelog и ручная приёмка.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **732 passed**
+(app651 + worker3 + PTY18unit/15integration + terminal45), release passed.
+Логи: `target/escape-fix/{fmt,clippy,tests,release}-final.log`.
+Отрицательные нативные воспроизведения сохранены в `native-before.log` и
+`native-repeated-before.log`; первый GUI-кандидат остановлен на повторном Esc
+(13 passed / 1 failed) в `single-input/`, финальный прогон — отдельный.
+
+**GUI:** `target/escape-fix/single-input-final/run-20261102-112920-079b926f/summary.json`
+— **115 passed / 16 skipped / 0 failed/error**. Подтверждены отмена поиска и
+справки, сохранение shell, ровно один `1B` в TUI-меню и возврат к shell.
+Skips — foreground-gated focus и человеческая NVDA/физическая приёмка на private
+desktop; они не объявлены пройденными. Дополнительный скрытый процесс с настоящим
+PowerShell выдержал девять Esc, включая тройные в поле и журнале:
+`target/escape-fix/native-smoke-final.log`. Пользовательские сессии не завершались.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.18.exe`,
+3 088 384 байт, SHA256
+`D61D821FD5E9E3E937DFA3C83400248C06693B97D5CC7C8BE9FBA4BB0B4126F1`.
+Метаданные — `target/escape-fix/release.json`. Проверенный EXE открыт для
+пользователя в 11:31:04 +04:00, PID 15280, HWND 5572952;
+`target/escape-fix/launch.json`. Пакеты, commit/push не делались.
+
+### Предыдущий результат — 31.10.2026, 0.4.0-preview.17
+
+Продолжена унификация Kimi/OpenCode/Codex/Claude по замечаниям о чтении
+OpenCode и отдельном поле Codex:
+
+- Физические строки TUI сохраняются в одном источнике для чтения, поиска
+  и VisualDocument. Смена фокуса не склеивает страницу и не возвращает
+  исходную чёрную заливку. Тема действует также в архиве ответов. Bookmark
+  сохраняется на native EN_KILLFOCUS; снят запрет follow для visual reader.
+- OpenCode Markdown распознаётся после точного принятого запроса в панели.
+  Архив хранит отдельные ответы без chrome, сохраняет длинное продолжение
+  после ухода prompt за экран. Наблюдаются все завершённые synchronized
+  frames внутри PTY drain, без искусственного продвижения времени и
+  промежуточной публикации UI/речи. Retained composer без caret не доказывает
+  готовый безметочный кадр: это устранило порчу на captured endpoint 52801.
+- Общий composer поддерживает Codex с отступами, `›`, цветным и бесцветным
+  фоном; Claude с горизонтальными границами и NBSP; Unicode, переносы,
+  пользовательские отступы и source-owned caret. `SourceInput` допускает
+  CR/LF только внутри полностью принятой bracketed paste, прежние лимиты
+  подтверждения сохранены. Меню/команды не исполняются по распознанному тексту.
+- В native QA найден и исправлен отдельный ConPTY hidden-cursor переход:
+  SourceInput хранит исходный Composer только внутри bounded pending input.
+  `project_recovered` требует точного accepted insertion/prefix и caret,
+  не допускает palette-only подтверждения. Public hidden composer остаётся
+  None, поэтому private proof не попадает в анализ ответа. Partial ack ждёт
+  полного text/caret; clear/expiry/control/source change удаляют proof.
+- Для стрелок/отмены меню есть отдельная private continuity 750 мс:
+  только точное неизменное поле с тем же стилем и формой, допустимы его
+  вертикальный перенос и текущая source caret. Скрытый blank кадр остаётся
+  публично неопределённым. Visible frame/expiry/resize/mode/cancel снимают proof.
+  Реальный isolated ConPTY capture проверяет slash → Down и выбранный пункт,
+  а отрицательные случаи не разрешают восстановление по одному цвету.
+  Exact continuation имеет приоритет над ordinary placeholder: при Home
+  прежний Unicode больше не становится пустым hint. Отдельный ConPTY capture
+  проверяет текст и UTF-16 caret 4→0→1; hidden source-roundtrip инвалидирует proof.
+- Парные форматы Codex/Claude получили точное разделение запросов/ответов,
+  возврат ввода и typed/DIM completion. Обычная строка `Error:` не обрывает
+  ответ: нужен отдельный оформленный final error block. OSC10/11/12 получают
+  актуальные default цвета темы/HC; clipboard и другие OSC не добавляют действий.
+- Решение описано в ADR0019; обновлены help/manual/limitations/changelog.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **731 passed**
+(app650 + worker3 + PTY18unit/15integration + terminal45), release passed.
+Логи `target/frosted-indigo/{fmt,clippy,tests,release}-preview17-final.log`.
+Первый workspace run выявил конфликт параллельных короткоживущих RichEdit
+fixtures. Общий test-only mutex изолирует их полный native lifetime,
+соответствуя одному UI thread приложения; повторный полный прогон прошёл.
+Recovery fixture ждёт уникальную фактическую строку вывода, затем задаёт
+completed CommandBlocks по её точным UTF-16 границам и проверяет одинаковые
+start/end/text после native recovery. Определение функции без вывода и
+ConPTY echo с лишним backslash не гарантировали автоматический output anchor;
+этот отдельный echo contract не подменяется проверкой сохранения.
+Независимое узкое review: исправлены потеря bookmark, follow и ложный Error;
+каждое исправление перепроверено. `git diff --check` passed.
+
+**Приёмка** (пути внутри `target/frosted-indigo/`):
+- `preview17-final4-single-input/run-20261031-222245-6461ccb4/summary.json`:
+  **99 passed / 16 skipped / 0 failed/error**.
+- `preview17-final4-tui-turns/run-20261031-222245-b819b39c/summary.json`:
+  **216 passed / 3 skipped / 0 failed/error**. Skips — foreground-gated focus,
+  физическая каретка/звук/NVDA на private desktop.
+- `codex-claude-composer/qa-result-preview17.json`: на финальном SHA цветной
+  Codex, бесцветный Codex и Claude завершили по **25 variant checks passed /
+  7 skipped / 0 failed/error**. Проверены одно нижнее поле без верхнего дубля,
+  Unicode, Home/Right/End, однократный Send, source menu/Down/Escape; шесть PNG
+  просмотрены. Для plain/Claude отдельные полные прогоны — **36 passed** каждый.
+  Первоначальный общий run **57 passed / 1 error** сохранён: меню запрашивалось
+  после промежуточного пустого поля до подтверждения очистки источником.
+  Отдельные прогоны ждут завершения собственного render и устойчивого empty
+  source не менее 150 мс. Быстрый ввод сразу после Send не считается проверенным.
+- `opencode-reader-qa/qa-result-recovered.json`: **93 checks passed** на втором кандидате — два ответа,
+  latest/prev/next без footer, 31 отдельная UIA-строка, одинаковые HWND/цвета,
+  bookmark после native targeted click и сохранение старого ответа при новом.
+  Два PrintWindow PNG просмотрены. Дополнительный EOF-follow сценарий
+  **не принят**: исходная assertion неверно считала padded EOF; на втором
+  кандидате corrected сценарий остановился на предусловии native EOF/scrollbar
+  bottom до нового кадра. В сыром summary **93 passed / 1 failed / 0 error**;
+  runtime follow не был проверен и не скрыт как pass.
+  GUI проверял полные styled snapshots из реального capture: повторная подача
+  уже сериализованного ConPTY delta через второй consolehost неэквивалентна.
+  Byte-exact поток отдельно прошёл core/session regressions, включая 120
+  маркеров по одному и одинаковый результат при 4096/65536-байтовых reads.
+
+Нативная вставка многострочного текста без clipboard не считается принятой
+по synthetic IPC: fixture сам менял текст без accepted PTY input, поэтому
+unknown changed field после hidden кадра правильно не использовал старое proof.
+SourceInput/projector tests отдельно проверяют полный bracketed paste,
+Unicode/CRLF/отступы и точное source подтверждение. Clipboard пользователя
+не читался и не изменялся.
+
+Codex/Claude authenticated responses и NVDA не проверены: изолированный Codex
+остановился на входе, Claude — на недоступной сети; source-equivalent fixtures
+основаны на конкретных версиях renderer. Private desktop не подтверждает
+физический ввод мышью/клавиатурой, реальные DPI или DWM-композитирование.
+Пользовательские сессии и настройки не изменялись.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.17.exe`,
+3 088 384 байт, SHA256
+`11CE545B4374308B0A77DA86E6F138D01B896BC8C57F95C874E4DF196556E7A0`.
+Метаданные `target/frosted-indigo/release-preview17.json`.
+Финальный EXE запущен для пользователя в 22:37:38 +04:00, PID 19848,
+HWND 5703848; запись `target/frosted-indigo/launch-preview17.json`.
+Пакеты, commit/push не делались; прежние незакоммиченные изменения сохранены.
+
+### Предыдущий результат — 31.10.2026, 0.4.0-preview.16
+
+Закрыты замечания по скриншотам 19:12–19:16:
+
+- Убрана короткая голубая линия под вводом. В обычной теме поле продолжает
+  стеклянную поверхность, фокус показывает native caret; HC сохраняет рамку.
+- OpenCode задавал собственную truecolor-заливку, поэтому его область оставалась
+  чёрным прямоугольником. `text_style::TuiSurface` адаптирует доминирующий тёмный
+  нейтральный live canvas к фону терминала после разрешения исходных цветов.
+  Вторичные панели остаются различимыми матовыми; foreground/DIM, named/indexed
+  ANSI, цветные заливки, inverse, равные fg/bg и HC сохраняются. История/VT не
+  изменяются; режим чтения возвращает исходные цвета. Обновлён ADR0017.
+- На настоящем изолированном OpenCode 2.0.32 воспроизведён CLR FailFast родительской
+  PowerShell 7 (`0x80131623`, отключённый console handle), а не просто застрявший
+  prompt. При остановке снимаются direct input/capture. Для точного сбоя после
+  явно принятого interactive CLI предусмотрена одна попытка нового PTY в той же
+  вкладке: только локальный pwsh со строго штатными PS_PROMPT args, после полного
+  drain. Журнал, черновик и архив сохраняются; pending source/input не переносятся,
+  команды не повторяются. Startup clear не стирает историю. Старый PTY удаляется
+  существующим bounded worker pool. Ordinary exit/custom startup/CLI-only и другие
+  коды не перезапускаются. Main синхронизирует поле/имя/кнопку и заменяет ошибку
+  ввода в остановленный процесс статусом. Решение: ADR0018.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **693 passed**
+(app616 + worker3 + PTY18unit/15integration + terminal41), release build passed.
+Логи: `target/frosted-indigo/{fmt,clippy,tests,release}-preview16-final.log`.
+Самопроверка и один узкий независимый code-review без подтверждённых дефектов;
+`git diff --check` passed. Расположение элементов не менялось.
+
+**Приёмка** (пути внутри `target/frosted-indigo/`):
+- `opencode-glass-style/final-preview16/summary.json` — **24 passed**, 0 failed/skip.
+  Два actual screen A/B: прежний black canvas, незаполненный вывод и ввод меняются
+  с фоном; glyph cores/viewport/text стабильны, bright underline pixels=0.
+  Оба PNG просмотрены. Secondary matte panels/selection/exact reader colors
+  дополнительно проверены native DIB regression; A/B — replay VT, не live CLI.
+- `lifecycle/recovery-actual/summary.json` — настоящий isolated OpenCode без
+  модельных запросов: startup → /exit → реальный pwsh crash → same-tab recovery →
+  успешная новая echo-команда. History/draft сохранены, старые команды не повторены.
+- `accent-probe/lifecycle-ui/B7129A50DAA9/summary.json` — **18 passed / 1 skipped**,
+  0 failed. Реальный final EXE на private desktop: own FailFast → тот же HWND/tab,
+  EDIT readonly/MSAA name/label/button восстановлены, новая команда работает;
+  ordinary exit не перезапускается, символ/Execute не открывают modal.
+  Physical Enter skipped: private desktop не доказывает физический ввод.
+- `preview16-single-input-final/run-20261031-194656-b27184ac/summary.json` —
+  **99 passed / 16 skipped / 0 failed/error**, skips foreground/UIA caret private desktop.
+
+Восстановленная оболочка — новый процесс: локальные переменные утрачены, cwd
+берётся из профиля (достоверного текущего cwd нет). NVDA, реальные DPI-мониторы,
+физический Enter и сетевой ответ модели в этой итерации не проверялись.
+Все собственные QA-процессы/окна завершены; пользовательские сессии не закрывались.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.16.exe`,
+3 016 192 байт, SHA256
+`B7129A50DAA9B18BC0755B0DAC4B28A4EA22D5F059947BF03C521EB6A8C4A267`.
+Метаданные `target/frosted-indigo/release-preview16.json`.
+Пакеты, commit/push не делались; прежние незакоммиченные изменения сохранены.
+
+### Предыдущий результат — 31.10.2026, 0.4.0-preview.15
+
+Закрыты замечания по трём скриншотам 18:07–18:09 и мерцанию Kimi:
+
+- Убрана обводка поля ввода, оставлен короткий индикатор фокуса. В High Contrast
+  сохраняется рамка. `styled_scrollbar` рисует тонкий thumb и стеклянную дорожку
+  поверх штатной NC-прокрутки, не меняя range/hit targets/команды/native HWND.
+- `ui_menu` оформляет EDIT/RichEdit контекстные меню через общий native HMENU
+  renderer. `ui_message` заменяет пять app MessageBox sites на themed native modal
+  dialogs с векторными пиктограммами; общие dialogs/Help получили те же цвета.
+  Default/cancel, MSAA/native captions сохранены. Отдельно исправлен owner-draw
+  button protocol: Tab→«Нет»→Enter не должен выполнять default «Да».
+- OpenCode больше не схлопывается из-за WRAPLINE + native word-wrap пробелов:
+  `tui_projection::VisualDocument` сохраняет физические строки/колонки/ANSI padding
+  живого кадра. Canonical history/search/reader не меняются; mapping сохраняет
+  выделение при переходах, замена документа откладывается на время mouse drag.
+- Streaming batch RichEdit использует TOM Freeze/Unfreeze вместо временного
+  снятия WS_VISIBLE. Native background меняется только при реальной смене цвета,
+  обычные таймеры не запускают full repaint. Viewport восстанавливается до thaw
+  и после него; затем выполняется buffered UpdateWindow.
+- Главная причина стирания вывода: parent paint перекрывал WS_EX_TRANSPARENT
+  RichEdit, включая NC-thumb. На реальном EXE child→parent-only→child давал
+  1801→0→1801 светлых пикселей без изменения текста. `paint_shell` теперь явно
+  исключает actual full rect видимых output/vt_output/input из target DC.
+  После исправления 1801→1801→1801. ANSI и opacity токены preview.14 сохранены.
+
+**Итоговые проверки:** fmt, clippy `-D warnings`, workspace tests **685 passed**
+(app608 + worker3 + PTY18unit/15integration + terminal41), release build passed.
+Логи `target/frosted-indigo/{fmt,clippy,tests,release}-preview15-final.log`.
+Самопроверка и один независимый code-review + точечный review clipping без
+подтверждённых замечаний; `git diff --check` passed. `layout.rs` не менялся.
+Решение: `docs/decisions/0017-native-live-presentation.md`.
+
+**Проверки на итоговом SHA** (пути внутри `target/frosted-indigo/`):
+- `streaming-render/live-parent-clip-preview15/summary.json` — **23 passed**,
+  0 failed/skipped/error. 152 экранных кадра/60 batches: статичные glyphs,
+  chrome и фон побитно стабильны, visibility непрерывна, firstVisibleLine=0;
+  scroll top/bottom возвращает весь journal и rail с delta=0. Без forced paints
+  во время streaming, без PrintWindow/сети/LLM/global input.
+- `opencode-visual/final-preview15/summary.json` — **12 passed**: replay сохранённого
+  UTF-8 VT fixture в реальном EXE, ConPTY110×36/native31 строки, позиции/верх страницы
+  и отдельный composer. `opencode-startup-screen.png` просмотрен. Это replay,
+  не запуск настоящего OpenCode и не сетевой запрос.
+- `accent-probe/menu-message/541CFD2C2B73/summary.json` — **13 passed**, native
+  modal/default/cancel/keyboard/menu captions/MSAA. Private desktop, его PNG
+  не объявляются экранной композицией. Все собственные окна/процессы закрыты.
+- `preview15-single-input-final/run-20261031-190036-20575806/summary.json` —
+  **99 passed / 16 skipped / 0 failed/error**; skips foreground/UIA caret на
+  private desktop. `preview15-material-final/summary.json` — **37 passed**.
+- `preview15-geometry-final/summary.json` — **260 passed / 1 skipped**, прежняя
+  геометрия/native names/maximize/restore/shell. Ранние streaming candidates
+  с failures сохранены как диагностика, итоговой приёмкой не являются.
+
+NVDA, настоящий сетевой Kimi/OpenCode и физические мониторы DPI человеком
+не проверялись в этой итерации. Windows-owned folder picker/system menu штатные.
+Нативные hidden DPI fixtures не заменяют проверку на реальных мониторах.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.15.exe`,
+2 999 808 байт, SHA256
+`541CFD2C2B73E733294A77644AC5CFB65CF3B72ED28FC9193CB853FEABF4AF01`.
+Метаданные `target/frosted-indigo/release-preview15.json`.
+Пользовательские старые экземпляры не закрывались; пакеты, commit/push не делались.
+Все прежние незакоммиченные TUI-изменения сохранены.
+
+### Предыдущий результат — 31.10.2026, 0.4.0-preview.14
+
+По скриншоту пользователя исправлена классическая голубая шапка и светлая
+правая рамка, появлявшиеся поверх стекла. В собственной native fixture
+воспроизведены два источника: WM_SETICON(big) и WM_NCACTIVATE(FALSE), даже
+при прежнем DefWindowProc(..., -1). `window_frame::custom_frame_message`
+подавляет NC/UAH painting; неминимизированный WM_NCACTIVATE возвращает TRUE;
+SETTEXT/SETICON проходят штатную обработку под кратким redraw lock видимого
+окна. Native title/icon, исходная видимость и чужой redraw lock сохранены.
+Hit testing, WS_OVERLAPPEDWINDOW и расположение элементов не менялись.
+
+Стекло облегчено: общий Acrylic tint 144→128, фон терминала/ввода 184→144,
+боковая панель 136→112, нижняя полоса 90→80 (alpha из 255). Буквы, selection
+и ANSI-фоны непрозрачны. Экранный отклик вывода на смену цветного фона вырос
+примерно в 1,8 раза. На белом окружении измерены контрасты: заголовок 4,906:1,
+основной терминальный текст 6,360:1; UI-пиктограммы ≥3:1.
+
+**Проверки:** fmt, clippy `-D warnings`, workspace tests **671 passed**
+(app594 + worker3 + PTY18unit/15integration + terminal41), release build passed.
+Добавлен native regression сохранения title/icon/visibility/redraw lock.
+Логи: `target/frosted-indigo/{fmt,clippy,tests,release}-preview14-final.log`.
+Независимое ревью подтверждённых замечаний не нашло; `git diff --check` passed.
+
+**EXE/visual:** `preview14-material/summary.json` — 37 passed, без failed/skipped;
+`preview14-contrast/summary.json` — 37 passed и измерения в `contrast.json`;
+`preview14-geometry/summary.json` — 260 passed / 1 skipped / 0 failed.
+Все каталоги внутри `target/frosted-indigo/`. Реальные экранные снимки просмотрены.
+`accent-probe/exe-frame/83ACC93FA72D/live/summary.json` — 8 сценариев на этом EXE,
+0 изменений пикселей caption/правого края после SETICON, SETTEXT, synthetic
+NCACTIVATE, max hover, resize, выхода влево и возврата. `private/summary.json`
+подтвердил native maximize/restore; его PrintWindow не считается экранной
+композицией. Реальная смена foreground, NVDA и физические DPI остаются ручными.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.14.exe`,
+2 948 096 байт, SHA256
+`83ACC93FA72DFF6FBEC1D00775B16C81757A41638CD7EC2CCBE075DADA70234F`.
+Метаданные — `target/frosted-indigo/release-preview14.json`.
+Предыдущий пользовательский экземпляр preview.13 не закрывался и не заменялся.
+Пакеты не создавались, commit/push не выполнялись. Чужие TUI-правки сохранены.
+
+### Предыдущий результат — 31.10.2026, 0.4.0-preview.13
+
+Выполнен редизайн по PNG с сохранением расположения элементов. Последнее
+уточнение пользователя важнее исходных индиговых токенов спецификации:
+нейтральное серое стекло по **всему** окну; оттенки приходят от фона.
+Матовый вывод и поле команды теперь тоже пропускают размытый фон, буквы,
+выделение и ANSI остаются непрозрачными. Коммита/push нет; все прежние
+незакоммиченные TUI-изменения сохранены. `layout.rs` не менялся.
+
+- Новая тема, Segoe UI Variable Text/Display с fallback, Cascadia Mono 17 DIP,
+  векторные иконки профилей и многоразмерный ICO, вкладки и статусные капсулы.
+- `glass_buffer`, `terminal_glass`, `backdrop`, `accent_backdrop`: нативная
+  alpha-композиция, настройки отключения, High Contrast/opaque fallback.
+  Accent4 + `DWMNCRP_DISABLED` сохраняют эффект inactive; WM_NCPAINT/WM_NCACTIVATE
+  подавляют классическую заливку заголовка, стандартные оконные стили сохранены.
+  Простые перестановки DWM-вызовов и AccentFlags проблему не решали.
+- Исправлен подтверждённый сброс RichEdit-цветов после темы/шрифта: кэш формата
+  инвалидируется, native regression проверяет реальные цвета/выделение/текст.
+- Архитектурное решение и ограничения: `docs/decisions/0016-native-frosted-glass.md`.
+
+**Итоговые проверки:** fmt, clippy `-D warnings`, workspace tests — **670 passed**
+(app593 + worker3 + PTY18unit/15integration + terminal41), release build passed.
+Логи: `target/frosted-indigo/{fmt,clippy,tests,release}-final.log`.
+`git diff --check` passed. Исходные PNG/MD референса не редактировались.
+
+**Native/visual:** `whole-glass-acceptance/summary.json` — **37 passed**, ноль
+failed/skipped/error: экранное A/B всех зон, включая вывод и ввод, при настоящем
+inactive HWND; отключение даёт стабильную непрозрачную поверхность.
+`whole-glass-geometry/summary.json` — **260 passed / 1 skipped**, геометрия
+относительно baseline, resize/maximize/restore, native names и shell output.
+`terminal-glass/final-interactions/summary.json` — **18 passed / 1 skipped**:
+scroll top/bottom и selection/clear возвращают точно те же пиксели; skipped
+caret blink без foreground. Эти каталоги внутри `target/frosted-indigo/`.
+`single-input-final/run-20261031-165114-3b232e5c/summary.json` — **99 passed /
+16 skipped / 0 failed/error** на итоговом EXE: shell/TUI, общий ввод, Unicode,
+native menu, source echo; skips foreground/UIA caret на private desktop.
+Ранние material-диагностики имеют skips/failures и не являются итоговой приёмкой.
+Большой пробел между startup warning и prompt в отдельных запусках — пустые
+строки самого PTY-журнала; воспроизведён и в fresh opaque процессе, не новая
+геометрия RichEdit. NVDA и реальные 125/150/200% мониторов не объявлены passed.
+
+**EXE:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.13.exe`,
+2 947 584 байта, SHA256
+`AF13A337660309B5FB0CC54278F69E1B192218AA09C9E7089B750247D78D1FD9`.
+`target/frosted-indigo/release.json` содержит те же метаданные. Пакеты preview.13
+не создавались; существующие preview.12 в `target/packages` не заменялись.
+Следующий шаг — пользовательская визуальная приёмка и NVDA, без повторного
+исследования материалов или полного круга ревью.
+
+### Предыдущий результат — 31.10.2026, 0.4.0-preview.12
+
+Пользователь возобновил вчерашнюю работу. Незавершённая preview.12 доведена
+до release EXE и пакетов; остановка 30.10 больше не действует. Коммита/push нет.
+Следующий шаг — ручная приёмка этой сборки с NVDA, без повторного исследования
+и полного круга ревью. Все накопленные незакоммиченные изменения сохранены.
+
+**Результат:**
+
+- Закрыт оставшийся M в `tui_suggestions.rs`: default foreground не считается
+  обычным цветом автоматически. Два равноправных цветовых варианта дают None;
+  DIM и неизменные строки списка определяют палитру. Новая регрессия сначала
+  воспроизвела ошибочный выбор, затем прошла после исправления. Проверены оба
+  направления, wrap, разные цветовые ориентации, два DIM-пункта и списки 3+.
+  Все 25 тестов меню passed. Логи `target/tui-preview12-menu-{before,after}.log`.
+- В итоговую сборку вошли вчерашние исправления: ответы перед неподвижным
+  footer, busy по подсказке отмены и подтверждённая готовность после её снятия,
+  отдельные одинаковые запросы после свежего echo, сохранение повторяющихся
+  абзацев, речь без повторов при переносах, Panel/gutter composer и NBSP,
+  source-confirmed ввод/короткая bracketed paste, temporal foreground/DIM меню,
+  потребление намерения фокуса первым новым кадром вместо позднего popup.
+- README/F1/help/CHANGELOG/manual/known-limitations согласованы, ADR0015
+  дополнен контрактом Panel/evidence/temporal menu и неоднозначного выбора.
+  Никаких адаптеров по имени программы или автоматического исполнения нет.
+
+**Конечные обязательные проверки passed:**
+
+`cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+`cargo test --workspace` — **658 passed** (app581 + worker3 + PTY18unit/
+15integration + terminal41), `cargo build --release`.
+Логи `target/tui-preview12-{fmt,clippy,tests-final,release-final}.log`.
+Самопроверка исправления и diff выполнена; `git diff --check` passed с учётом CRLF.
+Вчерашний независимый review уже завершён; новый полный review не запускался.
+
+Первый workspace run: 578 app passed / 3 native RichEdit failed (selection /
+replace), `target/tui-preview12-tests.log`. Без правок RichEdit отдельные 7
+native tests прошли, затем повторный и окончательный workspace runs прошли.
+Причина нестабильности не установлена; её исправление не заявлено. Логи
+`target/tui-preview12-richtext-isolated.log`, `target/tui-preview12-tests-repeat.log`.
+
+**Native итогового EXE:**
+
+- `-TuiTurns`: **216 passed / 3 skipped / 0 failed / 0 error**,
+  `target/preview12-tui-turns/run-20261031-122520-933224db/summary.json`.
+  Новый bullet case проверил fixed footer, italic reasoning, styled body,
+  отсутствие Ready при `ctrl+c: cancel`, завершение без Status:done,
+  два одинаковых запроса, ED2, body-only nav, reader selection/viewport/focus,
+  сохранение цветов и точные байты `2F0D710D710D710D710D`.
+- `-SingleInput`: **99 passed / 16 skipped / 0 failed / 0 error**,
+  `target/preview12-single-input/run-20261031-122520-12da6f5d/summary.json`.
+  Одно поле, Unicode/source echo, native menu, rule composer и shell regressions.
+- Skipped: foreground auto-focus и interactive EDIT UIA caret/selection
+  недоступны на private desktop; native EM_GETSEL/UIA text/styles проверены.
+  Речь NVDA, ready sound и человеческая приёмка не объявлены passed.
+  Скриншоты bullet live/archive и rule-menu просмотрены.
+  Bootstrap cleanup обоих сценариев: см. `private-desktop-bootstrap.json`;
+  собственные тестовые окна закрыты, пользовательские сессии не менялись.
+
+**Сборка:** `target/release/bks-app.exe` и
+`target/release/bks-app-0.4.0-preview.12.exe`, **2692608 bytes**, SHA256
+`5E747B02CD16AB9C81D8E2F7BCFE493D1E3EAF3ACDCD70B7FC11E5DF25E0C66F`.
+Versioned EXE — точная копия проверенного release. Portable/setup/manifest/
+SHA256SUMS — `target/packages/bks-term-0.4.0-preview.12-windows-x64-*`.
+Extraction/hash passed; private package install/update/uninstall **48 passed /
+1 skipped** (file-symlink, Windows1314), без реестра/ярлыков пользователя.
+Логи `target/tui-preview12-package{,-private}.log`.
+Для Windows PowerShell5.1 при вызове `scripts/package.ps1` явно задавать
+`-Exe` и `-OutputDirectory`: default с PSScriptRoot не вычисляется при `-File`.
+Новая пользовательская preview.12 не запускалась; прежние пакеты сохранены.
+
+**Границы совместимости:** вчерашний actual private OpenCode2.0.32 был проверен
+без credentials/model requests (`target/opencode-diagnosis/`, public fixture
+`crates/bks-app/tests/fixtures/gutter-panel-menu.vt`). Claude2.1.240 проверен
+по установленному renderer/source-equivalent VT; private startup/--ax дошёл
+до theme/trust, доверие/логин не подтверждались (`target/claude-tui-diagnosis/`).
+Авторизованный Claude REPL не проверен. Большая/первая многострочная вставка
+может сохранять raw fallback; full projection не заявлена. Вручную проверить
+Kimi Ready/речь стадий и навигацию ответов, поля/меню Claude и OpenCode:
+`docs/manual-final.md`. Старые ExecutionPolicy/auth причины не объясняют
+исправляемые поля/меню. Не читать/не менять `docs/note.txt` и пользовательские
+новые design reference файлы. Коммиты/push — только по явному разрешению.
+
+### Предыдущий результат — 30.10.2026, 0.4.0-preview.11
+
+**Запрос:** выполнить четыре согласованных пункта: сигнал готовности ответа,
+навигация между ответами, речь видимых размышлений/поиска/инструментов,
+исправление смещений графических символов. Дополнительно пользователь
+показал неподдержанное поле Claude и запрет запуска opencode.ps1.
+Реализация общая для TUI, без распознавания имени программы. ADR0015.
+
+**Сделано:** `tui_turns.rs` наблюдает канонические ячейки, стили и live-проекцию.
+Кандидат запроса возникает после принятого явного Enter; меню, защищённый ввод,
+пустой Enter и slash-команды исключены. `tui_submission.rs` сохраняет bounded
+evidence принятых байтов до VT echo, включая partial ack/hidden cursor;
+это только подсказка классификации, отображаемое поле остаётся source-owned.
+Неизвестные изменения не угадываются и не становятся исполняемыми действиями.
+
+Готовность требует ответа, свежего завершения либо реального unavailable→editable
+после busy, 150ms стабильности текста и 400ms границы. Постоянно доступное поле,
+пауза и старый done этого не доказывают. Ошибка, прерывание и ожидание действия
+различаются; неподдержанный формат даёт NewOutput без выдуманной готовности.
+Footer берётся из live-области; fenced/quoted status и старый scrollback не
+подменяют состояние. Старый статус должен исчезнуть, чтобы стать свежим.
+
+Журнал содержит только тела ответов с оформлением, до128 записей/2МиБ,
+stable IDs, один ответ при streaming/corrections/ED2. Full snapshot corrections
+заменяют тело, доказанный overlap дописывает хвост; user-like строки внутри
+code fences сохраняются. Завершённые ответы неизменны. Перекрывающиеся запросы
+без новой доказанной границы не разделяются автоматически. Журнал в памяти
+вкладки, явная очистка через меню; shell clear его автоматически не удаляет.
+Ctrl+Up/Down — соседние ответы, Ctrl+Shift+R — последний; неизвестный TUI
+сохраняет логические строки/новый вывод. Архив и live используют тот же1018,
+с отдельными ReadingState и ключом view/revision; поиск учитывает источник.
+Esc/возврат к вводу восстанавливает live; пассивный ответ не меняет focus,
+selection или viewport читаемого ответа.
+
+`turn_speech.rs` — единая ограниченная очередь известных и неизвестных TUI
+событий, без второго raw All channel. Озвучиваются новые стабильные видимые
+шаги; static thinking:high/spinners не повторяются. Ready не переигрывает тело
+через passive NewOutput. Фоновые вкладки/окно не накапливают речь, набор
+сокращает pending ready до короткого сообщения. UIA progress использует
+CurrentThenMostRecent; STATIC1031 показывает состояние, не меняя фокус.
+Отдельные settings `answer_ready_sound` и `auto_read_answers` по умолчанию false;
+новые options есть в нативных настройках и сохраняются при multiwindow merge.
+Режим Manual отключает речь, явно включённый звук остаётся независимым.
+
+`terminal_metrics.rs` измеряет фактический resolved RichEdit font и его insets
+с постоянным резервом scrollbar. ConPTY использует исходную область без
+изменения размера при поиске/списке. TOM2 CharRep/face и проверенный spacing
+исправляют BOX/BLOCK и наследование symbol font пробелами, сохраняя wide,
+combining, emoji, цвета, readonly и закладки. AUTOFONT целиком не отключается.
+Live Grid и архив Reflow сохраняют native wrap: объединённый VT soft-wrap
+абзац виден полностью и копируется без добавленных переносов. В тесте tail
+одного абзаца доступен вертикальной прокруткой через47 visual lines.
+
+**Claude/OpenCode:** общий composer дополнен matching horizontal rules и
+prompt справа, включая wrap, hidden cursor и history proofs. Новый native
+rule/menu case подтверждает одно поле и точные bytes, без Claude adapter.
+Установленный PowerShell7 предпочтителен при discovery; явные/сохранённые
+профили WindowsPowerShell5 и аргументы сохранены. Добавлен CLI OpenCode:
+нативный npm EXE предпочтителен, safe CMD fallback, bare/cmd/exe handoff.
+Локальная диагностика: WindowsPS5.1 Restricted, pwsh7.6.9 RemoteSigned;
+bare opencode разрешается сначала в npm PS1. Политика/реестр/учётные данные
+не менялись; в явном PS5 можно использовать opencode.cmd. Login expired
+на экране Claude требует входа средствами самого Claude.
+
+**Конечные проверки passed:** fmt, clippy workspace/all-targets/-D warnings,
+**615 tests** (app538 + worker3 + PTY18unit/15integration + terminal41), release.
+Логи `target/turns-{fmt,clippy,test,build}-final.log`.
+Один независимый review и адресная проверка исправлений завершены: footer
+freshness/availability, fenced content, snapshot replacement, быстрый Enter,
+unknown speech после готового ответа исправлены и покрыты регрессиями.
+Нативные font fixtures со шрифтами Theme96/144 —6passed; их lifecycle
+сериализован только в тестах после воспроизводимой нестабильности при
+конкурентной калибровке. Внутренний механизм RichEdit не установлен;
+продукт использует один UI thread. Строгие first-pass/same-text-sync widths
+90/130px сохранены; три повторных metrics run и полный app passed.
+Логи `target/terminal-metrics-probe/`; direct-pipeline incomplete/error log
+не является доказанным AV или passed, окончательная проверка — через Cargo.
+
+**Native итогового versioned EXE:**
+
+- TuiTurns: **110passed/3skipped/0failed/error**,
+  `target/tui-turns-verified/run-20261030-210658-fb5afe34/summary.json`.
+- SingleInput с новым rule/menu case: **99passed/16skipped/0failed/error**,
+  `target/turns-single-input-verified/run-20261030-210658-73feda85/summary.json`.
+
+Проверены два styled ответа после ED2, body-only nav и UTF16 positions,
+stable busy без ложного Ready, сохранение reader selection/viewport/focus,
+один EDIT, source-owned slash selection, точные bytes, старые shell regressions.
+Root просмотрел final archive/rule-menu PNG. Skipped: interactive EDIT UIA
+caret/selection и foreground auto-focus на private desktop; реальная речь,
+звук и NVDA не объявлены passed. Native EM_GETSEL, UIA text/styles и LISTBOX
+selection проверяются строго. Bootstrap обоих сценариев: Default восстановлен,
+own desktop/job закрыты, ChildExitCode0, Failure=null. Реальные сеансы моделей
+и авторизация этими сценариями не проверяются.
+
+**Сборка:** `target/release/bks-app.exe` и `bks-app-0.4.0-preview.11.exe`,
+2610688bytes, SHA256 `01528FEBF93CD2C50AFE0CE9ABC51BB751FC976CEB8B0DA633E4AED1283B8EB2`.
+Portable/setup/manifest/checksums в `target/packages`; extraction/hash passed.
+Private install/update/uninstall **48passed/1skipped** (file-symlink1314),
+логи `target/turns-package{,-private}-final.log`. Настоящая установка, реестр
+и ярлыки пользователя не изменялись. README/F1/help/CHANGELOG/manual/ADR обновлены.
+Проверочные окна закрыты. Итоговый EXE для пользователя ещё не запускался;
+прежняя явно запущенная preview.10 сессия не закрывалась (исторический PID3912,
+не использовать без повторной проверки). Коммита/push нет.
+
+**Дальше:** ручная проверка нескольких TUI и реальной речи NVDA: готовность,
+размышления/поиск/tool progress, навигация и цвета архива, звук/full answer
+options, неизвестный вывод после известного, авторизованный Claude и OpenCode.
+Настоящий WM_DPICHANGED/переход между мониторами и фактическое выравнивание
+рамок проверяются человеком; тесты Theme96/144 этого не заменяют.
+
+### Предыдущий результат — 30.10.2026, 0.4.0-preview.10
+
+**Запрос:** пользователь подтвердил ls/clear preview.9 и поручил общее поле:
+в shell редактировать команду, в TUI отражать ввод приложения; перенесённые
+поле и рамка не должны дублироваться в верхнем выводе. Решение общее,
+без привязки к Kimi или другой программе. Архитектура — ADR0014, заменяет
+часть ADR0012 о canvas/companion focus.
+
+**Сделано:** сохраняется один EDIT1002, shell editable / TUI readonly mirror.
+В TUI явные клавиши идут приложению, текст и UTF16-каретка подтверждаются VT.
+Собственные slash/autocomplete не исполняются по распознанному тексту.
+Строго найденные поле/рамка и меню исключаются из styled VT reader1018;
+canvas1017/companion1011 скрыты. ComposerHistory исключает подтверждённые
+исторические строки по absolute anchors и fingerprint, включая partial scroll.
+Неоднозначный экран остаётся целиком, поле — пустым прямым вводом. Geometry,
+alternate/history reset или предел10000 строк сбрасывают неоднозначные proofs.
+Скрытый ввод остаётся redacted, side-by-side body не удаляется.
+
+Подсказки — native LISTBOX1030 возле того же поля; selection только из VT,
+без native typeahead и второго custom menu speech. Source focus требует
+явного принятого ввода и нового VT кадра; foreground gate сохранён.
+Shell draft + selection отдельны от TUI. View epoch отделён от raw VTrev:
+поиск/reader rebasing обновляются при смене режима даже без новых PTY bytes.
+Поиск и popup не меняют ConPTY dimensions. DirectUiSync защищает native
+focus callbacks при скрытии списка. Same-HWND handoff восстанавливает Tab
+capture; Ctrl+A идёт TUI, локальное Shift-выделение остаётся для копирования.
+Hidden cursor при неизменном поле сохраняет локальное выделение; возврат
+того же подтверждённого курсора его не сбрасывает. Send возвращает field focus.
+Выход в shell возвращает editable field, draft и journal. Stale Enter не может
+пересечь handoff по MSG.time/GetTickCount; это также имеет pure regression.
+
+**Проверки passed:** fmt, clippy workspace/all-targets/-D warnings,
+**572 tests** (app495 + worker3 + PTY18unit/15integration + terminal41), release.
+Логи `target/one-input-{fmt,clippy,test-final,build-final}.log`.
+Независимый review core выполнен, подтверждённые замечания исправлены;
+поздние focus/capture fixes просмотрены адресно, final diff-check passed.
+Ранний full test однажды завершился AV; повторить его не удалось (отдельные
+native/full runs и конечные workspace runs passed). Причина не установлена,
+COM teardown вслепую не менялся; диагностика `target/tui-suggestions-crash/`.
+
+**Native конечного EXE:** `-SingleInput`, **82passed/12skipped/0failed/error**,
+`target/one-input-verified/run-20261030-185332-31160ef6/summary.json`.
+Проверены Unicode/multiline, source-ack text/caret, initial Tab, held keys,
+menu/list semantics/exact bytes, reader/search stale events, masked/ambiguous
+fallback, hidden-cursor copy selection, manual/automatic shell return и прежние
+output-follow/passive-history/split-clear regressions. Root просмотрел конечные
+multiline/menu PNG: одно поле, рамки/копии нет, кнопка «Отправить».
+12skipped: EDIT UIA selection/caret и automatic foreground focus недоступны
+на private desktop; human NVDA и end-to-end stale-Enter race не объявлены passed.
+Native EM_GETSEL, UIA text, LISTBOX selection и byte ledger проверяются строго.
+
+`check-unified-tui.ps1 -SingleInput` теперь запускает fresh PS/BKS/UIA worker
+на уникальном private Win32 desktop без SwitchDesktop/physical/global keys/
+clipboard/real CLI/network. Создатель восстанавливает Default, закрывает own
+job/desktop; final bootstrap receipt подтверждает это. Logical focus fallback
+использует только own WM_COMMAND и не ослабляет production foreground gate.
+Default/Minimal/ReadNavigation/TuiSelection/PaintIsolation/CliHandoff — старый
+ADR0012 canvas contract для preview.8/9; текущая TUI приёмка — SingleInput.
+
+**Сборка:** `target/release/bks-app.exe` и versioned preview.10,
+2449920bytes, SHA256 `2835072F9E9D05132CF6F0CE9AA8EAF14B31E7151880905B1EB9563E6C559BCE`.
+Portable/setup/manifest/SHA256SUMS в `target/packages`; extraction/hash passed.
+Private install/update/uninstall48passed/1skipped(file-symlink1314), настоящие
+registry/shortcuts/установка пользователя не изменялись. Логи
+`target/one-input-package{,-private}.log`. README/help/CHANGELOG/manual/ADR обновлены.
+Проверочные окна/фикстуры закрыты; пользовательская сессия preview.10 не запущена.
+Старые PID ниже не использовать без повторной проверки. Коммита/push нет.
+
+**Дальше:** ручная NVDA-проверка общего поля/меню на нескольких TUI, редактирование
+(Ctrl+A/Home/End/Backspace/Delete/paste), речь без повторных slash/рамок,
+чтение цветов и возврат к shell. Не считать UIA-автотест фактической речью NVDA.
+
+### Предыдущий результат — 30.10.2026, 0.4.0-preview.9
+
+**Ручная проверка preview.8:** пользователь подтвердил: «цвет есть, всё
+озвучивается нормально». Следующий запрос — обычные команды: `ls` выполняется,
+но новый результат не прокручивается; `clear` не очищает видимый терминал.
+Эта итерация исправляет показ результатов и очистку журнала оболочки.
+Коммит/push не разрешались и не выполнялись; `docs/note.txt` не менялся.
+
+**Прокрутка:** успешная явная отправка команды показывает журнал и EOF,
+сохраняя фокус в поле «Команда». Если прежде читали VT, его позиция сохраняется
+перед переходом к результату. Пассивный вывод при историческом выделении/
+прокрутке остаётся на месте. Нативный hidden RichEdit test доказал две проблемы:
+EM_SCROLLCARET без фокуса не двигает журнал; SB_BOTTOM ставит его на один пиксель
+до inclusive scrollbar boundary. Теперь follow использует SB_BOTTOM, bottom
+check допускает1px, selection/viewport восстанавливаются после redraw resume.
+Один native test проверяет EOF-follow и сохранение history view после append.
+
+**Очистка:** TerminalOutput выдаёт Clear(UTF16 offset) для настоящего полного
+ED2/ED3. В обычной оболочке Session отсекает preclear text/events/styles,
+очищает старые блоки, selection/viewport/trim/prompt capture/speech state,
+сохраняет postclear вывод, настройки/draft/parent identity/PTY. Main потребляет
+take_journal_reset даже при отсутствии printable text, синхронизирует final model
+и пропускает старые chunks того же poll; retention trim остаётся отдельным.
+Начальный ConPTY ED2 — layout: он не стирает блок команды, принятой до первого
+вывода CMD. Direct/autoCLI/CLI-profile и alt47/1047/1049 не очищают журнал.
+Пустой ConPTY обход строк распознаётся только как bounded K/CRLF + HOME,
+обычные postclear переводы строк не отрезаются. Имена clear/cls не перехватываются.
+Собственный PowerShell/ConPTY подтвердил Clear-Host/cls/clear с exit0;
+реальный поток здесь содержит обход пустых строк и CSI3J. Архитектура — ADR0013.
+
+**Проверки passed:** fmt, clippy(workspace/all-targets,-D warnings),
+**538tests** (app461+worker3+PTY18unit/15integration+terminal41), release.
+Логи `target/shell-output-{fmt,clippy,test,build}.log`; targeted parser30 и
+session39 passed, actual clear probe — `target/shell-output-clear-probe.log`.
+Независимый code-review approved, значимых дефектов в финальном коде не нашёл.
+
+**Native на конечном EXE:** расширенный CliHandoff38passed/0failed/skipped/error,
+`target/shell-output-handoff/run-20261030-151735-76fc87ba/summary.json`.
+Сохранены старые handoff/reader/canvas проверки; добавлены явный submit из
+истории→EOF, продолжение follow, passive history selection/viewport, split
+clear без текста→пустой native/UIA journal→ровно один новый prompt. Actual EOF7872,
+bottom5362/5363; passive selection3744..3768, firstline147, scroll2678 сохранены.
+Raw input47bytes — четыре явные literal fixture команды, лишних байтов нет.
+PaintIsolation22passed/1skipped/0failed/error,
+`target/shell-output-paint/run-20261030-151744-970ac08b/summary.json`.
+Native patch изменил0px, VT positive145px. Cleanup собственных PID9744/18032
+и19084/18440 passed без force. Root просмотрел shell-output-follow и
+shell-clear-prompt PNG. Human NVDA/воспринимаемое мерцание skipped.
+
+**Сборка:** `target/release/bks-app.exe` и versioned preview.9,
+2353664bytes,SHA256 `2B471BB3DA5A8F715CB6A82543029E115B6BBEA94F9C875FC0DDA6F4F701168B`.
+Portable/setup/manifest/SHA256SUMS в `target/packages`; extraction/hash passed,
+private install/update/uninstall48passed/1skipped(file-symlink1314), без реальной
+registry/shortcuts/установки пользователя. Логи `target/shell-output-package-{build,private}.log`.
+README/справка/CHANGELOG/manual обновлены на preview.9.
+
+**Открыто пользовательское окно:** preview.9 PID18568, HWND6095816,
+`target/release/bks-app-0.4.0-preview.9.exe`, cwd проекта; process-local launcher
+очистил только flags цвета среды агента, глобальная среда не менялась.
+Metadata `target/shell-output-user-launch.json`. Старые пользовательские окна
+не закрывались и команды в них не отправлялись. Новое окно не закрывать/
+не вводить автоматически; перед действиями перепроверять PID/HWND.
+
+**Дальше:** пользователь проверяет в новом окне `ls`, затем `clear`/`cls`/
+`Clear-Host` и повторный вывод. Положительное подтверждение цвета/речи относится
+к preview.8; NVDA-приёмка новых scroll/clear изменений остаётся ручной.
+Ранее обсуждалось неудобство отдельного переключения для чтения формата;
+фокусная архитектура ADR0012 этой итерацией не пересматривалась.
+
+### Предыдущий результат — 30.10.2026, 0.4.0-preview.8
+
+**Ручной результат preview.7:** пользователь показал речь NVDA с лишними `/`,
+`>` и `)` при навигации slash/model; содержательная речь выбора уже есть.
+После `/exit` Kimi остался прямой ввод, хотя PowerShell prompt вернулся.
+Уточнено человеком: `kimi` набирался именно в прямом вводе; цветов нет и
+визуально, и в чтении NVDA. Разрешено исправление этих трёх проблем; commit/push
+не разрешались и не выполнялись. Посторонний `docs/note.txt` не менялся.
+
+**Фокус и речь:** raw TUI теперь фокусирует существующий BksTerminalSurface
+canvas1017 с TABSTOP и без TextPattern редактора. RichEdit1011 остаётся
+readonly styled companion за canvas, без TABSTOP; его raw focus перенаправляется
+на canvas. Это устраняет конфликт с NVDA EditableText caret movement scripts,
+которые дополнительно читают текст у каретки после стрелок. Ctrl+Shift+Space
+и Shift+навигация по-прежнему открывают reader1018 с обычным выделением и
+форматом; Esc возвращает TUI. Mode/capture, stale Enter, Tab и mouse focus
+адаптированы. Архитектура и первоисточники механизма NVDA — ADR0012.
+Самостоятельные `/`/`)` не проходят custom InputFeedback по его контракту;
+из содержательных labels пунктуация не удаляется вслепую.
+
+**Меню:** перенос selector теперь сопоставляет уникальные стабильные labels
+при перемещении viewport, а не только на одинаковых физических строках.
+Realistic swarm/auto/effort и model/provider fixtures сохраняют аргументы
+`[on|off] | <task>` и описание. Duplicate labels/неоднозначность остаются тихими.
+
+**Возврат shell:** native submit_command уже arm-ил auto_cli_input, raw write
+этого не делал — именно такой путь подтвердил пользователь. Теперь main
+вызывает record_direct_input только после принятого write: bounded UTF8
+capture до4096байт, простой ASCII Backspace; неизвестное редактирование,
+history/escape/control/неполный ввод не восстанавливаются по VT-тексту.
+Enter потребляет старую готовность; CLI arm требует точной введённой команды.
+CR/CRLF допустим только в конце accepted batch, multiline хвост не arm-ит CLI.
+Возврат требует свежего совпадающего OSC133 parent prompt, не строки Bye/PS.
+Обычная raw shell command сохраняет ручной direct mode. Настоящий PowerShell
+с собственной local function kimi (без запуска установленного CLI) проверил
+native/raw пути, alt-screen cleanup и resize. Повторных байтов не отправляется.
+
+**Цвета:** причина подтверждена из статического installed Kimi bundle и own
+ConPTY probe: lpEnvironment=None наследовал TERM=dumb от среды агента,
+Chalk5.6.2 выдавал level0 при isTTY=true. Новый terminal_environment в bks-pty
+передаёт отдельный Unicode block: TERM=xterm-256color, COLORTERM=truecolor,
+TERM_PROGRAM=bks-term; чужой TERM_PROGRAM_VERSION удаляется. GetEnvironmentStringsW
+сохраняет raw UTF16, drive aliases, PATH/cwd/user vars; глобального set_var нет.
+NO_COLOR/FORCE_COLOR/CLICOLOR* пользователя сохраняются. Caps-only probe при
+сохранённом NO_COLOR=1 подтвердил Kimi Chalk level3; реальные Kimi startup/API
+и сеть для проверки не запускались. Артефакты — `target/color-audit/`.
+Для NVDA текст с оформлением читается в reader через Ctrl+Shift+Space;
+ручное чтение формата — NVDA+F. Это не заявление о пройденной речи NVDA.
+
+**Проверки passed на конечном коде:** fmt, clippy(workspace/all-targets,-D warnings),
+**528tests** (app451+worker3+PTY18unit/15integration+terminal41), release.
+Логи `target/tui-feedback-{fmt,clippy,test,build}.log`. Один независимый проход
+focus/session/menu не нашёл новых значимых дефектов; self-review нашёл accepted
+multiline tail, он исправлен и проверен targeted reviewer без нового полного круга.
+
+**Native конечного EXE:** CliHandoff20passed/0failed/skipped/error,
+`target/tui-feedback-handoff/run-20261030-143030-30ccd9dd/summary.json`;
+PaintIsolation22passed/1skipped/0failed/error,
+`target/tui-feedback-paint/run-20261030-143039-08997b15/summary.json`.
+Проверены actual canvas focus, canvas без TextPattern/companion с полным readonly
+TextPattern, TABSTOP, clipping/z-order, reader state и отсутствие лишнего PTY.
+Native patch изменил0/663552px, VT positive145px; root просмотрел итоговый PNG.
+Cleanup own app/fixture PID17204/15984 и11568/12244 passed без force.
+Human NVDA/flicker skipped. Старые клавиатурные ветки harness по-прежнему
+ожидают focus1011; их не запускали и их успех не заявлялся.
+
+**Сборка:** `target/release/bks-app.exe` и versioned preview.8,
+2362368bytes,SHA256 `A0473F7A2AF449E425352622BF6677B150463BECEDE0EC2E42DFBA6BE0611D51`.
+Portable/setup/manifest/SHA256SUMS — `target/packages`; extraction/hash checks
+passed, private package install/update/uninstall48passed/1skipped(file-symlink1314).
+Логи `target/tui-feedback-package-{build,private}.log`; реальная registry/
+shortcuts/чистая VM не проверялись. README/справка/CHANGELOG/manual обновлены.
+
+**Открыто новое пользовательское окно:** preview.8 PID7912, HWND722938,
+`target/release/bks-app-0.4.0-preview.8.exe`, cwd проекта. Сняты только известные
+color flags среды агента в окружении этого нового процесса; системные настройки
+не менялись. Metadata `target/tui-feedback-user-launch.json`. Старый пользовательский
+PID4544 исчез до нового запуска; агент его не закрывал. Новое окно не закрывать,
+не вводить автоматически команды и перепроверять PID/HWND перед любыми действиями.
+
+**Следующее:** вручную в новом окне запустить Kimi, проверить `/` и `/model`
+без дополнительной речи маркеров, `/exit`→поле «Команда», цвета нового вывода,
+Ctrl+Shift+Space/NVDA+F, выделение/возврат и фактическое мерцание.
+Реальную речь/пользовательскую приёмку preview.8 пока не объявлять пройденными.
+
+### Предыдущий результат — 30.10.2026, 0.4.0-preview.7
+
+**Поручение:** пользователь разрешил реализовать все семь согласованных
+доработок TUI и передачи цветов; следующая стадия — ручное тестирование.
+Все семь пунктов реализованы в коде. Коммит/push этой итерации не разрешались
+и не выполнялись. `docs/note.txt` — посторонняя локальная заметка, не менялась.
+
+1. **CSI2026:** idle poll обслуживает таймаут synchronized update без новых
+   байтов, публикует ревизию и протокольные ответы один раз. Обычный END_SYNC
+   сохраняет атомарность кадра; действие по снимку блокируется до публикации.
+2. **Стили модели:** ReadingDocument экспортирует coalesced UTF-16 TextStyle
+   spans: fg/bg, bold, dim, italic, underline, strikeout, inverse. Общий resolver
+   цвета используется renderer и доступным текстом. HIDDEN редактируется до
+   проекций, его исходный текст/стиль не попадают в доступные документы.
+3. **Нативная доступность:** журнал1001, прямой ввод1011 и VT reader1018
+   используют readonly RICHEDIT50W; поле команды1002 остаётся EDIT. Новый
+   accessible_text явно переводит canonical CRLF/UTF-16 в native CP, сохраняет
+   selection/scroll/event mask при форматировании. TOM font setters на readonly
+   отвергаются, поэтому используется EM_SETCHARFORMAT без снятия ES_READONLY.
+   Проверены CRLF между порциями, Unicode, bare CR и WM_GETTEXT expansion;
+   приложение использует длину модели. Архитектура — ADR0011.
+4. **Журнал:** потоковый StyleTracker использует VT parser для SGR, включая
+   16/256/True Color и colon forms; OSC не накапливается повторно. Стили
+   ребазируются с retention, служебные notices не меняют состояние SGR.
+5. **Меню и диагностика:** подтверждается reciprocal перенос bold/underline
+   дополнительно к fg/bg/inverse/marker/cursor. BKS_TERM_TUI_TRACE явно задаёт
+   JSONL-путь: metadata без текста/labels/клавиш, ring64, очередь8, файл до1МиБ,
+   запись вне UI thread. Причина реального прежнего молчания `/model` без
+   воспроизведения не объявлена доказанной.
+6. **Редактирование и чтение:** Backspace/Delete и Left/Right/Home/End дают
+   подсказку только после точного видимого результата. Generic menu feedback
+   отменяется после подтверждённого edit, а не при самом нажатии. Усилены
+   CRLF/Unicode snap, независимое выделение при stream и неоднозначный reply anchor.
+7. **Обновления:** неизменный direct document и feedback без pending действия
+   не строят лишние снимки; native formatting применяется к изменённым диапазонам.
+   Append расширяет source/map без полной копии; HWND cleanup освобождает кеш.
+   Shared native harness переведён на координаты RichEdit, input остаётся EDIT.
+
+**Проверки passed:** `cargo fmt --all -- --check`,
+`cargo clippy --workspace --all-targets -- -D warnings`,
+`cargo test --workspace` — **510tests** (app437+worker3+PTY15unit/14integration
++terminal41), `cargo build --release`. Логи — `target/tui-colors-{fmt,clippy,test,build}.log`.
+В app входят шесть реальных native-тестов RichEdit/TOM/UIA на собственных скрытых
+окнах: цвета TextPattern, readonly, Unicode, CRLF/patch/append, bare CR, selection,
+style-only delta и lifecycle. Чтение UIA идёт отдельным MTA с owner message pump.
+Независимый проход ревью нашёл конфликт edit/menu feedback; он исправлен и
+покрыт двумя интеграционными регрессиями. Адресованная проверка bare CR закрыта.
+
+**Native на конечном EXE:** CliHandoff14passed/0failed/skipped/error,
+`target/tui-colors-handoff/run-20261030-125712-e2e47014/summary.json`.
+PaintIsolation15passed/1skipped/0failed/error,
+`target/tui-colors-paint/run-20261030-125719-d3b1741d/summary.json`.
+Native-only patch изменил0/663552пикселей canvas; реальный VT spinner —145.
+Cleanup обоих passed без force; тестовые процессы завершены. Клавиши/focus/
+activation helpers не использовались; только own PID/HWND и managed fixture.
+Root просмотрел PNG предыдущего прогона той же реализации поверхности.
+Skipped — человеческая оценка NVDA/воспринимаемого мерцания, не автотест дефекта.
+
+**Сборка:** `target/release/bks-app.exe` и
+`target/release/bks-app-0.4.0-preview.7.exe`,2341376bytes,SHA256
+`7E556E1D3B9E5F9A939624E6BB14C4855F9B6C55CB8468F97600CE2A03652995`.
+Portable/setup/manifest/SHA256SUMS в `target/packages` обновлены на этот EXE;
+extraction/hash checks passed. Private install/update/uninstall —48passed,
+1skipped(file-symlink Windows1314), без реальных registry/shortcuts/запуска
+пользовательского приложения. Логи `target/tui-colors-package-{build,private}.log`.
+
+**Уточнения проверки:** промежуточный прогон дважды упал на cleanup конечного
+PowerShell fixture (TerminateProcess во время нормального выхода). В тесте
+добавлено bounded ожидание до2с с drain перед fallback; его содержательная
+assert не ослаблена, production PTY не менялся. Целевой и полный прогоны прошли;
+первый failed лог сохранён в `target/tui-colors-test-cleanup-failed.log`.
+Первый setup smoke наследовал несовместимый PSModulePath PowerShell7;
+повторный private запуск с process-local WindowsPowerShell module paths прошёл.
+Настройки пользователя и глобальные переменные среды не менялись.
+
+**Продолжение:** ручная приёмка preview.7 описана в `docs/manual-final.md`:
+цвет/формат NVDA, удаление/курсор, `/model` и слеш-команды, чтение во время
+генерации/resize/смены вкладок, High Contrast и воспринимаемое мерцание.
+Ручная NVDA-приёмка этой версии не проводилась. Новых пользовательских окон
+не открывали, существующие не закрывали и ввод в них не отправляли.
+
+### Предыдущий результат — 27.10.2026, 0.4.0-preview.6
 
 **Поручение и статус:** после preview.5 пользователь сообщил о невозможности
 выделить набранный текст, лишнем чтении указателя в слеш-командах и молчании

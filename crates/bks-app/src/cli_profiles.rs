@@ -24,7 +24,78 @@ use crate::profile::{Profile, ProfileKind};
 /// their native command editor, selection and application keyboard navigation.
 pub fn starts_in_direct_mode(profile: &Profile) -> bool {
     profile.kind == ProfileKind::Local
-        && (profile.id == crate::codex_cli::PROFILE_ID || profile.id.starts_with("cli-"))
+        && !matches!(
+            adapter_for_profile(profile),
+            crate::tui_adapters::AdapterKind::Shell
+        )
+}
+
+/// Identity is supplied by the selected launch preset, never reconstructed
+/// from screen text. Custom wrappers can explicitly choose their own adapter.
+pub fn adapter_for_profile(profile: &Profile) -> crate::tui_adapters::AdapterKind {
+    use crate::tui_adapters::AdapterKind;
+    if profile.kind != ProfileKind::Local {
+        return AdapterKind::Shell;
+    }
+    if profile.launch.adapter != AdapterKind::Auto {
+        return profile.launch.adapter;
+    }
+    let id = profile.id.trim_end_matches("-ax");
+    let known = match id {
+        "cli-codex" => AdapterKind::Codex,
+        "cli-claude" => AdapterKind::Claude,
+        "cli-opencode" => AdapterKind::OpenCode,
+        "cli-kimi" => AdapterKind::Kimi,
+        "cli-gemini" => AdapterKind::Gemini,
+        _ if id == crate::codex_cli::PROFILE_ID => AdapterKind::Codex,
+        _ if profile.id.starts_with("cli-") => AdapterKind::Universal,
+        _ => AdapterKind::Auto,
+    };
+    if known != AdapterKind::Auto {
+        return known;
+    }
+    match Path::new(&profile.executable)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("codex") => AdapterKind::Codex,
+        Some("claude") => AdapterKind::Claude,
+        Some("opencode") => AdapterKind::OpenCode,
+        Some("kimi") => AdapterKind::Kimi,
+        Some("gemini") => AdapterKind::Gemini,
+        _ => AdapterKind::Shell,
+    }
+}
+
+pub fn adapter_for_command(command: &str) -> Option<crate::tui_adapters::AdapterKind> {
+    use crate::tui_adapters::AdapterKind;
+    if !is_interactive_command(command) {
+        return None;
+    }
+    let path = command
+        .trim()
+        .strip_prefix("& ")
+        .unwrap_or(command.trim())
+        .trim();
+    let executable = path
+        .trim_matches(['\'', '"'])
+        .rsplit(['\\', '/'])
+        .next()?
+        .to_ascii_lowercase();
+    let stem = [".exe", ".cmd", ".bat", ".ps1"]
+        .iter()
+        .find_map(|suffix| executable.strip_suffix(suffix))
+        .unwrap_or(&executable);
+    Some(match stem {
+        "codex" => AdapterKind::Codex,
+        "claude" => AdapterKind::Claude,
+        "opencode" => AdapterKind::OpenCode,
+        "kimi" => AdapterKind::Kimi,
+        "gemini" => AdapterKind::Gemini,
+        _ => return None,
+    })
 }
 
 /// A simple, explicitly submitted interactive launch can hand the same PTY
@@ -76,7 +147,7 @@ pub fn is_interactive_command(command: &str) -> bool {
         .iter()
         .find_map(|suffix| executable.strip_suffix(suffix))
         .unwrap_or(&executable);
-    matches!(stem, "kimi" | "codex" | "claude" | "gemini")
+    matches!(stem, "kimi" | "codex" | "claude" | "gemini" | "opencode")
 }
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -101,10 +172,17 @@ enum Tool {
     Kimi,
     Gemini,
     Claude,
+    OpenCode,
 }
 
 impl Tool {
-    const ALL: [Self; 4] = [Self::Codex, Self::Kimi, Self::Gemini, Self::Claude];
+    const ALL: [Self; 5] = [
+        Self::Codex,
+        Self::Kimi,
+        Self::Gemini,
+        Self::Claude,
+        Self::OpenCode,
+    ];
 
     fn id(self) -> &'static str {
         match self {
@@ -112,6 +190,7 @@ impl Tool {
             Self::Kimi => "cli-kimi",
             Self::Gemini => "cli-gemini",
             Self::Claude => "cli-claude",
+            Self::OpenCode => "cli-opencode",
         }
     }
 
@@ -121,6 +200,7 @@ impl Tool {
             Self::Kimi => "kimi",
             Self::Gemini => "gemini",
             Self::Claude => "claude",
+            Self::OpenCode => "opencode",
         }
     }
 
@@ -130,6 +210,7 @@ impl Tool {
             Self::Kimi => "Kimi Code CLI",
             Self::Gemini => "Gemini CLI",
             Self::Claude => "Claude Code",
+            Self::OpenCode => "OpenCode",
         }
     }
 
@@ -137,7 +218,7 @@ impl Tool {
         match self {
             Self::Gemini => Some("--screen-reader"),
             Self::Claude => Some("--ax-screen-reader"),
-            Self::Codex | Self::Kimi => None,
+            Self::Codex | Self::Kimi | Self::OpenCode => None,
         }
     }
 }
@@ -298,6 +379,17 @@ impl Launch {
             executable: self.executable.to_string_lossy().into_owned(),
             args: self.args.clone(),
             working_directory: None,
+            launch: crate::launch_profile::LaunchSettings {
+                adapter: match tool {
+                    Tool::Codex => crate::tui_adapters::AdapterKind::Codex,
+                    Tool::Claude => crate::tui_adapters::AdapterKind::Claude,
+                    Tool::OpenCode => crate::tui_adapters::AdapterKind::OpenCode,
+                    Tool::Kimi => crate::tui_adapters::AdapterKind::Kimi,
+                    Tool::Gemini => crate::tui_adapters::AdapterKind::Gemini,
+                },
+                after_exit: crate::launch_profile::AfterExit::OpenShell,
+                ..Default::default()
+            },
         }
     }
 }
@@ -344,6 +436,9 @@ fn candidates(tool: Tool, directory: &Path, node: Option<&Path>, shell: &Path) -
                     ));
                 }
             }
+            Tool::OpenCode => {
+                result.push(Launch::native(root.join("@opencode/cli/bin/opencode.exe")));
+            }
             Tool::Kimi => {}
         }
     }
@@ -383,16 +478,28 @@ fn discover(
         } else {
             None
         };
-        let ax = if version.is_some() && launch.probe_allowed {
-            tool.accessibility_flag().is_some_and(|flag| {
-                run(&launch, "--help", HELP_LIMIT).is_some_and(|output| has_flag(&output, flag))
-            })
+        let help = if version.is_some()
+            && launch.probe_allowed
+            && (tool.accessibility_flag().is_some() || tool == Tool::OpenCode)
+        {
+            run(&launch, "--help", HELP_LIMIT)
         } else {
-            false
+            None
         };
-        result
-            .profiles
-            .extend(profiles_for(tool, &launch, version.as_deref(), ax));
+        let ax = tool
+            .accessibility_flag()
+            .is_some_and(|flag| help.as_ref().is_some_and(|output| has_flag(output, flag)));
+        let standalone = tool == Tool::OpenCode
+            && help
+                .as_ref()
+                .is_some_and(|output| has_flag(output, "--standalone"));
+        result.profiles.extend(profiles_for(
+            tool,
+            &launch,
+            version.as_deref(),
+            ax,
+            standalone,
+        ));
         if version.is_none() {
             result.notes.push(format!(
                 "{}: версия не подтверждена; доступен обычный TUI без специальных параметров.",
@@ -404,8 +511,23 @@ fn discover(
     result
 }
 
-fn profiles_for(tool: Tool, launch: &Launch, version: Option<&str>, ax: bool) -> Vec<Profile> {
-    let normal = launch.profile(tool);
+fn profiles_for(
+    tool: Tool,
+    launch: &Launch,
+    version: Option<&str>,
+    ax: bool,
+    standalone: bool,
+) -> Vec<Profile> {
+    let mut normal = launch.profile(tool);
+    if tool == Tool::Codex {
+        crate::codex_cli::configure_managed_profile(&mut normal, version);
+    }
+    if tool == Tool::OpenCode && version.is_some() && standalone {
+        crate::opencode::configure_profile(
+            &mut normal,
+            env::var_os("OPENCODE_CLI_CONFIG_CONTENT").is_some(),
+        );
+    }
     let mut profiles = vec![normal.clone()];
     if version.is_some() && ax {
         if let Some(flag) = tool.accessibility_flag() {
@@ -432,6 +554,10 @@ fn parse_version(tool: Tool, output: &[u8]) -> Option<String> {
             .or_else(|| text.strip_prefix("kimi "))
             .unwrap_or(text),
         Tool::Gemini => text.strip_prefix("gemini ").unwrap_or(text),
+        Tool::OpenCode => {
+            let version = text.strip_prefix("opencode ").unwrap_or(text);
+            version.strip_prefix('v').unwrap_or(version)
+        }
     };
     let core = version.split(['-', '+']).next()?;
     let numbers: Vec<_> = core.split('.').collect();
@@ -609,6 +735,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn discovered_cli_profiles_return_to_the_selected_shell_by_default() {
+        let launch = Launch::native(PathBuf::from(r"C:\fixture\cli.exe"));
+        for tool in Tool::ALL {
+            let profile = launch.profile(tool);
+            assert_eq!(
+                profile.launch.after_exit,
+                crate::launch_profile::AfterExit::OpenShell,
+                "{} must leave a usable terminal after CLI exit",
+                tool.command()
+            );
+            assert_eq!(
+                profile.launch.mode,
+                crate::launch_profile::LaunchMode::Direct
+            );
+            assert!(profile.args.is_empty(), "no implicit CLI command is added");
+            assert!(starts_in_direct_mode(&profile));
+        }
+    }
+
+    #[test]
+    fn codex_managed_defaults_are_native_version_scoped_and_preserve_explicit_argv() {
+        let native = Launch::native(PathBuf::from(r"C:\fixture\codex.exe"));
+        let profile = profiles_for(Tool::Codex, &native, Some("0.164.0"), false, false).remove(0);
+        assert_eq!(profile.args, ["-c", "tui.disable_paste_burst=true"]);
+        assert_eq!(
+            profile.launch.after_exit,
+            crate::launch_profile::AfterExit::OpenShell
+        );
+        for version in [None, Some("0.163.0"), Some("0.164.1"), Some("0.164.0-beta")] {
+            let profile = profiles_for(Tool::Codex, &native, version, false, false).remove(0);
+            assert!(profile.args.is_empty());
+        }
+        let mut explicit = native.clone();
+        explicit.args = vec!["-c".to_owned(), "tui.disable_paste_burst=false".to_owned()];
+        let node = Launch::node(
+            Path::new(r"C:\fixture\node.exe"),
+            PathBuf::from(r"C:\fixture\codex.js"),
+        );
+        let wrapper = Launch::wrapper(
+            Path::new(r"C:\Windows\System32\cmd.exe"),
+            PathBuf::from(r"C:\fixture\codex.cmd"),
+        )
+        .unwrap();
+        for launch in [explicit, node, wrapper] {
+            let profile =
+                profiles_for(Tool::Codex, &launch, Some("0.164.0"), false, false).remove(0);
+            assert_eq!(profile.args, launch.args);
+            assert_eq!(profile.executable, launch.executable.to_string_lossy());
+        }
+    }
+
+    #[test]
     fn interactive_handoff_only_recognizes_explicit_simple_cli_launches() {
         for command in [
             "kimi",
@@ -616,6 +794,10 @@ mod tests {
             "codex.cmd",
             "claude",
             "gemini.ps1",
+            "opencode",
+            "OpenCode.EXE",
+            "opencode.cmd",
+            r#"& "C:\CLI Tools\opencode.cmd""#,
             r"C:\Tools\kimi.exe",
             r#"& "C:\Program Files\Kimi\kimi.exe""#,
         ] {
@@ -633,6 +815,8 @@ mod tests {
             "claude -p test",
             "codex exec test",
             "gemini --prompt test",
+            "opencode --version",
+            "opencode run test",
             "kimi; echo done",
             "kimi | more",
             "kimi\necho done",
@@ -653,6 +837,7 @@ mod tests {
             executable: "not-executed.exe".to_owned(),
             args: Vec::new(),
             working_directory: None,
+            launch: Default::default(),
         };
         for id in [
             "windows-powershell",
@@ -671,6 +856,7 @@ mod tests {
             "cli-kimi",
             "cli-claude",
             "cli-gemini",
+            "cli-opencode",
         ] {
             profile.id = id.to_owned();
             assert!(starts_in_direct_mode(&profile), "explicit CLI profile {id}");
@@ -697,6 +883,10 @@ mod tests {
             (Tool::Kimi, "kimi, version 1.34.0", "1.34.0"),
             (Tool::Gemini, "0.65.0", "0.65.0"),
             (Tool::Claude, "2.1.240 (Claude Code)", "2.1.240"),
+            (Tool::OpenCode, "1.3.0", "1.3.0"),
+            (Tool::OpenCode, "opencode v2.0.32\r\n", "2.0.32"),
+            (Tool::OpenCode, "v2.0.32", "2.0.32"),
+            (Tool::OpenCode, "opencode 12.0.1-beta.2", "12.0.1-beta.2"),
         ] {
             assert_eq!(
                 parse_version(tool, text.as_bytes()).as_deref(),
@@ -728,19 +918,22 @@ mod tests {
         assert!(!has_flag(b"--screen-reader-unsafe", "--screen-reader"));
         assert!(!has_flag(&[0xff], "--screen-reader"));
         let launch = Launch::native(PathBuf::from(r"C:\Tools\gemini.exe"));
-        let profiles = profiles_for(Tool::Gemini, &launch, Some("30.4.1"), true);
+        let profiles = profiles_for(Tool::Gemini, &launch, Some("30.4.1"), true, false);
         assert_eq!(profiles.len(), 2);
         assert_eq!(profiles[0].id, "cli-gemini");
         assert!(profiles[0].args.is_empty());
         assert_eq!(profiles[1].id, "cli-gemini-ax");
         assert_eq!(profiles[1].args, ["--screen-reader"]);
-        assert_eq!(profiles_for(Tool::Gemini, &launch, None, true).len(), 1);
         assert_eq!(
-            profiles_for(Tool::Gemini, &launch, Some("30.4.1"), false).len(),
+            profiles_for(Tool::Gemini, &launch, None, true, false).len(),
             1
         );
         assert_eq!(
-            profiles_for(Tool::Codex, &launch, Some("30.4.1"), true).len(),
+            profiles_for(Tool::Gemini, &launch, Some("30.4.1"), false, false).len(),
+            1
+        );
+        assert_eq!(
+            profiles_for(Tool::Codex, &launch, Some("30.4.1"), true, false).len(),
             1
         );
     }
@@ -799,6 +992,89 @@ mod tests {
         ] {
             assert!(Launch::wrapper(shell, PathBuf::from(path)).is_none());
         }
+    }
+
+    #[test]
+    fn opencode_native_npm_entry_and_safe_cmd_are_discovered_without_powershell() {
+        let directory = Path::new(r"C:\CLI Tools");
+        let shell = Path::new(r"C:\Windows\System32\cmd.exe");
+        let native = directory.join("node_modules/@opencode/cli/bin/opencode.exe");
+        let discovered = discover(
+            &[directory.to_path_buf()],
+            None,
+            shell,
+            |launch| launch.executable == native,
+            |_, _, _| Some(b"1.3.0".to_vec()),
+        );
+        assert_eq!(discovered.profiles.len(), 1);
+        assert_eq!(discovered.profiles[0].id, "cli-opencode");
+        assert_eq!(Path::new(&discovered.profiles[0].executable), native);
+        assert!(discovered.profiles[0].args.is_empty());
+        let wrapper = directory.join("opencode.cmd");
+        let discovered = discover(
+            &[directory.to_path_buf()],
+            None,
+            shell,
+            |launch| launch.payload.as_ref() == Some(&wrapper),
+            |_, _, _| panic!("OpenCode wrapper discovery must not execute it"),
+        );
+        assert_eq!(discovered.profiles.len(), 1);
+        assert_eq!(discovered.profiles[0].id, "cli-opencode");
+        assert_eq!(discovered.profiles[0].executable, shell.to_string_lossy());
+        assert_eq!(discovered.profiles[0].args[3], wrapper.to_string_lossy());
+        assert!(discovered.profiles[0]
+            .args
+            .iter()
+            .all(|argument| !argument.ends_with(".ps1")));
+    }
+
+    #[test]
+    fn opencode_profile_options_require_confirmed_version_and_help_capability() {
+        let launch = Launch::native(PathBuf::from(r"C:\CLI Tools\opencode.exe"));
+        let normal = profiles_for(Tool::OpenCode, &launch, Some("2.0.32"), false, true).remove(0);
+        assert_eq!(normal.args, ["--standalone"]);
+        assert_eq!(
+            normal.launch.adapter,
+            crate::tui_adapters::AdapterKind::OpenCode
+        );
+        assert_eq!(
+            normal.launch.after_exit,
+            crate::launch_profile::AfterExit::OpenShell
+        );
+        for (version, capability) in [(None, true), (Some("2.0.32"), false)] {
+            let plain = profiles_for(Tool::OpenCode, &launch, version, false, capability).remove(0);
+            assert!(plain.args.is_empty());
+            assert!(plain.launch.environment.is_empty());
+        }
+    }
+
+    #[test]
+    fn actual_opencode_version_spelling_enables_its_bounded_help_probe() {
+        let directory = Path::new(r"C:\CLI Tools");
+        let native = directory.join("opencode.exe");
+        let mut flags = Vec::new();
+        let result = discover(
+            &[directory.to_path_buf()],
+            None,
+            Path::new(r"C:\Windows\System32\cmd.exe"),
+            |launch| launch.executable == native,
+            |_, flag, _| {
+                flags.push(flag.to_owned());
+                Some(if flag == "--version" {
+                    b"opencode v2.0.32\r\n".to_vec()
+                } else {
+                    b"FLAGS\n  --standalone  Run with a private server\n".to_vec()
+                })
+            },
+        );
+        assert_eq!(flags, ["--version", "--help"]);
+        assert_eq!(
+            result.versions,
+            [("cli-opencode".to_owned(), Some("2.0.32".to_owned()))]
+        );
+        assert_eq!(result.profiles[0].args, ["--standalone"]);
+        assert!(result.notes.is_empty());
+        assert!(parse_version(Tool::OpenCode, b"opencode vv2.0.32").is_none());
     }
 
     fn fixture_output(body: &str, limit: usize) -> Option<Vec<u8>> {
@@ -955,8 +1231,8 @@ Start-Sleep -Seconds 60
             |launch| launch.payload.is_none(),
             |_, _, _| None,
         );
-        assert_eq!(result.profiles.len(), 4);
-        assert_eq!(result.notes.len(), 4);
+        assert_eq!(result.profiles.len(), 5);
+        assert_eq!(result.notes.len(), 5);
         assert!(result.versions.iter().all(|(_, version)| version.is_none()));
         assert!(result
             .profiles
@@ -987,14 +1263,21 @@ Start-Sleep -Seconds 60
                 )
             },
         );
-        assert_eq!(result.profiles.len(), 6);
-        assert_eq!(probes.len(), 6);
+        assert_eq!(result.profiles.len(), 7);
+        assert_eq!(probes.len(), 8);
         assert_eq!(
             probes
                 .iter()
                 .filter(|(_, flag, _)| flag == "--version")
                 .count(),
-            4
+            5
+        );
+        assert_eq!(
+            probes
+                .iter()
+                .filter(|(_, flag, _)| flag == "--help")
+                .count(),
+            3
         );
         assert!(probes
             .iter()
@@ -1016,7 +1299,7 @@ Start-Sleep -Seconds 60
             |launch| !launch.probe_allowed,
             |_, _, _| panic!("Unverified wrapper must not be executed by discovery"),
         );
-        assert_eq!(result.profiles.len(), 4);
+        assert_eq!(result.profiles.len(), 5);
         assert!(result.versions.iter().all(|(_, version)| version.is_none()));
         let missing = discover(
             &directories,

@@ -1,14 +1,18 @@
 #![windows_subsystem = "windows"]
 
+mod accent_backdrop;
 mod accessibility;
+mod accessible_text;
 mod agent_protocol;
 mod agent_transport;
 mod agent_window;
 mod announcements;
 pub mod ansi_palette;
+mod backdrop;
 mod background;
 mod cli_profiles;
 mod clipboard;
+mod codex;
 mod codex_cli;
 mod command_blocks;
 mod config_lock;
@@ -18,12 +22,16 @@ mod direct_accessibility;
 mod dpi;
 mod feedback;
 mod folder_picker;
+mod glass_buffer;
 mod help;
 mod journal;
 mod keyboard_navigation;
 mod launch;
+mod launch_profile;
+mod launch_profile_editor;
 mod layout;
 mod native_text;
+mod opencode;
 mod output_speech;
 mod owned_child;
 mod preferences;
@@ -39,19 +47,34 @@ mod session;
 mod settings;
 mod shell;
 mod shortcuts;
+mod source_input;
+mod styled_scrollbar;
 mod system_caret;
 mod system_colors;
+mod terminal_glass;
 mod terminal_input;
+mod terminal_metrics;
 mod terminal_output;
 mod terminal_view;
+mod text_decorations;
+mod text_style;
 mod theme;
 mod tui_adapter_host;
+mod tui_adapters;
+mod tui_diagnostics;
 mod tui_dialog;
 mod tui_input_echo;
+mod tui_projection;
 mod tui_reading;
+mod tui_submission;
+mod tui_suggestions;
 mod tui_transcript;
+mod tui_turns;
 mod tui_window;
 mod tui_worker;
+mod turn_speech;
+mod ui_menu;
+mod ui_message;
 mod window_frame;
 mod workspace_state;
 
@@ -68,8 +91,9 @@ use output_speech::SpeechMode;
 use profile::ProfileManager;
 use session::{SearchOrigin, SessionManager, SessionState};
 use shell::{
-    draw_connection_status, draw_sidebar_button, draw_tab_background, draw_tab_button,
-    draw_tab_close, draw_title_bar, draw_window_button, SidebarButton, WindowButton,
+    draw_connection_status, draw_new_tab, draw_sidebar_button, draw_status, draw_tab_background,
+    draw_tab_button, draw_tab_close, draw_title_bar, draw_window_button, SidebarButton,
+    WindowButton,
 };
 use terminal_input::{
     application_keypad_bytes, control_char, encode_key, paste_bytes, SpecialKey, Utf16Encoder,
@@ -86,10 +110,10 @@ use windows::Win32::Graphics::Gdi::{
     PAINTSTRUCT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::System::SystemServices::{SS_CENTERIMAGE, SS_OWNERDRAW};
+use windows::Win32::System::SystemServices::SS_OWNERDRAW;
 use windows::Win32::UI::Controls::{
-    SetWindowTheme, DRAWITEMSTRUCT, EM_GETFIRSTVISIBLELINE, EM_GETSEL, EM_LINEFROMCHAR,
-    EM_LINEINDEX, EM_LINESCROLL, EM_REPLACESEL, EM_SCROLLCARET, EM_SETLIMITTEXT, EM_SETSEL,
+    SetWindowTheme, DRAWITEMSTRUCT, EM_GETFIRSTVISIBLELINE, EM_LINEFROMCHAR, EM_LINEINDEX,
+    EM_LINESCROLL, EM_REPLACESEL, EM_SCROLLCARET, EM_SETLIMITTEXT, EM_SETRECT, EM_SETSEL,
     ODS_HOTLIGHT,
 };
 use windows::Win32::UI::HiDpi::{
@@ -99,27 +123,28 @@ use windows::Win32::UI::HiDpi::{
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetCapture, GetFocus, GetKeyState, IsWindowEnabled, ReleaseCapture, SetCapture, SetFocus,
     VK_BACK, VK_CONTROL, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE, VK_HOME, VK_INSERT, VK_LEFT,
-    VK_MENU, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SHIFT, VK_TAB, VK_UP,
+    VK_MENU, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SHIFT, VK_SPACE, VK_TAB, VK_UP,
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetAncestor, GetClientRect,
     GetDlgCtrlID, GetDlgItem, GetForegroundWindow, GetMessageW, GetParent, GetScrollInfo,
     GetWindowRect, GetWindowTextLengthW, GetWindowTextW, IsDialogMessageW, IsWindowVisible,
-    IsZoomed, KillTimer, LoadCursorW, LoadIconW, MessageBoxW, MoveWindow, PostQuitMessage,
-    RegisterClassW, SendMessageW, SetForegroundWindow, SetTimer, SetWindowPos, SetWindowTextW,
-    ShowWindow, TrackPopupMenu, TranslateMessage, BN_CLICKED, BS_OWNERDRAW, CW_USEDEFAULT,
-    ES_AUTOVSCROLL, ES_MULTILINE, ES_READONLY, ES_WANTRETURN, GA_ROOT, HMENU, HWND_TOP, ICON_BIG,
-    ICON_SMALL, IDC_ARROW, IDYES, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_YESNO, MINMAXINFO, MSG,
-    SB_VERT, SCROLLINFO, SC_CLOSE, SC_MAXIMIZE, SC_MINIMIZE, SC_RESTORE, SIF_PAGE, SIF_POS,
-    SIF_RANGE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW,
-    TPM_NONOTIFY, TPM_RETURNCMD, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR, WM_COMMAND, WM_COPY,
-    WM_CREATE, WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM,
+    IsZoomed, KillTimer, LoadCursorW, LoadIconW, MoveWindow, PostQuitMessage, RegisterClassW,
+    SendMessageW, SetForegroundWindow, SetTimer, SetWindowPos, SetWindowTextW, ShowWindow,
+    TrackPopupMenu, TranslateMessage, BN_CLICKED, BS_OWNERDRAW, CW_USEDEFAULT, ES_AUTOVSCROLL,
+    ES_MULTILINE, ES_READONLY, ES_WANTRETURN, GA_ROOT, HMENU, ICON_BIG, ICON_SMALL, IDC_ARROW,
+    IDYES, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_YESNO, MINMAXINFO, MSG, SB_VERT, SCROLLINFO,
+    SC_CLOSE, SC_MAXIMIZE, SC_MINIMIZE, SC_RESTORE, SIF_PAGE, SIF_POS, SIF_RANGE, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, TPM_NONOTIFY, TPM_RETURNCMD,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR, WM_COMMAND, WM_COPY, WM_CREATE, WM_CTLCOLOREDIT,
+    WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_DWMCOMPOSITIONCHANGED,
     WM_ERASEBKGND, WM_GETDLGCODE, WM_GETMINMAXINFO, WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDOWN,
     WM_LBUTTONUP, WM_MEASUREITEM, WM_MENUCHAR, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCCALCSIZE,
     WM_NCDESTROY, WM_NCHITTEST, WM_PAINT, WM_SETFOCUS, WM_SETFONT, WM_SETICON, WM_SETREDRAW,
-    WM_SIZE, WM_SYSCHAR, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW, WS_CHILD,
-    WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_OVERLAPPEDWINDOW, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
+    WM_SETTINGCHANGE, WM_SIZE, WM_SYSCHAR, WM_SYSCOLORCHANGE, WM_SYSCOMMAND, WM_SYSKEYDOWN,
+    WM_THEMECHANGED, WM_TIMER, WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS,
+    WS_OVERLAPPEDWINDOW, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
 };
 
 const ID_OUTPUT: usize = 1001;
@@ -140,6 +165,12 @@ const ID_STATUS_SIZE: usize = 1015;
 const ID_SIDEBAR_PROFILES: usize = 1016;
 const ID_TERMINAL: usize = 1017;
 const ID_VT_OUTPUT: usize = 1018;
+const ID_SUGGESTIONS: usize = 1030;
+const ID_TURN_STATUS: usize = 1031;
+const MENU_LAST_ANSWER: usize = 60300;
+const MENU_PREVIOUS_ANSWER: usize = 60301;
+const MENU_NEXT_ANSWER: usize = 60302;
+const MENU_CLEAR_ANSWERS: usize = 60303;
 const MENU_INPUT_MODE: usize = 60001;
 const MENU_HELP: usize = 60002;
 const MENU_READING: usize = 60003;
@@ -161,6 +192,7 @@ const MENU_PREFERENCES: usize = 60018;
 const MENU_RESTORE_PROFILE: usize = 60019;
 const MENU_READ_INPUT: usize = 60020;
 const MENU_READ_NEW_OUTPUT: usize = 60021;
+const MENU_LAUNCH_PROFILES: usize = 60022;
 const ID_TAB_BASE: usize = 2000;
 const ID_TAB_CLOSE_BASE: usize = 3000;
 const OUTPUT_TIMER_ID: usize = 1;
@@ -180,6 +212,8 @@ struct Controls {
     search: search_bar::SearchBar,
     input_label: HWND,
     input: HWND,
+    suggestions: HWND,
+    turn_status: HWND,
     append: HWND,
     status_connection: HWND,
     status_encoding: HWND,
@@ -378,10 +412,23 @@ thread_local! {
     static SESSIONS: RefCell<SessionManager> = RefCell::new(SessionManager::new());
     static SELECTION_ANCHOR: Cell<usize> = const { Cell::new(0) };
     static WHEEL_REMAINDER: Cell<i32> = const { Cell::new(0) };
-    static VT_DISPLAY_KEY: Cell<Option<(u64, u64)>> = const { Cell::new(None) };
+    static VT_DISPLAY_KEY: Cell<Option<(u64, u64, bool, bool)>> = const { Cell::new(None) };
+    static VT_DISPLAY_SURFACE: Cell<Option<text_style::TuiSurface>> = const { Cell::new(None) };
     static VT_DISPLAY_DOCUMENT: RefCell<Option<Arc<bks_terminal::ReadingDocument>>> = const { RefCell::new(None) };
+    static VT_DISPLAY_SOURCE: RefCell<Option<Arc<bks_terminal::ReadingDocument>>> = const { RefCell::new(None) };
+    static VT_DISPLAY_VISUAL: RefCell<Option<Arc<tui_projection::VisualDocument>>> = const { RefCell::new(None) };
     static VT_RESTORE_PENDING: Cell<bool> = const { Cell::new(false) };
+    static TERMINAL_METRICS: RefCell<Option<(usize, terminal_metrics::Metrics)>> = const { RefCell::new(None) };
     static DIRECT_DOCUMENT: RefCell<Option<(u64, Arc<bks_terminal::ReadingDocument>)>> = const { RefCell::new(None) };
+    static SHARED_INPUT_MODE: Cell<Option<(u64, bool)>> = const { Cell::new(None) };
+    static DIRECT_UI_SYNC: Cell<bool> = const { Cell::new(false) };
+    static SHARED_EXIT_FENCE: Cell<Option<(u64, u32)>> = const { Cell::new(None) };
+    static SHARED_COMPOSER: RefCell<Option<(u64, tui_projection::Composer)>> = const { RefCell::new(None) };
+    static SHARED_SELECTION_EDIT: RefCell<Option<(u64, source_input::NativeSelectionEdit)>> = const { RefCell::new(None) };
+    static SUGGESTIONS: RefCell<Option<tui_suggestions::Suggestions>> = const { RefCell::new(None) };
+    // Only an accepted user input followed by a new source frame may move
+    // focus into the native completion list. Passive output never steals it.
+    static MENU_INTENT: Cell<Option<keyboard_navigation::MenuFocusIntent>> = const { Cell::new(None) };
     static DIRECT_FEEDBACK: RefCell<direct_accessibility::InputFeedback> = RefCell::new(direct_accessibility::InputFeedback::default());
     static DIRECT_ECHO: RefCell<tui_input_echo::InputEcho> = RefCell::new(tui_input_echo::InputEcho::default());
     static SEARCH_UI_SYNC: Cell<bool> = const { Cell::new(false) };
@@ -431,7 +478,7 @@ fn run() -> Result<()> {
         desktop::set_explorer_integration(enabled)
             .map_err(|error| Error::new(windows::Win32::Foundation::E_FAIL, error.to_string()))?;
         unsafe {
-            MessageBoxW(
+            ui_message::show(
                 None,
                 w!("Настройка контекстного меню Проводника сохранена для текущего пользователя."),
                 w!("BKS Term"),
@@ -455,12 +502,13 @@ fn run() -> Result<()> {
         THEME.with(|current| *current.borrow_mut() = theme);
         let module = GetModuleHandleW(None)?;
         let instance = HINSTANCE(module.0);
-        let icon = LoadIconW(Some(instance), w!("BKS_TERM"))?;
+        let icon = profile_icons::brand_icon(dpi::scale(32, initial_dpi))
+            .unwrap_or(LoadIconW(Some(instance), w!("BKS_TERM"))?);
         let window_class = WNDCLASSW {
             hIcon: icon,
             hCursor: LoadCursorW(None, IDC_ARROW)?,
             hInstance: instance,
-            hbrBackground: theme.window,
+            hbrBackground: HBRUSH::default(),
             lpszClassName: w!("BksTermWindow"),
             lpfnWndProc: Some(window_proc),
             ..Default::default()
@@ -498,7 +546,14 @@ fn run() -> Result<()> {
                 hwnd,
                 WM_SETICON,
                 Some(WPARAM(icon_type as usize)),
-                Some(LPARAM(icon.0 as isize)),
+                Some(LPARAM(
+                    profile_icons::brand_icon(dpi::scale(
+                        if icon_type == ICON_SMALL { 16 } else { 32 },
+                        initial_dpi,
+                    ))
+                    .unwrap_or(icon)
+                    .0 as isize,
+                )),
             );
         }
         apply_dark_title(hwnd);
@@ -536,7 +591,28 @@ fn run() -> Result<()> {
             if result.0 == 0 {
                 break;
             }
-            if message.hwnd == controls().direct_input
+            if message.hwnd == controls().input
+                && !direct_input_active()
+                && ((matches!(message.message, WM_KEYDOWN | WM_SYSKEYDOWN)
+                    && message.wParam.0 == VK_RETURN.0 as usize)
+                    || (matches!(message.message, WM_CHAR | WM_SYSCHAR) && message.wParam.0 == 13))
+                && SHARED_EXIT_FENCE.get().is_some_and(|(id, finished)| {
+                    active_session_id() == Some(id)
+                        && keyboard_navigation::predates_handoff(message.time, finished)
+                })
+            {
+                // The shared HWND can retain an Enter queued before a timer
+                // observed CLI exit. It must never submit the shell draft.
+                continue;
+            }
+            if direct_input_active()
+                && [
+                    controls().input,
+                    controls().suggestions,
+                    controls().direct_input,
+                    controls().terminal,
+                ]
+                .contains(&message.hwnd)
                 && matches!(
                     message.message,
                     WM_KEYDOWN | WM_SYSKEYDOWN | WM_CHAR | WM_SYSCHAR
@@ -591,6 +667,11 @@ fn run() -> Result<()> {
                 continue;
             }
             finish_profile_edit();
+            if launch_profile_editor::handle_message(&message) {
+                finish_launch_profile_edit();
+                continue;
+            }
+            finish_launch_profile_edit();
             if help::handle_message(&message) {
                 continue;
             }
@@ -604,8 +685,12 @@ fn run() -> Result<()> {
             {
                 continue;
             }
+            if handle_request_key(&message) {
+                continue;
+            }
             if message.message == WM_KEYDOWN
                 && direct_input_has_focus()
+                && [controls().direct_input, controls().terminal].contains(&message.hwnd)
                 && keyboard_navigation::starts_text_selection(
                     message.wParam.0,
                     GetKeyState(VK_SHIFT.0 as i32) < 0,
@@ -675,6 +760,7 @@ fn run() -> Result<()> {
                 && message.wParam.0 == VK_RETURN.0 as usize
                 && message.hwnd == controls().input
                 && GetFocus() == controls().input
+                && !direct_input_active()
             {
                 if GetKeyState(VK_SHIFT.0 as i32) < 0 {
                     insert_input_newline();
@@ -684,6 +770,19 @@ fn run() -> Result<()> {
                 continue;
             }
             if direct_input_has_focus() {
+                // Selection in the shared readonly field is local reading and
+                // copying. Unmodified editing/navigation still belongs to TUI.
+                if message.message == WM_KEYDOWN
+                    && message.hwnd == controls().input
+                    && keyboard_navigation::starts_text_selection(
+                        message.wParam.0,
+                        GetKeyState(VK_SHIFT.0 as i32) < 0,
+                        GetKeyState(VK_MENU.0 as i32) < 0,
+                    )
+                {
+                    DispatchMessageW(&message);
+                    continue;
+                }
                 if matches!(message.message, WM_KEYDOWN | WM_SYSKEYDOWN)
                     && handle_direct_key(message.wParam.0, message.lParam.0)
                 {
@@ -698,16 +797,30 @@ fn run() -> Result<()> {
                 DispatchMessageW(&message);
                 continue;
             }
-            if IsDialogMessageW(hwnd, &message).as_bool() {
-                continue;
-            }
-            let _ = TranslateMessage(&message);
-            DispatchMessageW(&message);
+            dispatch_main_message(hwnd, &message);
         }
     }
     // Window destruction never waits for a ConPTY or its worker threads.
     SESSIONS.with(|sessions| sessions.borrow_mut().finish_cleanup());
     Ok(())
+}
+
+unsafe fn dispatch_main_message(hwnd: HWND, message: &MSG) {
+    // Owned dialogs, search, reading and TUI input handle Esc earlier.
+    // RichEdit can request WM_CLOSE through dialog navigation or repeated
+    // native Esc. Consume any unclaimed Esc before either path can see it.
+    if matches!(
+        message.message,
+        WM_KEYDOWN | WM_SYSKEYDOWN | WM_CHAR | WM_SYSCHAR
+    ) && message.wParam.0 == VK_ESCAPE.0 as usize
+    {
+        return;
+    }
+    if IsDialogMessageW(hwnd, message).as_bool() {
+        return;
+    }
+    let _ = TranslateMessage(message);
+    DispatchMessageW(message);
 }
 
 unsafe extern "system" fn window_proc(
@@ -716,6 +829,11 @@ unsafe extern "system" fn window_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    if backdrop::custom_frame() {
+        if let Some(result) = window_frame::custom_frame_message(hwnd, message, wparam, lparam) {
+            return result;
+        }
+    }
     match message {
         WM_NCCALCSIZE if wparam.0 != 0 => window_frame::calculate_client(hwnd, lparam),
         WM_NCCALCSIZE => LRESULT(0),
@@ -732,6 +850,11 @@ unsafe extern "system" fn window_proc(
         },
         WM_PAINT => {
             paint_shell(hwnd);
+            LRESULT(0)
+        }
+        WM_ERASEBKGND => LRESULT(1),
+        WM_SETTINGCHANGE | WM_THEMECHANGED | WM_SYSCOLORCHANGE | WM_DWMCOMPOSITIONCHANGED => {
+            refresh_appearance(hwnd);
             LRESULT(0)
         }
         WM_SETFOCUS => {
@@ -782,12 +905,13 @@ unsafe extern "system" fn window_proc(
             }
             LRESULT(0)
         }
-        WM_CTLCOLOREDIT => {
+        WM_CTLCOLOREDIT | windows::Win32::UI::WindowsAndMessaging::WM_CTLCOLORLISTBOX => {
             let current_theme = theme();
             if [
                 controls().output,
                 controls().vt_output,
                 controls().direct_input,
+                controls().input,
             ]
             .contains(&HWND(lparam.0 as *mut c_void))
             {
@@ -838,6 +962,7 @@ unsafe extern "system" fn window_proc(
                 controls().status_encoding,
                 controls().status_size,
                 controls().announcement.hwnd,
+                controls().turn_status,
             ]
             .contains(&control)
             {
@@ -851,8 +976,8 @@ unsafe extern "system" fn window_proc(
                 control_color(
                     wparam,
                     current_theme.colors.text_secondary,
-                    current_theme.colors.window,
-                    current_theme.window,
+                    current_theme.colors.terminal,
+                    current_theme.terminal,
                 )
             }
         }
@@ -873,9 +998,16 @@ unsafe extern "system" fn window_proc(
             if control_state::is_hot(draw_item.hwndItem) {
                 draw_item.itemState.0 |= ODS_HOTLIGHT.0;
             }
+            let buffer = glass_buffer::GlassBuffer::new(draw_item.hDC, draw_item.rcItem);
+            if let Some(buffer) = &buffer {
+                draw_item.hDC = buffer.hdc();
+            }
             let item = &draw_item;
             let expanded = sidebar_expanded_for_width(client_width(hwnd));
-            if wparam.0 == ID_STATUS_CONNECTION {
+            let result = if item.hwndItem == controls().input_label {
+                shell::draw_input_label(item, &theme(), current_dpi());
+                LRESULT(1)
+            } else if wparam.0 == ID_STATUS_CONNECTION {
                 draw_connection_status(
                     item,
                     &theme(),
@@ -883,14 +1015,24 @@ unsafe extern "system" fn window_proc(
                     CONNECTION_STATUS.with(|status| *status.borrow()),
                 );
                 LRESULT(1)
+            } else if [
+                ID_STATUS_ENCODING,
+                ID_STATUS_SIZE,
+                ID_TURN_STATUS,
+                announcements::ID_ANNOUNCEMENT,
+            ]
+            .contains(&wparam.0)
+            {
+                draw_status(item, &theme(), current_dpi(), None);
+                LRESULT(1)
             } else if wparam.0 == ID_APPEND {
-                draw_execute_button(item, &theme());
+                draw_execute_button(item, &theme(), &window_text(controls().append));
                 LRESULT(1)
             } else if wparam.0 == ID_SESSION {
                 draw_tab_background(item, &theme(), current_dpi());
                 LRESULT(1)
             } else if wparam.0 == ID_NEW_TAB {
-                draw_mode_button(item, &theme(), "+");
+                draw_new_tab(item, &theme(), current_dpi());
                 LRESULT(1)
             } else if [
                 search_bar::ID_PREVIOUS,
@@ -955,12 +1097,22 @@ unsafe extern "system" fn window_proc(
                 draw_window_button(item, &theme(), current_dpi(), kind);
                 LRESULT(1)
             } else {
-                DefWindowProcW(hwnd, message, wparam, lparam)
+                return DefWindowProcW(hwnd, message, wparam, lparam);
+            };
+            if let Some(buffer) = buffer {
+                buffer.finish();
             }
+            result
         }
         WM_COMMAND => {
             let control_id = wparam.0 & 0xffff;
             let notification = (wparam.0 >> 16) & 0xffff;
+            if control_id == ID_VT_OUTPUT && notification == 0x200 && !DIRECT_UI_SYNC.get() {
+                // EN_KILLFOCUS arrives before the input's EN_SETFOCUS changes
+                // the reading mode. Preserve mouse selections even when the
+                // source has not changed and the next refresh is a no-op.
+                capture_vt_reading_position();
+            }
             if control_id == search_bar::ID_QUERY && notification == 0x300 {
                 if !SEARCH_UI_SYNC.get() && search_active() {
                     change_search_query(hwnd);
@@ -984,28 +1136,57 @@ unsafe extern "system" fn window_proc(
                         if !active.search_focus {
                             active.focus_in_reader =
                                 ![ID_INPUT, ID_DIRECT_INPUT].contains(&control_id);
+                            if active.direct_input {
+                                active.reading = active.focus_in_reader;
+                                if !active.focus_in_reader {
+                                    active.set_answers_view(false);
+                                }
+                            }
                         }
-                        if control_id != ID_DIRECT_INPUT {
-                            active.terminal_capture = false;
-                        } else {
-                            // Returning to the terminal is enough to resume
-                            // normal TUI input, including Tab completion.
-                            active.terminal_capture = true;
-                        }
+                        active.terminal_capture = active.direct_input
+                            && [ID_INPUT, ID_DIRECT_INPUT].contains(&control_id);
                     }
                 });
                 if control_id == ID_VT_OUTPUT {
-                    update_vt_output(false);
-                    if search_active() {
-                        reveal_search_result(hwnd, false);
+                    // A mouse-down focuses RichEdit before it places the caret.
+                    // Let that gesture finish in the visible physical layout;
+                    // the next poll maps its selection into the source document.
+                    if !VT_DISPLAY_KEY.get().is_some_and(|(_, _, _, visual)| visual) {
+                        update_vt_output(false);
+                        if search_active() {
+                            reveal_search_result(hwnd, false);
+                        }
                     }
                 } else if control_id == search_bar::ID_QUERY {
                     schedule_search_feedback();
-                } else if control_id == ID_DIRECT_INPUT {
+                } else if [ID_INPUT, ID_DIRECT_INPUT].contains(&control_id) && direct_input_active()
+                {
+                    VT_RESTORE_PENDING.set(true);
+                    update_vt_output(false);
                     update_direct_output(true);
                 }
             }
-            if control_id == ID_DIRECT_INPUT && notification == 0x200 {
+            if control_id == ID_SUGGESTIONS {
+                // LBN_SETFOCUS. The list never chooses or confirms a TUI item;
+                // its selection is replaced only by a source-acknowledged frame.
+                if notification == 4 {
+                    SESSIONS.with(|sessions| {
+                        if let Some(active) = sessions.borrow_mut().active_mut() {
+                            if active.direct_input {
+                                active.reading = false;
+                                active.set_answers_view(false);
+                                active.focus_in_reader = false;
+                                active.terminal_capture = true;
+                            }
+                        }
+                    });
+                }
+                return LRESULT(0);
+            }
+            if control_id == ID_DIRECT_INPUT
+                && notification == 0x200
+                && GetFocus() != controls().terminal
+            {
                 release_terminal_capture();
             }
             if notification != BN_CLICKED as usize {
@@ -1043,6 +1224,21 @@ unsafe extern "system" fn window_proc(
                     toggle_input_mode(hwnd);
                     LRESULT(0)
                 }
+                MENU_LAST_ANSWER | MENU_PREVIOUS_ANSWER | MENU_NEXT_ANSWER => {
+                    let direction = match control_id {
+                        MENU_PREVIOUS_ANSWER => Some(true),
+                        MENU_NEXT_ANSWER => Some(false),
+                        _ => None,
+                    };
+                    if !navigate_answer(hwnd, direction) {
+                        announce("Сохранённых блоков вывода пока нет");
+                    }
+                    LRESULT(0)
+                }
+                MENU_CLEAR_ANSWERS => {
+                    clear_answer_history(hwnd);
+                    LRESULT(0)
+                }
                 MENU_HELP => {
                     release_terminal_capture();
                     if let Err(error) = help::show(hwnd) {
@@ -1072,6 +1268,10 @@ unsafe extern "system" fn window_proc(
                 }
                 MENU_SSH_PROFILES => {
                     show_ssh_profiles(hwnd);
+                    LRESULT(0)
+                }
+                MENU_LAUNCH_PROFILES => {
+                    show_launch_profiles(hwnd);
                     LRESULT(0)
                 }
                 MENU_SECRET_INPUT => {
@@ -1217,7 +1417,7 @@ unsafe extern "system" fn terminal_window_proc(
             } else {
                 let mut rect = RECT::default();
                 let _ = GetClientRect(hwnd, &mut rect);
-                FillRect(hdc, &rect, theme().terminal);
+                background::paint(hdc, rect, rect, background::Surface::Terminal, &theme());
             }
             let _ = EndPaint(hwnd, &paint);
             LRESULT(0)
@@ -1229,12 +1429,6 @@ unsafe extern "system" fn terminal_window_proc(
             0x0081
         }),
         WM_SETFOCUS | WM_KILLFOCUS => {
-            if message == WM_SETFOCUS && direct_input_active() && !reading_active() {
-                // The visual canvas is not a second text/input target.
-                let _ = SetFocus(Some(controls().direct_input));
-                let _ = InvalidateRect(Some(hwnd), None, false);
-                return LRESULT(0);
-            }
             if message == WM_KILLFOCUS && HWND(wparam.0 as *mut c_void) != controls().direct_input {
                 release_terminal_capture();
             } else if message == WM_SETFOCUS {
@@ -1242,8 +1436,12 @@ unsafe extern "system" fn terminal_window_proc(
                     if let Some(active) = sessions.borrow_mut().active_mut() {
                         active.search_focus = false;
                         active.focus_in_reader = false;
+                        if active.direct_input && !active.reading {
+                            active.terminal_capture = true;
+                        }
                     }
                 });
+                update_direct_output(true);
             }
             let _ = InvalidateRect(Some(hwnd), None, false);
             LRESULT(0)
@@ -1253,7 +1451,7 @@ unsafe extern "system" fn terminal_window_proc(
             let y = (lparam.0 >> 16) as u16 as i16 as i32;
             if message == WM_LBUTTONDOWN {
                 let _ = SetFocus(Some(if direct_input_active() && !reading_active() {
-                    controls().direct_input
+                    controls().terminal
                 } else {
                     hwnd
                 }));
@@ -1306,6 +1504,13 @@ unsafe extern "system" fn direct_surface_proc(
     _data: usize,
 ) -> LRESULT {
     match message {
+        WM_SETFOCUS if direct_input_active() && !reading_active() => {
+            // This readonly companion retains TextPattern, colors and caret
+            // coordinates. Raw keys belong to the terminal surface: focusing
+            // an EDIT also installs NVDA's native caret-reading gestures.
+            let _ = SetFocus(Some(controls().terminal));
+            LRESULT(0)
+        }
         WM_SETREDRAW => {
             // The provider never paints. Keep WS_VISIBLE and its accessibility
             // object stable; only the separate canvas owns visible pixels.
@@ -1322,7 +1527,13 @@ unsafe extern "system" fn direct_surface_proc(
         WM_GETDLGCODE | WM_LBUTTONDOWN | WM_MOUSEMOVE | WM_LBUTTONUP | WM_MOUSEWHEEL | WM_COPY => {
             terminal_window_proc(hwnd, message, wparam, lparam)
         }
-        WM_SETFOCUS | WM_SIZE | WM_SETFONT | EM_SETSEL | EM_REPLACESEL | EM_SCROLLCARET => {
+        WM_SETFOCUS
+        | WM_SIZE
+        | WM_SETFONT
+        | EM_SETSEL
+        | windows::Win32::UI::Controls::RichEdit::EM_EXSETSEL
+        | EM_REPLACESEL
+        | EM_SCROLLCARET => {
             let result = DefSubclassProc(hwnd, message, wparam, lparam);
             // Native scrolling/caret updates remain available to the standard
             // provider, while the canvas above it keeps its own VT coordinates.
@@ -1335,6 +1546,77 @@ unsafe extern "system" fn direct_surface_proc(
         }
         _ => DefSubclassProc(hwnd, message, wparam, lparam),
     }
+}
+
+/// Both the shared field and its completion popup display confirmed source
+/// state. Posted keys use the message loop; direct native messages use this
+/// same route. Neither control performs speculative edits or typeahead.
+unsafe extern "system" fn shared_input_proc(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    id: usize,
+    _data: usize,
+) -> LRESULT {
+    if id == ID_INPUT && matches!(message, WM_SETFOCUS | WM_KILLFOCUS) {
+        if let Ok(parent) = GetParent(hwnd) {
+            let _ = InvalidateRect(Some(parent), None, false);
+        }
+    }
+    if direct_input_active() {
+        if matches!(
+            message,
+            WM_KEYDOWN
+                | WM_SYSKEYDOWN
+                | WM_CHAR
+                | WM_SYSCHAR
+                | windows::Win32::UI::WindowsAndMessaging::WM_PASTE
+        ) && (!direct_input_has_focus() || GetFocus() != hwnd)
+        {
+            // Events already queued on the old composer/list must not leak
+            // into PTY after the user moved to reading, search or a dialog.
+            return LRESULT(0);
+        }
+        match message {
+            WM_KEYDOWN | WM_SYSKEYDOWN => {
+                if hwnd == controls().input
+                    && keyboard_navigation::starts_text_selection(
+                        wparam.0,
+                        GetKeyState(VK_SHIFT.0 as i32) < 0,
+                        GetKeyState(VK_MENU.0 as i32) < 0,
+                    )
+                {
+                    return DefSubclassProc(hwnd, message, wparam, lparam);
+                }
+                if handle_direct_key(wparam.0, lparam.0) || hwnd == controls().suggestions {
+                    return LRESULT(0);
+                }
+            }
+            WM_CHAR | WM_SYSCHAR => {
+                handle_direct_char(wparam.0 as u16);
+                return LRESULT(0);
+            }
+            windows::Win32::UI::WindowsAndMessaging::WM_PASTE => {
+                paste_terminal();
+                return LRESULT(0);
+            }
+            windows::Win32::UI::WindowsAndMessaging::WM_CUT
+            | windows::Win32::UI::WindowsAndMessaging::WM_CLEAR
+            | windows::Win32::UI::WindowsAndMessaging::WM_UNDO => return LRESULT(0),
+            WM_LBUTTONDOWN | WM_LBUTTONUP if hwnd == controls().suggestions => {
+                // Mouse selection cannot be translated into an arbitrary
+                // number of CLI keys. Keep the actual source selection.
+                let _ = SetFocus(Some(hwnd));
+                return LRESULT(0);
+            }
+            _ => {}
+        }
+    }
+    if message == WM_NCDESTROY {
+        let _ = RemoveWindowSubclass(hwnd, Some(shared_input_proc), id);
+    }
+    DefSubclassProc(hwnd, message, wparam, lparam)
 }
 
 fn invalidate_terminal() {
@@ -1385,6 +1667,7 @@ fn paste_terminal() {
 }
 
 fn create_controls(parent: HWND) -> Result<()> {
+    accessible_text::load()?;
     let module = unsafe { GetModuleHandleW(None)? };
     let instance = HINSTANCE(module.0);
     let new_controls = Controls {
@@ -1411,7 +1694,7 @@ fn create_controls(parent: HWND) -> Result<()> {
             )?;
             create_control(
             WINDOW_EX_STYLE::default(),
-            w!("EDIT"),
+            w!("RICHEDIT50W"),
             w!("Запуск PowerShell...\r\nAlt+Up/Down — результаты команд, Ctrl+Shift+C — копировать результат.\r\n"),
             WS_CHILD
                 | WS_VISIBLE
@@ -1427,7 +1710,7 @@ fn create_controls(parent: HWND) -> Result<()> {
             WINDOW_EX_STYLE::default(),
             w!("BksTerminalSurface"),
             w!("Терминал; Ctrl+Shift+Space — журнал чтения; F1 — справка"),
-            WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+            WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_TABSTOP,
             parent,
             Some(ID_TERMINAL),
             instance,
@@ -1444,7 +1727,7 @@ fn create_controls(parent: HWND) -> Result<()> {
             )?;
             create_control(
                 WINDOW_EX_STYLE::default(),
-                w!("EDIT"),
+                w!("RICHEDIT50W"),
                 w!(""),
                 WS_CHILD
                     | WS_TABSTOP
@@ -1467,11 +1750,10 @@ fn create_controls(parent: HWND) -> Result<()> {
             )?;
             create_control(
                 WINDOW_EX_STYLE::default(),
-                w!("EDIT"),
+                w!("RICHEDIT50W"),
                 w!(""),
                 WS_CHILD
                     | WS_CLIPSIBLINGS
-                    | WS_TABSTOP
                     | WINDOW_STYLE((ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY) as u32),
                 parent,
                 Some(ID_DIRECT_INPUT),
@@ -1483,7 +1765,7 @@ fn create_controls(parent: HWND) -> Result<()> {
             WINDOW_EX_STYLE::default(),
             w!("STATIC"),
             w!("Команда (Enter — выполнить, Shift+Enter — новая строка)"),
-            WS_CHILD | WS_VISIBLE,
+            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_OWNERDRAW.0),
             parent,
             None,
             instance,
@@ -1501,6 +1783,13 @@ fn create_controls(parent: HWND) -> Result<()> {
             Some(ID_INPUT),
             instance,
         )?,
+        suggestions: {
+            let suggestions =
+                tui_suggestions::Suggestions::create(parent, instance, ID_SUGGESTIONS)?;
+            let hwnd = suggestions.hwnd;
+            SUGGESTIONS.with(|control| *control.borrow_mut() = Some(suggestions));
+            hwnd
+        },
         append: create_control(
             WINDOW_EX_STYLE::default(),
             w!("BUTTON"),
@@ -1508,6 +1797,15 @@ fn create_controls(parent: HWND) -> Result<()> {
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_OWNERDRAW as u32),
             parent,
             Some(ID_APPEND),
+            instance,
+        )?,
+        turn_status: create_control(
+            WINDOW_EX_STYLE::default(),
+            w!("STATIC"),
+            w!(""),
+            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_OWNERDRAW.0),
+            parent,
+            Some(ID_TURN_STATUS),
             instance,
         )?,
         status_connection: create_control(
@@ -1523,7 +1821,7 @@ fn create_controls(parent: HWND) -> Result<()> {
             WINDOW_EX_STYLE::default(),
             w!("STATIC"),
             w!("UTF-8"),
-            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_CENTERIMAGE.0),
+            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_OWNERDRAW.0),
             parent,
             Some(ID_STATUS_ENCODING),
             instance,
@@ -1532,7 +1830,7 @@ fn create_controls(parent: HWND) -> Result<()> {
             WINDOW_EX_STYLE::default(),
             w!("STATIC"),
             w!(""),
-            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_CENTERIMAGE.0),
+            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_OWNERDRAW.0),
             parent,
             Some(ID_STATUS_SIZE),
             instance,
@@ -1624,7 +1922,37 @@ fn create_controls(parent: HWND) -> Result<()> {
         new_controls.terminal,
         "Терминал, прямой ввод. Ctrl+Shift+Space — журнал чтения, F1 — справка",
     )?;
+    for control in [
+        new_controls.output,
+        new_controls.vt_output,
+        new_controls.direct_input,
+    ] {
+        let source = window_text(control);
+        accessible_text::register(control, &source)?;
+    }
+    for control in [new_controls.output, new_controls.vt_output] {
+        terminal_glass::attach(control)?;
+    }
+    terminal_glass::attach_edit(new_controls.input)?;
+    for control in [
+        new_controls.output,
+        new_controls.vt_output,
+        new_controls.input,
+    ] {
+        styled_scrollbar::attach(control)?;
+    }
     set_accessible_name(new_controls.input, "Команда")?;
+    set_accessible_name(new_controls.suggestions, "Подсказки TUI")?;
+    unsafe {
+        for (control, id) in [
+            (new_controls.input, ID_INPUT),
+            (new_controls.suggestions, ID_SUGGESTIONS),
+        ] {
+            if !SetWindowSubclass(control, Some(shared_input_proc), id, 0).as_bool() {
+                return Err(Error::from_thread());
+            }
+        }
+    }
     set_accessible_name(new_controls.session_header, "Вкладки терминала")?;
     set_accessible_name(new_controls.sidebar_toggle, "Свернуть боковую панель")?;
     set_accessible_name(new_controls.sidebar_terminals, "Терминалы, выбрано")?;
@@ -1657,18 +1985,15 @@ fn create_controls(parent: HWND) -> Result<()> {
             None,
         );
         apply_fonts();
-        let _ = SetWindowTheme(new_controls.output, w!("DarkMode_Explorer"), PCWSTR::null());
-        let _ = SetWindowTheme(
-            new_controls.vt_output,
-            w!("DarkMode_Explorer"),
-            PCWSTR::null(),
-        );
-        let _ = SetWindowTheme(new_controls.input, w!("DarkMode_Explorer"), PCWSTR::null());
-        let _ = SetWindowTheme(
-            new_controls.direct_input,
-            w!("DarkMode_Explorer"),
-            PCWSTR::null(),
-        );
+    }
+    for control in [
+        new_controls.input,
+        new_controls.output,
+        new_controls.vt_output,
+        new_controls.direct_input,
+        new_controls.search.query,
+    ] {
+        ui_menu::attach_edit(control);
     }
     Ok(())
 }
@@ -1705,10 +2030,14 @@ fn create_control(
 }
 
 fn apply_dark_title(hwnd: HWND) {
-    if theme().high_contrast {
-        return;
+    backdrop::apply(
+        hwnd,
+        theme().high_contrast || SETTINGS.with(|settings| settings.borrow().disable_transparency),
+    );
+    for control in [controls().output, controls().vt_output, controls().input] {
+        terminal_glass::refresh(control);
     }
-    let dark = 1_u32;
+    let dark = u32::from(!theme().high_contrast);
     unsafe {
         let _ = DwmSetWindowAttribute(
             hwnd,
@@ -1722,13 +2051,53 @@ fn apply_dark_title(hwnd: HWND) {
             &DWMWCP_ROUND as *const _ as *const c_void,
             std::mem::size_of_val(&DWMWCP_ROUND) as u32,
         );
-        let border = theme().colors.selected;
+        let border = if theme().high_contrast {
+            COLORREF(0xffff_ffff)
+        } else {
+            theme::BORDER
+        };
         let _ = DwmSetWindowAttribute(
             hwnd,
             DWMWA_BORDER_COLOR,
             &border as *const _ as *const c_void,
             std::mem::size_of_val(&border) as u32,
         );
+    }
+}
+
+fn refresh_appearance(hwnd: HWND) {
+    let next = Theme::new(current_dpi());
+    let previous = THEME.with(|current| current.replace(next));
+    SESSIONS.with(|sessions| {
+        for session in &mut sessions.borrow_mut().sessions {
+            ansi_palette::configure_terminal(&mut session.terminal, &next);
+        }
+    });
+    apply_fonts();
+    profile_editor::release_theme(previous);
+    apply_dark_title(hwnd);
+    refresh_layout(hwnd);
+    unsafe {
+        let _ = windows::Win32::Graphics::Gdi::RedrawWindow(
+            Some(hwnd),
+            None,
+            None,
+            windows::Win32::Graphics::Gdi::RDW_INVALIDATE
+                | windows::Win32::Graphics::Gdi::RDW_ALLCHILDREN
+                | windows::Win32::Graphics::Gdi::RDW_ERASE
+                | windows::Win32::Graphics::Gdi::RDW_FRAME,
+        );
+    }
+    update_direct_output(true);
+    update_vt_output(true);
+    let styles = SESSIONS.with(|sessions| {
+        sessions
+            .borrow()
+            .active()
+            .map(|active| active.journal_styles().to_vec())
+    });
+    if let Some(styles) = styles {
+        format_accessible(controls().output, &styles);
     }
 }
 
@@ -1756,6 +2125,20 @@ fn apply_fonts() {
     let theme = theme();
     controls().search.apply_font(theme.ui_font);
     unsafe {
+        // Tabs persist across settings changes; update their borrowed font
+        // before releasing the previous Theme's GDI resources.
+        TAB_CONTROLS.with(|tabs| {
+            for tab in tabs.borrow().iter() {
+                for control in [tab.tab, tab.close] {
+                    SendMessageW(
+                        control,
+                        WM_SETFONT,
+                        Some(WPARAM(theme.ui_font.0 as usize)),
+                        Some(LPARAM(1)),
+                    );
+                }
+            }
+        });
         for control in [
             controls().session_header,
             controls().input_label,
@@ -1763,6 +2146,7 @@ fn apply_fonts() {
             controls().status_connection,
             controls().status_encoding,
             controls().status_size,
+            controls().turn_status,
             controls().announcement.hwnd,
             controls().sidebar_toggle,
             controls().sidebar_terminals,
@@ -1775,7 +2159,21 @@ fn apply_fonts() {
             SendMessageW(
                 control,
                 WM_SETFONT,
-                Some(WPARAM(theme.ui_font.0 as usize)),
+                Some(WPARAM(
+                    if [
+                        controls().status_connection,
+                        controls().status_encoding,
+                        controls().status_size,
+                        controls().turn_status,
+                        controls().announcement.hwnd,
+                    ]
+                    .contains(&control)
+                    {
+                        theme.status_font.0 as usize
+                    } else {
+                        theme.ui_font.0 as usize
+                    },
+                )),
                 Some(LPARAM(1)),
             );
         }
@@ -1783,8 +2181,18 @@ fn apply_fonts() {
             controls().output,
             controls().vt_output,
             controls().input,
+            controls().suggestions,
             controls().direct_input,
         ] {
+            let _ = SetWindowTheme(
+                control,
+                if theme.high_contrast {
+                    PCWSTR::null()
+                } else {
+                    w!("DarkMode_Explorer")
+                },
+                PCWSTR::null(),
+            );
             SendMessageW(
                 control,
                 WM_SETFONT,
@@ -1801,6 +2209,33 @@ fn paint_shell(hwnd: HWND) {
     unsafe {
         let hdc = BeginPaint(hwnd, &mut paint);
         let _ = GetClientRect(hwnd, &mut client);
+        // RichEdit's transparent style changes native paint ordering. These
+        // controls publish complete BGRA surfaces themselves, including their
+        // scrollbar, so a later parent paint must never cover those pixels.
+        for control in [controls().output, controls().vt_output, controls().input] {
+            if IsWindowVisible(control).as_bool() {
+                let mut child = RECT::default();
+                if windows::Win32::UI::WindowsAndMessaging::GetWindowRect(control, &mut child)
+                    .is_ok()
+                {
+                    let mut origin = POINT {
+                        x: child.left,
+                        y: child.top,
+                    };
+                    if windows::Win32::Graphics::Gdi::ScreenToClient(hwnd, &mut origin).as_bool() {
+                        windows::Win32::Graphics::Gdi::ExcludeClipRect(
+                            hdc,
+                            origin.x,
+                            origin.y,
+                            origin.x + child.right - child.left,
+                            origin.y + child.bottom - child.top,
+                        );
+                    }
+                }
+            }
+        }
+        let buffer = glass_buffer::GlassBuffer::new(hdc, client);
+        let hdc = buffer.as_ref().map_or(hdc, |buffer| buffer.hdc());
         let width = client.right - client.left;
         let height = client.bottom - client.top;
         let shell_layout = layout::calculate(
@@ -1810,7 +2245,7 @@ fn paint_shell(hwnd: HWND) {
             sidebar_expanded_for_width(width),
         );
         let sidebar = native_rect(shell_layout.sidebar);
-        FillRect(hdc, &client, theme().terminal);
+        background::paint(hdc, client, client, background::Surface::Terminal, &theme());
         draw_title_bar(
             hdc,
             native_rect(shell_layout.title_bar),
@@ -1838,8 +2273,26 @@ fn paint_shell(hwnd: HWND) {
             &theme(),
         );
         FillRect(hdc, &sidebar_border, theme().border_subtle);
-        FillRect(hdc, &status_rect, theme().surface);
+        background::paint(
+            hdc,
+            status_rect,
+            status_rect,
+            background::Surface::Status,
+            &theme(),
+        );
         FillRect(hdc, &status_border, theme().border_subtle);
+        if IsWindowVisible(controls().input).as_bool() {
+            shell::draw_input_frame(
+                hdc,
+                native_rect(shell_layout.input),
+                &theme(),
+                current_dpi(),
+                GetFocus() == controls().input,
+            );
+        }
+        if let Some(buffer) = buffer {
+            buffer.finish();
+        }
         let _ = EndPaint(hwnd, &paint);
     }
 }
@@ -1898,7 +2351,10 @@ fn layout_controls(width: i32, height: i32) {
             selection,
             reader_viewport_offset(controls.output),
             selection.0 == selection.1
-                && selection.1 == unsafe { GetWindowTextLengthW(controls.output).max(0) as u32 }
+                && selection.1
+                    == accessible_text::length(controls.output).unwrap_or_else(|| unsafe {
+                        GetWindowTextLengthW(controls.output).max(0) as u32
+                    })
                 && reader_at_bottom(controls.output),
         ))
     };
@@ -1906,15 +2362,16 @@ fn layout_controls(width: i32, height: i32) {
     let expanded = sidebar_expanded_for_width(width);
     let direct_input = direct_input_active();
     let layout = layout::calculate(width, height, dpi, expanded);
-    let mut output_rect = layout.output;
-    // Both views share one area and the same PTY dimensions. Switching to
-    // reading never resizes the application or introduces a second input box.
-    // The hidden VT has the same dimensions in command and TUI modes. A
-    // handoff must not make ConPTY replay the old screen into the journal.
-    let mut terminal_rect = layout::terminal_area(&layout);
-    if direct_input {
-        output_rect = terminal_rect;
+    unsafe {
+        if let Ok(parent) = GetParent(controls.input) {
+            backdrop::extend(parent);
+        }
     }
+    let mut output_rect = layout.output;
+    // ConPTY keeps one geometry across handoff. The native output reserves
+    // the same shared editor in both modes; projected composer rows no longer
+    // occupy the upper output document.
+    let terminal_rect = layout::terminal_area(&layout);
     let search_open = search_active();
     if search_open {
         let height = dpi::scale(search_bar::HEIGHT_DIP, dpi).min(output_rect.height);
@@ -1928,8 +2385,6 @@ fn layout_controls(width: i32, height: i32) {
         );
         output_rect.y += height;
         output_rect.height -= height;
-        terminal_rect.y += height;
-        terminal_rect.height = (terminal_rect.height - height).max(0);
     } else {
         controls.search.show(false);
     }
@@ -1954,6 +2409,19 @@ fn layout_controls(width: i32, height: i32) {
         ] {
             move_rect(control, rect);
         }
+        let input_padding = dpi::scale(10, dpi).min(layout.input.width / 4);
+        let text_rect = RECT {
+            left: input_padding,
+            top: dpi::scale(4, dpi),
+            right: layout.input.width - input_padding,
+            bottom: (layout.input.height - dpi::scale(4, dpi)).max(dpi::scale(4, dpi)),
+        };
+        SendMessageW(
+            controls.input,
+            EM_SETRECT,
+            None,
+            Some(LPARAM((&text_rect as *const RECT) as isize)),
+        );
         for (index, control) in [controls.minimize, controls.maximize, controls.close_window]
             .iter()
             .enumerate()
@@ -1993,9 +2461,10 @@ fn layout_controls(width: i32, height: i32) {
         );
         let status_available =
             (layout.status_bar.width - 2 * status_inset - size_width - encoding_width).max(0);
-        let announcement_w = (status_available / 2).min(dpi::scale(280, dpi));
+        let activity_w = (status_available / 3).min(dpi::scale(220, dpi));
+        let announcement_w = (status_available / 3).min(dpi::scale(220, dpi));
         let gap = dpi::scale(8, dpi).min(status_available.saturating_sub(announcement_w));
-        let connection_w = status_available - announcement_w - gap;
+        let connection_w = (status_available - activity_w - announcement_w - 2 * gap).max(0);
         let _ = MoveWindow(
             controls.status_connection,
             layout.status_bar.x + status_inset,
@@ -2005,8 +2474,16 @@ fn layout_controls(width: i32, height: i32) {
             true,
         );
         let _ = MoveWindow(
-            controls.announcement.hwnd,
+            controls.turn_status,
             layout.status_bar.x + status_inset + connection_w + gap,
+            layout.status_bar.y + 1,
+            activity_w,
+            (layout.status_bar.height - 1).max(0),
+            true,
+        );
+        let _ = MoveWindow(
+            controls.announcement.hwnd,
+            layout.status_bar.x + status_inset + connection_w + activity_w + 2 * gap,
             layout.status_bar.y + 1,
             announcement_w,
             (layout.status_bar.height - 1).max(0),
@@ -2028,21 +2505,13 @@ fn layout_controls(width: i32, height: i32) {
             (layout.status_bar.height - 1).max(0),
             true,
         );
-        for control in [controls.input, controls.append] {
-            let _ = ShowWindow(control, if direct_input { SW_HIDE } else { SW_SHOW });
+        for control in [controls.input, controls.append, controls.input_label] {
+            let _ = ShowWindow(control, SW_SHOW);
         }
-        let direct_visible = direct_input && !reading_active();
-        let _ = ShowWindow(
-            controls.direct_input,
-            if direct_visible { SW_SHOW } else { SW_HIDE },
-        );
-        let _ = ShowWindow(
-            controls.input_label,
-            if !direct_input { SW_SHOW } else { SW_HIDE },
-        );
+        let _ = ShowWindow(controls.direct_input, SW_HIDE);
         let _ = ShowWindow(
             controls.output,
-            if reading_active() && !vt_reading_active() {
+            if reading_active() && !vt_reading_active() && !direct_input {
                 SW_SHOW
             } else {
                 SW_HIDE
@@ -2050,7 +2519,7 @@ fn layout_controls(width: i32, height: i32) {
         );
         let _ = ShowWindow(
             controls.vt_output,
-            if reading_active() && vt_reading_active() {
+            if direct_input || (reading_active() && vt_reading_active()) {
                 SW_SHOW
             } else {
                 SW_HIDE
@@ -2058,23 +2527,14 @@ fn layout_controls(width: i32, height: i32) {
         );
         let _ = ShowWindow(
             controls.terminal,
-            if reading_active() { SW_HIDE } else { SW_SHOW },
+            if reading_active() || direct_input {
+                SW_HIDE
+            } else {
+                SW_SHOW
+            },
         );
-        if direct_visible {
-            // Cover the text provider without hiding it or taking its focus.
-            // WS_CLIPSIBLINGS excludes this area from native EDIT drawing DCs.
-            let _ = SetWindowPos(
-                controls.terminal,
-                Some(HWND_TOP),
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-            );
-        }
         let hint = if direct_input {
-            "Прямой ввод · Ctrl+Shift+Space — читать экран · F1 — справка"
+            "Ввод TUI · клавиши передаются приложению"
         } else if expanded {
             "Команда · Enter — выполнить, Shift+Enter — новая строка"
         } else {
@@ -2089,12 +2549,14 @@ fn layout_controls(width: i32, height: i32) {
     }
     update_sidebar_toggle_name(expanded);
     update_mode_controls();
+    sync_shared_input_mode();
     resize_active_terminal();
     if let Some((selection, viewport, follow)) = journal_view {
         restore_native_reading(controls.output, selection, viewport, follow);
     }
     update_vt_output(false);
     update_direct_output(false);
+    layout_suggestions();
     refresh_search();
 }
 
@@ -2157,10 +2619,10 @@ fn reading_active() -> bool {
 }
 
 fn active_display() -> HWND {
-    if reading_active() {
+    if direct_input_active() {
+        controls().vt_output
+    } else if reading_active() {
         reading_control()
-    } else if direct_input_active() {
-        controls().direct_input
     } else {
         controls().terminal
     }
@@ -2171,12 +2633,12 @@ fn vt_reading_active() -> bool {
         sessions
             .borrow()
             .active()
-            .is_some_and(|active| active.vt_reading)
+            .is_some_and(|active| active.direct_input || active.vt_reading)
     })
 }
 
 fn reading_control() -> HWND {
-    if vt_reading_active() {
+    if direct_input_active() || vt_reading_active() {
         controls().vt_output
     } else {
         controls().output
@@ -2306,12 +2768,11 @@ fn refresh_search() {
         let Some(active) = sessions.active_mut() else {
             return false;
         };
-        if !active.search_open
-            || active.search.document_revision() == Some(active.terminal.reading_revision())
+        if !active.search_open || active.search.document_revision() == Some(active.display_key().0)
         {
             return false;
         }
-        let document = active.reading_document_snapshot();
+        let document = active.display_document_snapshot();
         let changed = active.search.refresh(&document);
         if changed {
             active.search_wrapped = None;
@@ -2339,6 +2800,7 @@ fn open_search(hwnd: HWND) {
                 reading: active.reading,
                 vt_reading: active.vt_reading,
                 focus_in_reader: active.focus_in_reader,
+                answers_view: active.answers_view,
             });
         }
         active.search_open = true;
@@ -2392,6 +2854,7 @@ fn close_search(hwnd: HWND, restore_origin: bool) {
                 active.reading = origin.reading;
                 active.vt_reading = origin.vt_reading;
                 active.focus_in_reader = origin.focus_in_reader;
+                active.set_answers_view(origin.answers_view);
             }
         }
         origin
@@ -2416,7 +2879,7 @@ fn change_search_query(hwnd: HWND) {
     let query = window_text(controls().search.query);
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
-            let document = active.reading_document_snapshot();
+            let document = active.display_document_snapshot();
             active.search.set_query(query, &document);
             active.search_wrapped = None;
         }
@@ -2464,7 +2927,7 @@ fn reveal_search_result(hwnd: HWND, focus_reader: bool) {
         let mut sessions = sessions.borrow_mut();
         let active = sessions.active_mut()?;
         let found = active.search.current()?;
-        let document = active.reading_document_snapshot();
+        let document = active.display_document_snapshot();
         // Native selection endpoints must never split a surrogate or a
         // combining glyph even when the literal query matches only its base.
         let start = document
@@ -2481,7 +2944,9 @@ fn reveal_search_result(hwnd: HWND, focus_reader: bool) {
         }
         active.terminal_capture = false;
         active.screen_selection = None;
-        active.terminal.scroll_to_reading_offset(start);
+        if !active.answers_view && !active.direct_input {
+            active.terminal.scroll_to_reading_offset(start);
+        }
         Some((start, end, active.reading))
     });
     let Some((start, end, reading)) = result else {
@@ -2496,13 +2961,9 @@ fn reveal_search_result(hwnd: HWND, focus_reader: bool) {
             if focus_reader {
                 let _ = SetFocus(Some(controls().vt_output));
             }
-            if edit_selection(controls().vt_output) != (start, end) {
-                SendMessageW(
-                    controls().vt_output,
-                    EM_SETSEL,
-                    Some(WPARAM(start as usize)),
-                    Some(LPARAM(end as isize)),
-                );
+            let selection = (vt_visual_offset(start), vt_visual_offset(end));
+            if edit_selection(controls().vt_output) != selection {
+                accessible_text::select(controls().vt_output, selection.0, selection.1);
             }
             SendMessageW(controls().vt_output, EM_SCROLLCARET, None, None);
         }
@@ -2552,8 +3013,11 @@ fn input_focus_target() -> HWND {
     });
     if in_reader {
         reading_control()
-    } else if direct_input_active() {
-        controls().direct_input
+    } else if direct_input_active()
+        && !DIRECT_UI_SYNC.get()
+        && unsafe { IsWindowVisible(controls().suggestions).as_bool() }
+    {
+        controls().suggestions
     } else {
         controls().input
     }
@@ -2563,6 +3027,9 @@ fn set_reading(hwnd: HWND, reading: bool) {
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             active.reading = reading;
+            if !reading {
+                active.set_answers_view(false);
+            }
             active.focus_in_reader = reading;
             active.terminal_capture = false;
         }
@@ -2583,6 +3050,9 @@ fn toggle_reading_focus(hwnd: HWND) {
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             active.search_focus = false;
+            if leaving_reader {
+                active.set_answers_view(false);
+            }
             if !(leaving_reader && active.finish_cli_input()) {
                 active.focus_in_reader = !leaving_reader;
                 active.reading = !leaving_reader || !active.direct_input;
@@ -2613,13 +3083,11 @@ fn read_current_input() {
     let text = SESSIONS.with(|sessions| {
         let mut sessions = sessions.borrow_mut();
         let active = sessions.active_mut()?;
-        let mut frame = active.terminal.live_snapshot();
-        let confirmed = DIRECT_ECHO.with(|echo| echo.borrow().last_confirmed(&frame));
-        frame.cursor = direct_accessibility::reading_cursor(&frame, confirmed);
-        frame.cursor?;
-        let document = active.reading_document_snapshot();
-        let caret = direct_accessibility::cursor_offset(&document, &frame);
-        direct_accessibility::current_line(&document, caret)
+        active.reading_document();
+        active
+            .tui_composer
+            .as_ref()
+            .map(|composer| composer.text.clone())
     });
     match text {
         Some(text) if !text.is_empty() => announce(&text),
@@ -2630,8 +3098,8 @@ fn read_current_input() {
 
 fn navigate_vt_reading(hwnd: HWND, previous: bool) {
     poll_terminal();
-    let reader_position =
-        (reading_active() && vt_reading_active()).then(|| edit_selection(controls().vt_output).0);
+    let reader_position = (reading_active() && vt_reading_active())
+        .then(|| vt_source_offset(edit_selection(controls().vt_output).0));
     let source = SESSIONS.with(|sessions| {
         let mut sessions = sessions.borrow_mut();
         let active = sessions.active_mut()?;
@@ -2727,21 +3195,186 @@ fn begin_input_selection(hwnd: HWND) -> bool {
     true
 }
 
+fn clear_answer_history(hwnd: HWND) {
+    save_active_view();
+    SESSIONS.with(|sessions| {
+        if let Some(active) = sessions.borrow_mut().active_mut() {
+            active.turns.clear();
+            active.turn_speech.reset();
+            active.answer_cursor = None;
+            active.set_answers_view(false);
+            active.answer_state = reading_state::ReadingState::default();
+        }
+    });
+    VT_DISPLAY_KEY.set(None);
+    VT_RESTORE_PENDING.set(true);
+    refresh_layout(hwnd);
+    announce("Журнал вывода TUI очищен");
+}
+
+/// Request headings are local reader actions. No key or text from this path
+/// is written to the PTY; native selection and copying keep their usual path.
+fn handle_request_key(message: &MSG) -> bool {
+    if message.message != WM_KEYDOWN
+        || ![VK_RETURN.0 as usize, VK_SPACE.0 as usize].contains(&message.wParam.0)
+        || message.hwnd != controls().vt_output
+        || unsafe { GetFocus() } != controls().vt_output
+        || unsafe {
+            [VK_CONTROL, VK_MENU, VK_SHIFT]
+                .iter()
+                .any(|key| GetKeyState(key.0 as i32) < 0)
+        }
+        || !SESSIONS.with(|sessions| {
+            sessions
+                .borrow()
+                .active()
+                .is_some_and(|active| active.answers_view && active.reading)
+        })
+    {
+        return false;
+    }
+    // Bring the native caret and generated heading ranges to the same epoch
+    // before interpreting an action (retention can remove older requests).
+    update_vt_output(false);
+    if !SESSIONS.with(|sessions| {
+        sessions.borrow().active().is_some_and(|active| {
+            VT_DISPLAY_KEY.get() == Some((active.id, active.turns.revision(), true, false))
+        })
+    }) || !capture_vt_reading_position()
+    {
+        return false;
+    }
+    let selection = edit_selection(controls().vt_output);
+    let result = SESSIONS.with(|sessions| {
+        let mut sessions = sessions.borrow_mut();
+        let active = sessions.active_mut()?;
+        let header = active.turns.request_at(selection)?;
+        if message.lParam.0 & (1 << 30) != 0 {
+            return Some(None); // Held Enter/Space must not repeatedly toggle.
+        }
+        let header = active.turns.toggle_request(header.id)?;
+        let document = active.turns.document();
+        let restored = active.answer_state.restore(&document);
+        active.answer_state.capture(
+            &document,
+            (header.start, header.start),
+            restored.viewport_offset,
+            false,
+        );
+        active.answer_cursor = Some(header.id);
+        Some(Some(header.expanded))
+    });
+    match result {
+        Some(Some(expanded)) => {
+            VT_RESTORE_PENDING.set(true);
+            update_vt_output(true);
+            announce(if expanded {
+                "Ваш запрос развёрнут. Полный текст ниже"
+            } else {
+                "Ваш запрос свёрнут"
+            });
+            true
+        }
+        Some(None) => true,
+        None => false,
+    }
+}
+
+/// Open a retained output block. Model requests remain expandable; command
+/// results have a plain heading and never acquire an executable action.
+fn navigate_answer(hwnd: HWND, previous: Option<bool>) -> bool {
+    poll_terminal();
+    let target = SESSIONS.with(|sessions| {
+        let sessions = sessions.borrow();
+        let active = sessions.active()?;
+        match previous {
+            Some(previous) => active.turns.navigate_output(
+                if active.answers_view {
+                    active.answer_cursor
+                } else {
+                    None
+                },
+                previous,
+            ),
+            None => active.turns.latest_output(),
+        }
+    });
+    let Some(target) = target else {
+        let recognized = SESSIONS.with(|sessions| {
+            sessions
+                .borrow()
+                .active()
+                .is_some_and(|active| active.turns.has_semantic_turn())
+        });
+        if recognized {
+            announce("Ответ ещё не появился");
+        }
+        return recognized;
+    };
+    close_search(hwnd, false);
+    save_active_view();
+    SESSIONS.with(|sessions| {
+        if let Some(active) = sessions.borrow_mut().active_mut() {
+            active.set_answers_view(true);
+            active.answer_cursor = Some(target.id);
+            active.vt_reading = true;
+            active.reading = true;
+            active.focus_in_reader = true;
+            active.search_focus = false;
+            active.terminal_capture = false;
+            let document = active.turns.document();
+            active.answer_state.capture(
+                &document,
+                (target.start, target.start),
+                target.start,
+                false,
+            );
+        }
+    });
+    VT_RESTORE_PENDING.set(true);
+    VT_DISPLAY_KEY.set(None);
+    refresh_layout(hwnd);
+    update_vt_output(true);
+    unsafe {
+        let _ = SetFocus(Some(controls().vt_output));
+        SendMessageW(controls().vt_output, EM_SCROLLCARET, None, None);
+    }
+    let label = match target.kind {
+        tui_turns::OutputKind::Answer => "Ответ модели",
+        tui_turns::OutputKind::Command => "Вывод команды",
+    };
+    announce(&format!(
+        "{label}. Блок {} из {}{}",
+        target.number,
+        target.total,
+        if target.failed {
+            ". Завершено с ошибкой"
+        } else if target.complete {
+            ""
+        } else {
+            ". Незавершённый ответ"
+        }
+    ));
+    true
+}
+
 fn read_new_output(hwnd: HWND) {
     poll_terminal();
+    let use_answers = SESSIONS.with(|sessions| {
+        sessions
+            .borrow()
+            .active()
+            .is_some_and(|active| active.latest_output_uses_archive())
+    });
+    if use_answers && navigate_answer(hwnd, None) {
+        return;
+    }
+    close_search(hwnd, false);
     save_active_view();
     let first_line = SESSIONS.with(|sessions| {
         let mut sessions = sessions.borrow_mut();
         let active = sessions.active_mut()?;
-        let document = active.reading_document_snapshot();
-        // With no recognizable change, the current live page is still always
-        // available. It is never labeled as an assistant's semantic answer.
-        let live_start = document
-            .cells
-            .iter()
-            .find(|cell| cell.line >= 0)
-            .map_or(0, |cell| cell.start);
-        let start = active.reply_anchor.offset(&document).unwrap_or(live_start);
+        let (document, start) = active.source_output_for_reading();
         active.vt_reading = true;
         active.reading = true;
         active.focus_in_reader = true;
@@ -2755,6 +3388,7 @@ fn read_new_output(hwnd: HWND) {
         return;
     };
     VT_RESTORE_PENDING.set(true);
+    VT_DISPLAY_KEY.set(None);
     refresh_layout(hwnd);
     update_vt_output(true);
     unsafe {
@@ -2775,6 +3409,7 @@ fn select_reading_source(hwnd: HWND, vt: bool) {
     save_active_view();
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
+            active.set_answers_view(false);
             active.vt_reading = vt;
             active.reading = true;
             active.focus_in_reader = true;
@@ -2803,10 +3438,19 @@ fn terminal_capture_active() -> bool {
 fn direct_input_has_focus() -> bool {
     direct_input_active()
         && !reading_active()
-        && unsafe { [controls().direct_input, controls().terminal].contains(&GetFocus()) }
+        && unsafe {
+            [
+                controls().input,
+                controls().suggestions,
+                controls().direct_input,
+                controls().terminal,
+            ]
+            .contains(&GetFocus())
+        }
 }
 
 fn release_terminal_capture() {
+    MENU_INTENT.set(None);
     DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
     DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
     SESSIONS.with(|sessions| {
@@ -2831,6 +3475,7 @@ fn set_terminal_capture(hwnd: HWND, enable: bool) {
                 active.direct_input = true;
                 active.vt_reading = true;
                 active.reading = false;
+                active.set_answers_view(false);
                 active.focus_in_reader = false;
             }
         }
@@ -2864,11 +3509,8 @@ fn move_tab_focus(backwards: bool) {
         controls.search.previous,
         controls.search.next,
         controls.search.close,
-        if direct_input_active() && !reading_active() {
-            controls.direct_input
-        } else {
-            active_display()
-        },
+        active_display(),
+        controls.suggestions,
         controls.input,
         controls.append,
         controls.minimize,
@@ -2899,20 +3541,171 @@ fn update_mode_controls() {
     );
 }
 
+fn sync_shared_input_mode() {
+    let Some(_sync) = DirectUiSync::begin() else {
+        return;
+    };
+    let next = SESSIONS.with(|sessions| {
+        sessions
+            .borrow()
+            .active()
+            .map(|active| (active.id, active.direct_input))
+    });
+    let previous = SHARED_INPUT_MODE.replace(next);
+    if previous == next {
+        return;
+    }
+    if let (Some((old_id, true)), Some((id, false))) = (previous, next) {
+        if old_id == id {
+            SHARED_EXIT_FENCE.set(Some((id, unsafe {
+                windows::Win32::System::SystemInformation::GetTickCount()
+            })));
+        }
+    }
+    if let Some((id, true)) = next {
+        if previous == Some((id, false)) {
+            let draft = window_text(controls().input);
+            let selection = edit_selection(controls().input);
+            SESSIONS.with(|sessions| {
+                if let Some(active) = sessions
+                    .borrow_mut()
+                    .active_mut()
+                    .filter(|active| active.id == id)
+                {
+                    active.draft = draft;
+                    active.draft_selection = selection;
+                }
+            });
+        }
+        if unsafe { GetFocus() == controls().input } {
+            SESSIONS.with(|sessions| {
+                if let Some(active) = sessions.borrow_mut().active_mut() {
+                    if !active.reading && !active.search_focus {
+                        active.terminal_capture = true;
+                    }
+                }
+            });
+        }
+    }
+    SHARED_COMPOSER.with(|composer| *composer.borrow_mut() = None);
+    SHARED_SELECTION_EDIT.with(|edit| *edit.borrow_mut() = None);
+    VT_DISPLAY_KEY.set(None);
+    DIRECT_DOCUMENT.with(|document| *document.borrow_mut() = None);
+    MENU_INTENT.set(None);
+    SUGGESTIONS.with(|suggestions| {
+        if let Some(suggestions) = suggestions.borrow_mut().as_mut() {
+            suggestions.hide();
+            suggestions.clear();
+        }
+    });
+    let direct = next.is_some_and(|(_, direct)| direct);
+    let (text, selection) = if direct {
+        (String::new(), (0, 0))
+    } else {
+        SESSIONS.with(|sessions| {
+            sessions
+                .borrow()
+                .active()
+                .map(|active| (active.draft.clone(), active.draft_selection))
+                .unwrap_or_default()
+        })
+    };
+    unsafe {
+        SendMessageW(
+            controls().input,
+            windows::Win32::UI::Controls::EM_SETREADONLY,
+            Some(WPARAM(usize::from(direct))),
+            None,
+        );
+        let _ = SetWindowTextW(controls().input, PCWSTR(to_wide(&text).as_ptr()));
+        accessible_text::select(controls().input, selection.0, selection.1);
+        let _ = SetWindowTextW(
+            controls().append,
+            if direct {
+                w!("Отправить")
+            } else {
+                w!("Выполнить")
+            },
+        );
+    }
+    let _ = set_accessible_name(
+        controls().input,
+        if direct {
+            "Терминал — прямой ввод"
+        } else {
+            "Команда"
+        },
+    );
+}
+
+fn layout_suggestions() {
+    let hwnd = main_window();
+    let mut client = RECT::default();
+    unsafe {
+        let _ = GetClientRect(hwnd, &mut client);
+    }
+    let dpi = current_dpi();
+    let layout = layout::calculate(
+        client.right,
+        client.bottom,
+        dpi,
+        sidebar_expanded_for_width(client.right),
+    );
+    let visible =
+        direct_input_active() && unsafe { IsWindowVisible(controls().suggestions).as_bool() };
+    let count = if visible {
+        unsafe {
+            SendMessageW(
+                controls().suggestions,
+                windows::Win32::UI::WindowsAndMessaging::LB_GETCOUNT,
+                None,
+                None,
+            )
+            .0
+            .max(0) as i32
+        }
+    } else {
+        0
+    };
+    let height = (count.min(8) * dpi::scale(22, dpi)
+        + if visible { dpi::scale(4, dpi) } else { 0 })
+    .min((layout.output.height / 2).max(0));
+    if visible {
+        move_rect(
+            controls().suggestions,
+            layout::Rect {
+                x: layout.output.x,
+                y: layout.input_label.y - height,
+                width: layout.output.width,
+                height,
+            },
+        );
+    }
+    if direct_input_active() {
+        let mut output = layout.output;
+        if search_active() {
+            let search_height = dpi::scale(search_bar::HEIGHT_DIP, dpi).min(output.height);
+            output.y += search_height;
+            output.height -= search_height;
+        }
+        output.height = (output.height - height).max(0);
+        move_rect(controls().vt_output, output);
+    }
+}
+
 fn toggle_input_mode(hwnd: HWND) {
     close_search(hwnd, false);
     save_active_view();
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             active.direct_input = !active.direct_input;
+            active.set_answers_view(false);
             if !active.direct_input {
                 active.cancel_cli_input();
             }
-            if active.direct_input {
-                active.vt_reading = true;
-            }
+            active.vt_reading = active.direct_input;
             active.reading = !active.direct_input;
-            active.terminal_capture = false;
+            active.terminal_capture = active.direct_input;
             active.focus_in_reader = false;
         }
     });
@@ -2931,24 +3724,27 @@ fn toggle_input_mode(hwnd: HWND) {
 }
 
 fn resize_active_terminal() {
-    let output = controls().terminal;
+    let output = controls().vt_output;
     if output.0.is_null() {
         return;
     }
     let mut client = RECT::default();
     unsafe {
-        let _ = GetClientRect(output, &mut client);
+        let _ = GetClientRect(main_window(), &mut client);
     }
-    let (cell_width, cell_height) = terminal_view::cell_metrics(output, theme().terminal_font);
-    if cell_width <= 0
-        || cell_height <= 0
-        || client.right - client.left < cell_width * 2
-        || client.bottom - client.top < cell_height
-    {
+    let width = client.right - client.left;
+    let layout = layout::calculate(
+        width,
+        client.bottom - client.top,
+        current_dpi(),
+        sidebar_expanded_for_width(width),
+    );
+    let area = layout::terminal_area(&layout);
+    let size =
+        with_terminal_metrics(|metrics| metrics.grid_size(area.width, area.height)).flatten();
+    let Some((cols, rows)) = size else {
         return;
-    }
-    let cols = ((client.right - client.left) / cell_width).clamp(2, i16::MAX as i32) as u16;
-    let rows = ((client.bottom - client.top) / cell_height).clamp(1, i16::MAX as i32) as u16;
+    };
     let size = SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             let _ = active.resize(PtySize::new(cols, rows));
@@ -2969,6 +3765,21 @@ fn resize_active_terminal() {
     }
 }
 
+fn with_terminal_metrics<R>(action: impl FnOnce(&terminal_metrics::Metrics) -> R) -> Option<R> {
+    let font = theme().terminal_font;
+    TERMINAL_METRICS.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if cache.as_ref().is_none_or(|(stored, metrics)| {
+            *stored != font.0 as usize || metrics.dpi != current_dpi()
+        }) {
+            let metrics = terminal_metrics::measure(controls().vt_output, font).ok()?;
+            *cache = Some((font.0 as usize, metrics));
+            VT_RESTORE_PENDING.set(true);
+        }
+        cache.as_ref().map(|(_, metrics)| action(metrics))
+    })
+}
+
 fn create_session(hwnd: HWND, profile: &profile::Profile) {
     // An explicit user/session action supersedes an earlier deferred startup,
     // even if this new launch subsequently fails validation.
@@ -2985,7 +3796,19 @@ fn create_session(hwnd: HWND, profile: &profile::Profile) {
             .unwrap_or_default()
     });
     save_active_view();
-    let result = SESSIONS.with(|sessions| sessions.borrow_mut().create(profile, size));
+    let plan = match PROFILES.with(|profiles| launch_profile::resolve(&profiles.borrow(), profile))
+    {
+        Ok(plan) => plan,
+        Err(error) => {
+            report_terminal_error("Профиль не запущен", &error);
+            return;
+        }
+    };
+    let result = SESSIONS.with(|sessions| {
+        sessions
+            .borrow_mut()
+            .create_configured(profile, &plan, size)
+    });
     match result {
         Ok(_) => {
             remember_profile(profile);
@@ -3076,6 +3899,47 @@ fn finish_profile_edit() {
     }
 }
 
+fn show_launch_profiles(hwnd: HWND) {
+    refresh_profiles();
+    cancel_search_feedback();
+    release_terminal_capture();
+    let selected = SESSIONS.with(|sessions| {
+        sessions
+            .borrow()
+            .active()
+            .map(|active| active.profile_id.clone())
+    });
+    if let Err(error) = PROFILES
+        .with(|profiles| launch_profile_editor::show(hwnd, &profiles.borrow(), selected.as_deref()))
+    {
+        show_error("Не удалось открыть профили запуска", &error);
+    }
+}
+
+fn finish_launch_profile_edit() {
+    let Some(result) = launch_profile_editor::take_result() else {
+        return;
+    };
+    match ProfileManager::save_local_profiles(
+        &profiles_path(),
+        &result.baseline,
+        result.profiles.clone(),
+        result.default_shell_profile_id.clone(),
+    ) {
+        Ok(next) => {
+            PROFILES.with(|profiles| *profiles.borrow_mut() = next);
+            retain_runtime_cli_profile();
+            announce("Профили запуска и оболочка сохранены");
+        }
+        Err(error) => {
+            report_terminal_error("Профили запуска не сохранены", &error);
+            if let Err(error) = launch_profile_editor::restore_draft(main_window(), result) {
+                show_error("Не удалось восстановить черновик профилей", &error);
+            }
+        }
+    }
+}
+
 fn show_secret_input(hwnd: HWND) {
     cancel_search_feedback();
     release_terminal_capture();
@@ -3135,7 +3999,7 @@ fn close_session(hwnd: HWND, id: u64) {
             "Закрыть вкладку «{title}» ({profile_id}) и завершить её процесс?"
         ));
         let answer = unsafe {
-            MessageBoxW(
+            ui_message::show(
                 Some(hwnd),
                 PCWSTR(text.as_ptr()),
                 w!("Закрытие вкладки"),
@@ -3196,6 +4060,7 @@ fn refresh_layout(hwnd: HWND) {
 }
 
 fn save_active_view() {
+    MENU_INTENT.set(None);
     DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
     DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
     if tui_window::is_open() {
@@ -3207,13 +4072,17 @@ fn save_active_view() {
     let selection = output_selection();
     let first_visible = reader_viewport_offset(controls().output);
     let draft = window_text(controls().input);
+    let draft_selection = edit_selection(controls().input);
     let focus = unsafe { GetFocus() };
     let bar = controls().search;
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             active.selection = selection;
             active.first_visible_offset = first_visible;
-            active.draft = draft;
+            if !active.direct_input && SHARED_INPUT_MODE.get() == Some((active.id, false)) {
+                active.draft = draft;
+                active.draft_selection = draft_selection;
+            }
             active.search_focus = active.search_open
                 && [bar.query, bar.previous, bar.next, bar.close].contains(&focus);
             active.terminal_capture = false;
@@ -3222,6 +4091,7 @@ fn save_active_view() {
 }
 
 fn load_active_view() {
+    SHARED_INPUT_MODE.set(None);
     DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
     DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
     DIRECT_DOCUMENT.with(|document| *document.borrow_mut() = None);
@@ -3229,12 +4099,15 @@ fn load_active_view() {
     cancel_output_speech();
     VT_DISPLAY_KEY.set(None);
     VT_DISPLAY_DOCUMENT.with(|document| *document.borrow_mut() = None);
+    VT_DISPLAY_SURFACE.set(None);
+    VT_DISPLAY_SOURCE.with(|document| *document.borrow_mut() = None);
+    VT_DISPLAY_VISUAL.with(|document| *document.borrow_mut() = None);
     VT_RESTORE_PENDING.set(false);
     unsafe {
         let _ = ShowWindow(controls().vt_output, SW_HIDE);
-        let _ = SetWindowTextW(controls().vt_output, w!(""));
+        accessible_text::set_text(controls().vt_output, "");
         let _ = ShowWindow(controls().direct_input, SW_HIDE);
-        let _ = SetWindowTextW(controls().direct_input, w!(""));
+        accessible_text::set_text(controls().direct_input, "");
     }
     UTF16_ENCODER.with(|encoder| *encoder.borrow_mut() = Utf16Encoder::new());
     let (buffer, draft, selection, first_visible) = SESSIONS.with(|sessions| {
@@ -3243,6 +4116,7 @@ fn load_active_view() {
             .active_mut()
             .map(|active| {
                 active.take_journal_trim();
+                active.take_journal_reset();
                 (
                     active.buffer().to_owned(),
                     active.draft.clone(),
@@ -3257,17 +4131,14 @@ fn load_active_view() {
     invalidate_terminal();
     unsafe {
         let _ = SetWindowTextW(controls().input, PCWSTR(to_wide(&draft).as_ptr()));
-        SendMessageW(
-            controls().output,
-            EM_SETSEL,
-            Some(WPARAM(selection.0 as usize)),
-            Some(LPARAM(selection.1 as isize)),
-        );
+        accessible_text::select(controls().output, selection.0, selection.1);
         let current_first = SendMessageW(controls().output, EM_GETFIRSTVISIBLELINE, None, None).0;
         let target_first = SendMessageW(
             controls().output,
             EM_LINEFROMCHAR,
-            Some(WPARAM(first_visible as usize)),
+            Some(WPARAM(
+                accessible_text::native_offset(controls().output, first_visible) as usize,
+            )),
             None,
         )
         .0;
@@ -3282,6 +4153,8 @@ fn load_active_view() {
         VT_RESTORE_PENDING.set(true);
     }
     sync_search_controls();
+    sync_shared_input_mode();
+    update_direct_output(true);
     refresh_search();
 }
 
@@ -3526,6 +4399,21 @@ fn show_profile_menu_intent(
             read_new_output(hwnd);
             return;
         }
+        if selected == MENU_CLEAR_ANSWERS {
+            clear_answer_history(hwnd);
+            return;
+        }
+        if [MENU_LAST_ANSWER, MENU_PREVIOUS_ANSWER, MENU_NEXT_ANSWER].contains(&selected) {
+            let direction = match selected {
+                MENU_PREVIOUS_ANSWER => Some(true),
+                MENU_NEXT_ANSWER => Some(false),
+                _ => None,
+            };
+            if !navigate_answer(hwnd, direction) {
+                announce("Сохранённых блоков вывода пока нет");
+            }
+            return;
+        }
         if selected == MENU_TERMINAL_CAPTURE {
             toggle_terminal_capture(hwnd);
             return;
@@ -3544,6 +4432,10 @@ fn show_profile_menu_intent(
         }
         if selected == MENU_SSH_PROFILES {
             show_ssh_profiles(hwnd);
+            return;
+        }
+        if selected == MENU_LAUNCH_PROFILES {
+            show_launch_profiles(hwnd);
             return;
         }
         if selected == MENU_SECRET_INPUT {
@@ -3629,12 +4521,22 @@ fn start_terminal(hwnd: HWND) {
     } else if choose || directory.is_some() {
         None
     } else {
-        // Restoring profile metadata is not permission to run its commands/SSH.
-        let safe = ProfileManager::discover().default_profile().clone();
-        if manager.get(&safe.id).is_none() {
-            manager.profiles.push(safe.clone());
+        if let Some(shell) = manager
+            .default_shell_profile_id
+            .as_deref()
+            .and_then(|id| manager.get(id))
+            .filter(|profile| profile.is_shell_profile())
+            .cloned()
+        {
+            Some(shell)
+        } else {
+            // Restoring profile metadata is not permission to run its commands/SSH.
+            let safe = ProfileManager::discover().default_profile().clone();
+            if manager.get(&safe.id).is_none() {
+                manager.profiles.push(safe.clone());
+            }
+            Some(safe)
         }
-        Some(safe)
     };
     PROFILES.with(|profiles| *profiles.borrow_mut() = manager);
     let timer = unsafe { SetTimer(Some(hwnd), OUTPUT_TIMER_ID, OUTPUT_POLL_MS, None) };
@@ -3700,6 +4602,9 @@ fn poll_cli_discovery() {
     if let Some(Some(cli)) = result {
         PROFILES.with(|profiles| {
             let mut profiles = profiles.borrow_mut();
+            for profile in &mut profiles.profiles {
+                cli.refresh_managed_profile(profile);
+            }
             if profiles.get(codex_cli::PROFILE_ID).is_none() {
                 profiles.profiles.push(cli.profile());
             }
@@ -4379,10 +5284,8 @@ fn send_tui_control_key(key: tui_window::TuiKey) {
         active
             .write_tui(&bytes, input)
             .map_err(|error| error.to_string())?;
-        if key == TuiKey::Enter {
-            let document = active.reading_document_snapshot();
-            active.reply_anchor.submitted(&document);
-        }
+        let document = active.reading_document_snapshot();
+        active.record_output_submission(&bytes, false, &document, Instant::now());
         Ok(())
     });
     if let Err(error) = result {
@@ -4403,6 +5306,13 @@ fn retain_runtime_cli_profile() {
     }
     PROFILES.with(|profiles| {
         let mut profiles = profiles.borrow_mut();
+        CODEX_CLI.with(|cli| {
+            if let Some(cli) = cli.borrow().as_ref() {
+                for profile in &mut profiles.profiles {
+                    cli.refresh_managed_profile(profile);
+                }
+            }
+        });
         for runtime in runtime {
             if profiles.get(&runtime.id).is_none() {
                 profiles.profiles.push(runtime);
@@ -4568,6 +5478,9 @@ fn open_preferences(hwnd: HWND) {
 }
 
 fn finish_preferences() {
+    if let Some(owner) = preferences::take_profiles_request() {
+        show_launch_profiles(owner);
+    }
     let Some(outcome) = preferences::take_result() else {
         return;
     };
@@ -4584,6 +5497,11 @@ fn finish_preferences() {
     }
     let remember = next.remember_workspace;
     SETTINGS.with(|settings| *settings.borrow_mut() = next);
+    unsafe {
+        if let Ok(parent) = GetParent(controls().input) {
+            refresh_appearance(parent);
+        }
+    }
     if !remember {
         let result = RECENT_PROFILES.with(|recent| {
             let _lock = config_lock::ConfigLock::acquire(&workspace_path())?;
@@ -4707,6 +5625,7 @@ fn shortcut_help_text() -> String {
 fn cancel_output_speech() {
     SESSIONS.with(|sessions| {
         if let Some(session) = sessions.borrow_mut().active_mut() {
+            session.turn_speech.clear();
             let screen = session.terminal.live_snapshot();
             session
                 .output_speech
@@ -4763,6 +5682,148 @@ fn window_is_foreground(window: HWND) -> bool {
     foreground == window || unsafe { GetAncestor(foreground, GA_ROOT) == window }
 }
 
+fn poll_turn_activity() {
+    let now = Instant::now();
+    let (mode, sound, auto_read) = SETTINGS.with(|settings| {
+        let settings = settings.borrow();
+        (
+            settings.speech_mode,
+            settings.answer_ready_sound,
+            settings.auto_read_answers,
+        )
+    });
+    let foreground = window_is_foreground(main_window());
+    let paused = SPEECH_PAUSE_UNTIL.get().is_some_and(|until| now < until);
+    let (status, speech, ready_sound) = SESSIONS.with(|sessions| {
+        let mut sessions = sessions.borrow_mut();
+        let active_id = sessions.active_id;
+        let mut ready_sound = false;
+        for session in &mut sessions.sessions {
+            session.source_input.expire(now);
+            if session.direct_input {
+                session.observe_tui_frame(now);
+            } else {
+                session.tui_submission.observe(None, false);
+                session.source_input.clear();
+                session.menu_observer.clear();
+                session.turns.cancel_command_capture();
+            }
+            if !session.direct_input && session.turns.has_active_turn() {
+                session.turns.cancel_pending();
+            }
+            let audible = Some(session.id) == active_id && foreground;
+            for event in session.turns.take_events() {
+                use tui_turns::{PhaseKind, TurnEvent};
+                match event {
+                    TurnEvent::Phase { kind, text } => {
+                        let label = match kind {
+                            PhaseKind::Request => "Запрос отправлен",
+                            PhaseKind::Thinking => "Размышление",
+                            PhaseKind::Search => "Поиск",
+                            PhaseKind::Tool => "Выполнение",
+                            PhaseKind::Answer => "Формируется ответ",
+                        };
+                        let visible = if matches!(kind, PhaseKind::Answer | PhaseKind::Request) {
+                            ""
+                        } else {
+                            &text
+                        };
+                        if audible {
+                            session.turn_speech.phase(label, visible, now);
+                        } else {
+                            session.turn_speech.baseline_phase(label, visible);
+                        }
+                    }
+                    TurnEvent::Ready { id } => {
+                        if audible {
+                            let answer = auto_read
+                                .then(|| session.turns.answer_text(id))
+                                .flatten()
+                                .map(str::to_owned);
+                            session.turn_speech.ready(answer.as_deref(), now);
+                            ready_sound = sound;
+                        }
+                    }
+                    TurnEvent::Failed { text, .. } => {
+                        if audible {
+                            session
+                                .turn_speech
+                                .important(&format!("Ошибка: {text}"), now);
+                        }
+                    }
+                    TurnEvent::Interrupted { text, .. } => {
+                        if audible {
+                            session
+                                .turn_speech
+                                .important(&format!("Прервано: {text}"), now);
+                        }
+                    }
+                    TurnEvent::NeedsInput { text, .. } => {
+                        if audible {
+                            session
+                                .turn_speech
+                                .important(&format!("Требуется действие: {text}"), now);
+                        }
+                    }
+                    TurnEvent::NewOutput { text } => {
+                        if audible {
+                            session.turn_speech.new_output(
+                                &text,
+                                mode,
+                                session.turns.has_semantic_turn(),
+                                now,
+                            );
+                        } else {
+                            session.turn_speech.baseline_output(&text);
+                        }
+                    }
+                }
+            }
+            if !audible || paused {
+                session.turn_speech.working(None, now);
+            } else if !session.terminal.sync_pending() {
+                session
+                    .turn_speech
+                    .working(session.turns.working_turn(), now);
+            }
+            if !audible {
+                session.turn_speech.clear();
+            }
+        }
+        if let Some(active) = sessions.active_mut() {
+            let status = if active.direct_input || active.turns.has_answers() {
+                active.turns.status()
+            } else {
+                String::new()
+            };
+            // An incomplete synchronized redraw is inconclusive, not a new
+            // idle state. Delay speech without resetting a valid quiet timer
+            // on every split spinner frame.
+            let speech = if active.terminal.sync_pending() {
+                None
+            } else {
+                active.turn_speech.take_due(now, mode, foreground, paused)
+            };
+            (status, speech, ready_sound)
+        } else {
+            (String::new(), None, false)
+        }
+    });
+    if window_text(controls().turn_status) != status {
+        unsafe {
+            let _ = SetWindowTextW(controls().turn_status, PCWSTR(to_wide(&status).as_ptr()));
+        }
+    }
+    if ready_sound {
+        unsafe {
+            let _ = windows::Win32::System::Diagnostics::Debug::MessageBeep(MB_OK);
+        }
+    }
+    if let Some(speech) = speech {
+        let _ = controls().announcement.progress(&speech);
+    }
+}
+
 fn poll_output_speech(appended: &str) {
     let mode = speech_mode();
     let now = Instant::now();
@@ -4771,18 +5832,17 @@ fn poll_output_speech(appended: &str) {
     let message = SESSIONS.with(|sessions| {
         let mut sessions = sessions.borrow_mut();
         let session = sessions.active_mut()?;
-        if mode != SpeechMode::All {
+        // TUI output, including unknown streams, is already debounced by the
+        // turn observer. Keep one speech source so known answers cannot replay.
+        if mode != SpeechMode::All || session.direct_input {
             session.output_speech.reset();
             return None;
         }
         let screen = session.terminal.live_snapshot();
-        session.output_speech.observe(
-            now,
-            &live_screen_text(&screen),
-            appended,
-            screen.alternate_screen,
-            eligible,
-        );
+        let text = live_screen_text(&screen);
+        session
+            .output_speech
+            .observe(now, &text, appended, screen.alternate_screen, eligible);
         session.output_speech.take_due(now, mode)
     });
     if let Some(message) = message {
@@ -4834,9 +5894,19 @@ fn poll_terminal() {
     poll_pending_cli_launch();
     let poll_started = Instant::now();
     let active_id = active_session_id();
+    let was_direct = direct_input_active();
     let previous_revision =
         SESSIONS.with(|sessions| sessions.borrow().active().map(|s| s.revision));
     let chunks = SESSIONS.with(|sessions| sessions.borrow_mut().poll());
+    let journal_reset = SESSIONS.with(|sessions| {
+        sessions
+            .borrow_mut()
+            .active_mut()
+            .is_some_and(|active| active.take_journal_reset())
+    });
+    if journal_reset {
+        reset_active_journal_output();
+    }
     let mut speech_appended = String::new();
     trace_slow_phase(
         "poll_model",
@@ -4845,6 +5915,11 @@ fn poll_terminal() {
     );
     for (id, text) in chunks {
         if Some(id) == active_id {
+            if journal_reset {
+                // The final model already contains all text after the clear.
+                // Appending chunks would resurrect text from before it.
+                continue;
+            }
             let linear = SESSIONS.with(|sessions| {
                 sessions
                     .borrow()
@@ -4886,6 +5961,13 @@ fn poll_terminal() {
             announce(&notice.message);
         }
     }
+    if was_direct && !direct_input_active() {
+        // A stopped/recovered PTY has no TUI input target. Publish the native
+        // command field immediately, including its draft and accessible name.
+        release_terminal_capture();
+        refresh_layout(main_window());
+    }
+    poll_turn_activity();
     restore_finished_cli_input();
     refresh_tab_status();
     let revision = SESSIONS.with(|sessions| sessions.borrow().active().map(|s| s.revision));
@@ -4901,6 +5983,7 @@ fn poll_terminal() {
     }
     update_vt_output(false);
     update_direct_output(false);
+    poll_shared_selection_edit();
     poll_direct_feedback();
     refresh_search();
     poll_tui_dialog();
@@ -4939,7 +6022,13 @@ fn restore_finished_cli_input() {
         return;
     }
     refresh_layout(main_window());
-    if [controls().direct_input, controls().terminal].contains(&focus)
+    if [
+        controls().input,
+        controls().suggestions,
+        controls().direct_input,
+        controls().terminal,
+    ]
+    .contains(&focus)
         && window_is_foreground(main_window())
     {
         unsafe {
@@ -4974,9 +6063,12 @@ fn reader_viewport_offset(output: HWND) -> u32 {
         let first = SendMessageW(output, EM_GETFIRSTVISIBLELINE, None, None)
             .0
             .max(0);
-        SendMessageW(output, EM_LINEINDEX, Some(WPARAM(first as usize)), None)
-            .0
-            .max(0) as u32
+        accessible_text::canonical_offset(
+            output,
+            SendMessageW(output, EM_LINEINDEX, Some(WPARAM(first as usize)), None)
+                .0
+                .max(0) as u32,
+        )
     }
 }
 
@@ -4988,7 +6080,9 @@ fn reader_at_bottom(output: HWND) -> bool {
     };
     unsafe {
         GetScrollInfo(output, SB_VERT, &mut info).is_err()
-            || info.nPos
+            // RichEdit's SB_BOTTOM may stop one pixel before the inclusive
+            // scrollbar boundary. That is still the end of the document.
+            || info.nPos.saturating_add(1)
                 >= info
                     .nMax
                     .saturating_sub(info.nPage.saturating_sub(1) as i32)
@@ -4997,26 +6091,114 @@ fn reader_at_bottom(output: HWND) -> bool {
 
 fn restore_native_reading(output: HWND, selection: (u32, u32), viewport: u32, follow: bool) {
     unsafe {
-        let length = GetWindowTextLengthW(output).max(0) as u32;
-        SendMessageW(
-            output,
-            EM_SETSEL,
-            Some(WPARAM(selection.0.min(length) as usize)),
-            Some(LPARAM(selection.1.min(length) as isize)),
-        );
+        let length = accessible_text::length(output)
+            .unwrap_or_else(|| GetWindowTextLengthW(output).max(0) as u32);
+        accessible_text::select(output, selection.0.min(length), selection.1.min(length));
         if follow {
             SendMessageW(output, EM_SCROLLCARET, None, None);
+            // A shell command keeps focus in its input field. RichEdit's
+            // caret-only scroll can be ignored for an unfocused journal.
+            SendMessageW(
+                output,
+                windows::Win32::UI::Controls::EM_SCROLL,
+                Some(WPARAM(
+                    windows::Win32::UI::WindowsAndMessaging::SB_BOTTOM.0 as usize,
+                )),
+                None,
+            );
         } else {
             let target = SendMessageW(
                 output,
                 EM_LINEFROMCHAR,
-                Some(WPARAM(viewport as usize)),
+                Some(WPARAM(
+                    accessible_text::native_offset(output, viewport) as usize
+                )),
                 None,
             )
             .0;
             let current = SendMessageW(output, EM_GETFIRSTVISIBLELINE, None, None).0;
             SendMessageW(output, EM_LINESCROLL, None, Some(LPARAM(target - current)));
         }
+    }
+}
+
+fn finish_native_reading_update(
+    output: HWND,
+    redraw_paused: bool,
+    selection: (u32, u32),
+    viewport: u32,
+    follow: bool,
+) {
+    unsafe {
+        if redraw_paused {
+            // Put selection/scroll at their intended position before TOM
+            // unfreezes: it can synchronously present its current viewport.
+            restore_native_reading(output, selection, viewport, follow);
+            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(1)), None);
+        }
+        // RichEdit may defer scrolling until redraw resumes. Restore the
+        // viewport after that boundary, including an unfocused command journal.
+        restore_native_reading(output, selection, viewport, follow);
+        if redraw_paused {
+            let _ = InvalidateRect(Some(output), None, false);
+            // Complete the buffered frame before the next message can expose
+            // native scrolling/selection pixels with incomplete GDI alpha.
+            let _ = windows::Win32::Graphics::Gdi::UpdateWindow(output);
+        }
+    }
+}
+
+fn follow_submitted_command() {
+    capture_vt_reading_position();
+    let source_changed = SESSIONS.with(|sessions| {
+        let mut sessions = sessions.borrow_mut();
+        let Some(active) = sessions.active_mut() else {
+            return false;
+        };
+        let changed = !active.reading || active.vt_reading;
+        active.set_answers_view(false);
+        active.reading = true;
+        active.vt_reading = false;
+        active.focus_in_reader = false;
+        changed
+    });
+    if source_changed {
+        close_search(main_window(), false);
+        refresh_layout(main_window());
+    }
+    let output = controls().output;
+    let end = accessible_text::length(output).unwrap_or(0);
+    restore_native_reading(output, (end, end), end, true);
+    let viewport = reader_viewport_offset(output);
+    SESSIONS.with(|sessions| {
+        if let Some(active) = sessions.borrow_mut().active_mut() {
+            active.selection = (end, end);
+            active.first_visible_offset = viewport;
+        }
+    });
+}
+
+fn vt_source_offset(offset: u32) -> u32 {
+    if VT_DISPLAY_KEY.get().is_some_and(|(_, _, _, visual)| visual) {
+        VT_DISPLAY_VISUAL.with(|view| {
+            view.borrow()
+                .as_ref()
+                .map_or(offset, |view| view.source_offset(offset))
+        })
+    } else {
+        offset
+    }
+}
+
+fn vt_visual_offset(offset: u32) -> u32 {
+    if VT_DISPLAY_KEY.get().is_some_and(|(_, _, _, visual)| visual) {
+        VT_DISPLAY_VISUAL.with(|view| {
+            view.borrow()
+                .as_ref()
+                .map_or(offset, |view| view.visual_offset(offset))
+        })
+    } else {
+        offset
     }
 }
 
@@ -5027,163 +6209,366 @@ fn capture_vt_reading_position() -> bool {
     {
         return false;
     }
-    let Some((id, _)) = VT_DISPLAY_KEY.get() else {
+    let Some((id, _, answers_view, visual)) = VT_DISPLAY_KEY.get() else {
         return false;
     };
     if active_session_id() != Some(id) {
         return false;
     }
-    let document = VT_DISPLAY_DOCUMENT.with(|document| document.borrow().clone());
+    if SESSIONS.with(|sessions| {
+        sessions
+            .borrow()
+            .active()
+            .is_none_or(|active| active.answers_view != answers_view)
+    }) {
+        return false;
+    }
+    let document = VT_DISPLAY_SOURCE.with(|document| document.borrow().clone());
     let Some(document) = document else {
         return false;
     };
     let output = controls().vt_output;
-    let selection = edit_selection(output);
-    let viewport = reader_viewport_offset(output);
+    let mut selection = edit_selection(output);
+    let mut viewport = reader_viewport_offset(output);
+    if visual {
+        let Some(mapping) = VT_DISPLAY_VISUAL.with(|view| view.borrow().clone()) else {
+            return false;
+        };
+        selection = (
+            mapping.source_offset(selection.0),
+            mapping.source_offset(selection.1),
+        );
+        viewport = mapping.source_offset(viewport);
+    }
     let at_bottom = reader_at_bottom(output);
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             active
-                .vt_state
+                .display_reading_state()
                 .capture(&document, selection, viewport, at_bottom);
         }
     });
     true
 }
 
-/// The focused native EDIT exposes the live VT text/caret while its keys go to
-/// ConPTY. Its state is separate from the user's full-screen reading bookmark.
+/// Native text/list updates can synchronously send focus notifications. Defer
+/// their refresh until the current source projection has finished updating.
+struct DirectUiSync;
+
+impl DirectUiSync {
+    fn begin() -> Option<Self> {
+        if DIRECT_UI_SYNC.get() {
+            return None;
+        }
+        DIRECT_UI_SYNC.set(true);
+        Some(Self)
+    }
+}
+
+impl Drop for DirectUiSync {
+    fn drop(&mut self) {
+        DIRECT_UI_SYNC.set(false);
+    }
+}
+
+/// Mirror only the source-owned composer in the same native field used by
+/// the shell. The upper document has already excluded these physical rows.
 fn update_direct_output(force: bool) {
-    if !direct_input_active() || reading_active() {
+    if !direct_input_active() || DIRECT_UI_SYNC.get() {
         return;
     }
-    // EDIT may recreate/show its native caret after layout or text messages.
-    // Keep the caret object for accessibility while the VT renderer draws it.
-    system_caret::hide_visible(controls().direct_input);
+    sync_shared_input_mode();
+    let Some(_sync) = DirectUiSync::begin() else {
+        return;
+    };
+    let unchanged = SESSIONS.with(|sessions| {
+        let sessions = sessions.borrow();
+        sessions.active().is_some_and(|active| {
+            DIRECT_DOCUMENT.with(|previous| {
+                previous.borrow().as_ref().is_some_and(|(id, document)| {
+                    *id == active.id && document.revision == active.reading_document_revision()
+                })
+            })
+        })
+    });
+    if !force && unchanged && !DIRECT_ECHO.with(|echo| echo.borrow().has_pending()) {
+        return;
+    }
     let next = SESSIONS.with(|sessions| {
         let mut sessions = sessions.borrow_mut();
         let active = sessions.active_mut()?;
+        let document = active.reading_document_snapshot();
         Some((
             active.id,
-            active.reading_document_snapshot(),
+            document,
             active.terminal.live_snapshot(),
+            active.tui_composer.clone(),
+            active.tui_menu.clone(),
         ))
     });
-    let Some((id, document, mut frame)) = next else {
+    let Some((id, document, frame, composer, menu)) = next else {
         return;
+    };
+    let focused = direct_input_has_focus() && window_is_foreground(main_window());
+    let edit_message = if focused {
+        observe_direct_edit(&frame, Instant::now())
+    } else {
+        None
     };
     let echo = DIRECT_ECHO.with(|echo| {
         let mut echo = echo.borrow_mut();
-        if direct_input_has_focus() && window_is_foreground(main_window()) {
-            echo.observe(&frame, Instant::now())
+        if focused {
+            echo.observe_with_composer(&frame, composer.as_ref(), Instant::now())
         } else {
             echo.cancel();
             None
         }
     });
-    let confirmed = DIRECT_ECHO.with(|echo| echo.borrow().last_confirmed(&frame));
-    frame.cursor = direct_accessibility::reading_cursor(&frame, confirmed);
-    let caret = direct_accessibility::cursor_offset(&document, &frame);
-    let echo_message = echo.map(|echo| direct_accessibility::typing_message(&echo.text));
-    let patch = DIRECT_DOCUMENT.with(|previous| {
-        let previous = previous.borrow();
-        let text = previous
+    let echo_message =
+        edit_message.or_else(|| echo.map(|echo| direct_accessibility::typing_message(&echo.text)));
+    let (changed, label_changed) = SHARED_COMPOSER.with(|previous| {
+        let mut previous = previous.borrow_mut();
+        let mut next = composer.clone();
+        if let (Some((old_id, old)), Some(new)) = (previous.as_ref(), next.as_mut()) {
+            if *old_id == id
+                && old.text == new.text
+                && !old.protected
+                && !new.protected
+                && new.caret.is_none()
+            {
+                // Cursor hiding during a repaint is absence of evidence, not
+                // a move to offset zero. Preserve the last confirmed caret
+                // in this display cache so its return cannot reset a local
+                // copy selection. The session's source caret remains None.
+                new.caret = old.caret;
+            }
+        }
+        let changed = match (previous.as_ref(), next.as_ref()) {
+            (Some((old_id, old)), Some(new)) => {
+                *old_id != id
+                    || old.text != new.text
+                    || old.caret != new.caret
+                    || old.protected != new.protected
+            }
+            (None, None) => false,
+            _ => true,
+        };
+        let label_changed = previous
             .as_ref()
-            .map_or("", |(_, document)| document.text.as_str());
-        native_text::difference(text, &document.text)
+            .is_some_and(|(_, input)| input.is_partial())
+            != next.as_ref().is_some_and(|input| input.is_partial());
+        *previous = next.map(|composer| (id, composer));
+        (changed, label_changed)
     });
-    let output = controls().direct_input;
-    let caret_changed = edit_selection(output) != (caret, caret);
-    if !force && patch.is_none() && !caret_changed {
-        DIRECT_DOCUMENT.with(|previous| *previous.borrow_mut() = Some((id, document)));
-        if let Some(message) = echo_message {
-            announce(&message);
-        }
-        return;
+    if label_changed || force {
+        let _ = set_accessible_name(
+            controls().input,
+            if composer.as_ref().is_some_and(|input| input.is_partial()) {
+                "Терминал — видимая часть ввода"
+            } else {
+                "Терминал — прямой ввод"
+            },
+        );
     }
-    let visible = unsafe { IsWindowVisible(output).as_bool() };
-    unsafe {
-        if visible && patch.is_some() {
-            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(0)), None);
+    if changed || force {
+        let text = composer
+            .as_ref()
+            .map_or("", |composer| composer.text.as_str());
+        let text_changed = window_text(controls().input) != text;
+        unsafe {
+            if text_changed {
+                let _ = SetWindowTextW(controls().input, PCWSTR(to_wide(text).as_ptr()));
+            }
+            // A passive redraw must preserve a local selection used to copy.
+            if changed || text_changed {
+                let caret = composer
+                    .as_ref()
+                    .and_then(|composer| composer.caret)
+                    .unwrap_or(0);
+                accessible_text::select(controls().input, caret, caret);
+                SendMessageW(controls().input, EM_SCROLLCARET, None, None);
+            }
         }
-        if let Some(patch) = &patch {
-            SendMessageW(
-                output,
-                EM_SETSEL,
-                Some(WPARAM(patch.start as usize)),
-                Some(LPARAM(patch.end as isize)),
-            );
-            let replacement = to_wide(&patch.replacement);
-            SendMessageW(
-                output,
-                EM_REPLACESEL,
-                Some(WPARAM(0)),
-                Some(LPARAM(replacement.as_ptr() as isize)),
-            );
-        }
-        if caret_changed || patch.is_some() {
-            SendMessageW(
-                output,
-                EM_SETSEL,
-                Some(WPARAM(caret as usize)),
-                Some(LPARAM(caret as isize)),
-            );
-        }
-        if visible && patch.is_some() {
-            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(1)), None);
-            let _ = InvalidateRect(Some(output), None, false);
-        }
-        // EDIT does not reliably scroll while redraw is disabled. Keep its
-        // native text viewport/caret aligned after enabling painting again.
-        SendMessageW(output, EM_SCROLLCARET, None, None);
     }
     DIRECT_DOCUMENT.with(|previous| *previous.borrow_mut() = Some((id, document)));
-    // Text/caret notifications must precede typing feedback, so a native edit
-    // update cannot immediately replace the just-announced character.
+    sync_tui_suggestions(
+        id,
+        frame_revision(),
+        (frame.cols, frame.rows, frame.alternate_screen),
+        menu.as_ref(),
+    );
     if let Some(message) = echo_message {
         announce(&message);
     }
+}
+
+fn frame_revision() -> u64 {
+    SESSIONS.with(|sessions| {
+        sessions
+            .borrow()
+            .active()
+            .map_or(0, |active| active.terminal.reading_revision())
+    })
+}
+
+fn sync_tui_suggestions(
+    id: u64,
+    revision: u64,
+    source: (usize, usize, bool),
+    menu: Option<&tui_suggestions::Menu>,
+) {
+    let focus = unsafe { GetFocus() };
+    let was_visible = unsafe { IsWindowVisible(controls().suggestions).as_bool() };
+    let old_count = unsafe {
+        SendMessageW(
+            controls().suggestions,
+            windows::Win32::UI::WindowsAndMessaging::LB_GETCOUNT,
+            None,
+            None,
+        )
+        .0
+    };
+    let mut visible = false;
+    SUGGESTIONS.with(|suggestions| {
+        if let Some(suggestions) = suggestions.borrow_mut().as_mut() {
+            if let Some(menu) = menu {
+                if suggestions.sync(menu).is_ok() {
+                    suggestions.show();
+                    visible = true;
+                } else {
+                    suggestions.hide();
+                }
+            } else {
+                suggestions.hide();
+                suggestions.clear();
+            }
+        }
+    });
+    if visible {
+        // The native selected item is the sole menu announcement channel.
+        DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
+    }
+    let new_count = menu.map_or(0, |menu| menu.items.len() as isize);
+    if visible != was_visible || old_count != new_count {
+        layout_suggestions();
+    }
+    let acknowledged = MENU_INTENT.get().is_some_and(|intent| {
+        let (pending, eligible) =
+            intent.source_frame(id, revision, source, visible, Instant::now());
+        MENU_INTENT.set(pending);
+        eligible
+    });
+    if visible {
+        if acknowledged
+            && !reading_active()
+            && focus == controls().input
+            && window_is_foreground(main_window())
+        {
+            MENU_INTENT.set(None);
+            unsafe {
+                let _ = SetFocus(Some(controls().suggestions));
+            }
+        }
+    } else if focus == controls().suggestions && window_is_foreground(main_window()) {
+        unsafe {
+            let _ = SetFocus(Some(controls().input));
+        }
+    }
+}
+
+fn feedback_source(active: &session::TerminalSession) -> direct_accessibility::DiagnosticSource {
+    direct_accessibility::DiagnosticSource {
+        session: active.id,
+        screen_revision: active.revision,
+        input_revision: active.input_revision(),
+    }
+}
+
+fn arm_direct_edit(
+    frame: &bks_terminal::TerminalSnapshot,
+    action: tui_input_echo::EditAction,
+    now: Instant,
+) {
+    DIRECT_ECHO.with(|echo| echo.borrow_mut().edit(frame, action, now));
+}
+
+fn observe_direct_edit(frame: &bks_terminal::TerminalSnapshot, now: Instant) -> Option<String> {
+    let message = DIRECT_ECHO.with(|echo| {
+        echo.borrow_mut()
+            .observe_edit(frame, now)
+            .map(|edit| edit.message)
+    });
+    if message.is_some() {
+        // Suppress the generic hint only after the CLI proves this key edited
+        // text. Home/End/Left/Right also navigate TUI menus.
+        DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
+    }
+    message
+}
+
+fn drain_tui_diagnostics() {
+    tui_diagnostics::record(
+        DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().take_diagnostics()),
+    );
 }
 
 fn begin_direct_feedback() {
     if !direct_input_has_focus() || !window_is_foreground(main_window()) {
         return;
     }
-    // Navigation can move a hidden cursor without changing the old row.
-    // A confirmed insertion is no longer evidence of the current input point.
     DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow().active() {
             DIRECT_FEEDBACK.with(|feedback| {
-                feedback
-                    .borrow_mut()
-                    .begin(&active.terminal.live_snapshot(), Instant::now())
+                let mut feedback = feedback.borrow_mut();
+                feedback.enable_diagnostics(tui_diagnostics::enabled());
+                feedback.set_diagnostic_source(feedback_source(active));
+                feedback.begin(&active.terminal.live_snapshot(), Instant::now());
             });
         }
     });
+    drain_tui_diagnostics();
 }
 
 fn poll_direct_feedback() {
+    if unsafe { IsWindowVisible(controls().suggestions).as_bool() } {
+        DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
+        drain_tui_diagnostics();
+        return;
+    }
     if !direct_input_has_focus() || !window_is_foreground(main_window()) {
         DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
+        drain_tui_diagnostics();
+        return;
+    }
+    if !DIRECT_FEEDBACK.with(|feedback| feedback.borrow().has_pending()) {
         return;
     }
     let message = SESSIONS.with(|sessions| {
         let sessions = sessions.borrow();
         let active = sessions.active()?;
         DIRECT_FEEDBACK.with(|feedback| {
-            feedback
-                .borrow_mut()
-                .observe(&active.terminal.live_snapshot(), Instant::now())
+            let mut feedback = feedback.borrow_mut();
+            feedback.set_diagnostic_source(feedback_source(active));
+            feedback.observe(&active.terminal.live_snapshot(), Instant::now())
         })
     });
+    drain_tui_diagnostics();
     if let Some(message) = message {
+        DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel_pending());
         announce(&message);
     }
 }
 
 fn update_vt_output(force: bool) {
-    if !reading_active() || !vt_reading_active() {
+    if !direct_input_active() && (!reading_active() || !vt_reading_active()) {
+        return;
+    }
+    if VT_DISPLAY_KEY.get().is_some_and(|(_, _, _, visual)| visual)
+        && unsafe { GetCapture() == controls().vt_output }
+    {
+        // RichEdit owns the mouse gesture until release. Updating source rows
+        // mid-drag would move its selection anchor.
         return;
     }
     if !force
@@ -5200,10 +6585,15 @@ fn update_vt_output(force: bool) {
     }
     let pending = VT_RESTORE_PENDING.replace(false);
     let key = SESSIONS.with(|sessions| {
-        sessions
-            .borrow()
-            .active()
-            .map(|active| (active.id, active.terminal.reading_revision()))
+        sessions.borrow().active().map(|active| {
+            let (revision, answers) = active.display_key();
+            (
+                active.id,
+                revision,
+                answers,
+                active.direct_input && !answers,
+            )
+        })
     });
     if !force && !pending && VT_DISPLAY_KEY.get() == key {
         return;
@@ -5214,16 +6604,89 @@ fn update_vt_output(force: bool) {
     let update = SESSIONS.with(|sessions| {
         let mut sessions = sessions.borrow_mut();
         let active = sessions.active_mut()?;
-        let document = active.reading_document_snapshot();
-        let restored = active.vt_state.restore(&document);
-        Some((active.id, document, restored))
+        let source = active.display_document_snapshot();
+        let frame =
+            (active.direct_input && !active.answers_view).then(|| active.terminal.live_snapshot());
+        let surface = frame.as_ref().and_then(text_style::TuiSurface::detect_grid);
+        let visual = frame.as_ref().map(|frame| {
+            let excluded_rows: Vec<_> = active
+                .tui_composer
+                .as_ref()
+                .map(|input| (input.first_row, input.last_row))
+                .into_iter()
+                .chain(
+                    active
+                        .tui_menu
+                        .as_ref()
+                        .map(|menu| (menu.first_row, menu.last_row)),
+                )
+                .collect();
+            Arc::new(tui_projection::visual_document(
+                frame,
+                &source,
+                &excluded_rows,
+            ))
+        });
+        let document = visual.as_ref().map_or_else(
+            || Arc::clone(&source),
+            |view| Arc::new(view.document.clone()),
+        );
+        let restored = if let Some(view) = &visual {
+            let reading = active.reading;
+            let saved = active.display_reading_state().restore(&source);
+            reading_state::RestoredReading {
+                selection: (
+                    view.visual_offset(saved.selection.0),
+                    view.visual_offset(saved.selection.1),
+                ),
+                viewport_offset: if reading {
+                    view.visual_offset(saved.viewport_offset)
+                } else {
+                    view.live_start()
+                },
+                follow: reading && saved.follow,
+            }
+        } else {
+            active.display_reading_state().restore(&document)
+        };
+        Some((
+            active.id,
+            document,
+            source,
+            visual,
+            restored,
+            active.answers_view,
+            surface,
+        ))
     });
-    let Some((id, document, restored)) = update else {
+    let Some((id, document, source, visual, restored, answers_view, surface)) = update else {
         return;
     };
     let old = VT_DISPLAY_DOCUMENT.with(|old| old.borrow().clone());
     let old_text = old.as_ref().map_or("", |document| document.text.as_str());
     let patch = native_text::difference(old_text, &document.text);
+    if !force
+        && !pending
+        && patch.is_none()
+        && VT_DISPLAY_KEY
+            .get()
+            .is_some_and(|(_, _, _, old_visual)| old_visual == visual.is_some())
+        && old
+            .as_ref()
+            .is_some_and(|old| old.styles == document.styles)
+        && VT_DISPLAY_SURFACE.get() == surface
+    {
+        VT_DISPLAY_KEY.set(Some((
+            id,
+            document.revision,
+            answers_view,
+            visual.is_some(),
+        )));
+        VT_DISPLAY_DOCUMENT.with(|current| *current.borrow_mut() = Some(document));
+        VT_DISPLAY_SOURCE.with(|current| *current.borrow_mut() = Some(source));
+        VT_DISPLAY_VISUAL.with(|current| *current.borrow_mut() = visual);
+        return;
+    }
     let output = controls().vt_output;
     let visible = unsafe { IsWindowVisible(output).as_bool() };
     unsafe {
@@ -5231,124 +6694,160 @@ fn update_vt_output(force: bool) {
             SendMessageW(output, WM_SETREDRAW, Some(WPARAM(0)), None);
         }
         if let Some(patch) = patch {
-            SendMessageW(
+            accessible_text::replace(
                 output,
-                EM_SETSEL,
-                Some(WPARAM(patch.start as usize)),
-                Some(LPARAM(patch.end as isize)),
-            );
-            let replacement = to_wide(&patch.replacement);
-            SendMessageW(
-                output,
-                EM_REPLACESEL,
-                Some(WPARAM(0)),
-                Some(LPARAM(replacement.as_ptr() as isize)),
+                patch.start,
+                patch.end,
+                &patch.replacement,
+                &document.text,
             );
         }
-        restore_native_reading(
-            output,
-            restored.selection,
-            restored.viewport_offset,
-            restored.follow,
-        );
-        if visible {
-            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(1)), None);
-            let _ = InvalidateRect(Some(output), None, false);
+        if visual.is_some() || answers_view {
+            let live_start = visual.as_ref().map_or(0, |view| view.live_start());
+            if let Err(error) =
+                accessible_text::format_tui(output, &document.styles, &theme(), live_start, surface)
+            {
+                eprintln!("Native formatting failed: {}", error.code());
+            }
+        } else {
+            format_accessible(output, &document.styles);
         }
     }
-    VT_DISPLAY_KEY.set(Some((id, document.revision)));
+    let mode = if answers_view {
+        terminal_metrics::LayoutMode::Reflow
+    } else {
+        terminal_metrics::LayoutMode::Grid
+    };
+    let _ = with_terminal_metrics(|metrics| {
+        if let Err(error) =
+            terminal_metrics::format_grid(output, &document, theme().terminal_font, metrics, mode)
+        {
+            eprintln!("Native grid formatting failed: {}", error.code());
+        }
+    });
+    finish_native_reading_update(
+        output,
+        visible,
+        restored.selection,
+        restored.viewport_offset,
+        restored.follow,
+    );
+    VT_DISPLAY_KEY.set(Some((
+        id,
+        document.revision,
+        answers_view,
+        visual.is_some(),
+    )));
+    VT_DISPLAY_SURFACE.set(surface);
     VT_DISPLAY_DOCUMENT.with(|current| *current.borrow_mut() = Some(document));
+    VT_DISPLAY_SOURCE.with(|current| *current.borrow_mut() = Some(source));
+    VT_DISPLAY_VISUAL.with(|current| *current.borrow_mut() = visual);
+}
+
+fn format_accessible(output: HWND, styles: &[bks_terminal::StyleSpan]) {
+    if let Err(error) = accessible_text::format(output, styles, &theme()) {
+        // Preserve input/reading if a native formatting operation fails.
+        // No terminal text is included in this diagnostic.
+        eprintln!("Native formatting failed: {}", error.code());
+    }
 }
 
 fn set_output_text(text: &str) {
-    let text = to_wide(text);
-    unsafe {
-        let _ = SetWindowTextW(controls().output, PCWSTR(text.as_ptr()));
+    accessible_text::set_text(controls().output, text);
+    let styles = SESSIONS.with(|sessions| {
+        sessions
+            .borrow()
+            .active()
+            .map(|active| active.journal_styles().to_vec())
+    });
+    if let Some(styles) = styles {
+        format_accessible(controls().output, &styles);
     }
+}
+
+fn reset_active_journal_output() {
+    let Some(source) = SESSIONS.with(|sessions| {
+        sessions.borrow_mut().active_mut().map(|active| {
+            active.take_journal_trim();
+            active.buffer().to_owned()
+        })
+    }) else {
+        return;
+    };
+    let output = controls().output;
+    let visible = unsafe { IsWindowVisible(output).as_bool() };
+    unsafe {
+        if visible {
+            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(0)), None);
+        }
+    }
+    set_output_text(&source);
+    let end = accessible_text::length(output).unwrap_or(0);
+    finish_native_reading_update(output, visible, (end, end), end, true);
 }
 
 fn append_output_text(text: &str, removed: u32) {
     if text.is_empty() && removed == 0 {
         return;
     }
+    let Some((source, styles)) = SESSIONS.with(|sessions| {
+        sessions.borrow().active().map(|active| {
+            (
+                (removed != 0).then(|| active.buffer().to_owned()),
+                active.journal_styles().to_vec(),
+            )
+        })
+    }) else {
+        return;
+    };
     let output = controls().output;
     let visible = unsafe { IsWindowVisible(output).as_bool() };
-    let retained = (removed != 0)
-        .then(|| {
-            SESSIONS.with(|sessions| {
-                sessions
-                    .borrow()
-                    .active()
-                    .map(|active| active.buffer().to_owned())
-            })
-        })
-        .flatten();
-    let text = to_wide(retained.as_deref().unwrap_or(text));
+    let length = accessible_text::length(output).unwrap_or(0);
+    let (selection_start, selection_end) = edit_selection(output);
+    let first_visible = reader_viewport_offset(output);
+    let follow = selection_start == length && selection_end == length && reader_at_bottom(output);
     unsafe {
-        let length = GetWindowTextLengthW(output).max(0) as u32;
-        let mut selection_start = 0_u32;
-        let mut selection_end = 0_u32;
-        SendMessageW(
-            output,
-            EM_GETSEL,
-            Some(WPARAM(&mut selection_start as *mut u32 as usize)),
-            Some(LPARAM(&mut selection_end as *mut u32 as isize)),
-        );
-        let first_visible = reader_viewport_offset(output);
-        let follow_output =
-            selection_start == length && selection_end == length && reader_at_bottom(output);
-
         if visible {
-            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(0)), Some(LPARAM(0)));
-        }
-        if retained.is_some() {
-            // Classic EDIT prefix deletion gets very slow for many lines.
-            // Rebuild only on retention, keeping HWND/provider and restoring
-            // the same rebased UTF-16 selection and viewport below.
-            let trim_started = Instant::now();
-            let _ = SetWindowTextW(output, PCWSTR(text.as_ptr()));
-            trace_slow_phase("native_trim", trim_started, text.len());
-        } else {
-            SendMessageW(
-                output,
-                EM_SETSEL,
-                Some(WPARAM(length as usize)),
-                Some(LPARAM(length as isize)),
-            );
-            let append_started = Instant::now();
-            SendMessageW(
-                output,
-                EM_REPLACESEL,
-                Some(WPARAM(0)),
-                Some(LPARAM(text.as_ptr() as isize)),
-            );
-            trace_slow_phase("native_append", append_started, text.len());
-        }
-        let final_length = GetWindowTextLengthW(output).max(0) as u32;
-        let selection = if follow_output {
-            (final_length, final_length)
-        } else {
-            (
-                selection_start.saturating_sub(removed),
-                selection_end.saturating_sub(removed),
-            )
-        };
-        let restore_started = Instant::now();
-        restore_native_reading(
-            output,
-            selection,
-            first_visible.saturating_sub(removed),
-            follow_output,
-        );
-        trace_slow_phase("native_restore", restore_started, final_length as usize);
-        if visible {
-            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(1)), Some(LPARAM(0)));
-            let _ = InvalidateRect(Some(output), None, false);
+            SendMessageW(output, WM_SETREDRAW, Some(WPARAM(0)), None);
         }
     }
+    if let Some(source) = source {
+        accessible_text::set_text(output, &source);
+    } else {
+        accessible_text::append(output, text);
+    }
+    format_accessible(output, &styles);
+    let final_length = accessible_text::length(output).unwrap_or(0);
+    let selection = if follow {
+        (final_length, final_length)
+    } else {
+        (
+            selection_start.saturating_sub(removed),
+            selection_end.saturating_sub(removed),
+        )
+    };
+    finish_native_reading_update(
+        output,
+        visible,
+        selection,
+        first_visible.saturating_sub(removed),
+        follow,
+    );
 }
 
 fn execute_input() {
+    let was_direct = direct_input_active();
+    if was_direct {
+        poll_terminal();
+        if direct_input_active() {
+            unsafe {
+                let _ = SetFocus(Some(controls().input));
+            }
+            begin_direct_feedback();
+            write_active_input(&encode_key(SpecialKey::Enter, false, false, false, false));
+        }
+        return;
+    }
     let input = controls().input;
     let text = window_text(input);
     poll_terminal();
@@ -5418,17 +6917,34 @@ fn execute_input() {
             if interactive {
                 set_terminal_capture(main_window(), true);
             } else {
+                follow_submitted_command();
                 unsafe {
                     let _ = SetFocus(Some(input));
                 }
                 announce("Команда отправлена");
             }
         }
-        Err(error) => report_terminal_error("Ошибка отправки команды", &error),
+        Err(error) => {
+            let closing = SESSIONS.with(|sessions| {
+                sessions.borrow().active().is_some_and(|active| {
+                    active.failure.is_none()
+                        && (!active.is_alive() || active.state == SessionState::Closing)
+                })
+            });
+            if closing {
+                poll_terminal();
+                announce("Команда не отправлена. Дождитесь готовности оболочки");
+            } else {
+                report_terminal_error("Ошибка отправки команды", &error);
+            }
+        }
     }
 }
 
 fn window_text(window: HWND) -> String {
+    if let Some(source) = accessible_text::text(window) {
+        return source;
+    }
     unsafe {
         let length = GetWindowTextLengthW(window);
         if length <= 0 {
@@ -5456,10 +6972,9 @@ fn handle_app_shortcut(hwnd: HWND, key: usize) -> bool {
             controls().search.query,
         ]
         .contains(&focus)
+            && !(focus == controls().input && direct_input_active())
         {
-            unsafe {
-                SendMessageW(focus, EM_SETSEL, Some(WPARAM(0)), Some(LPARAM(-1)));
-            }
+            accessible_text::select(focus, 0, u32::MAX);
             return true;
         }
     }
@@ -5502,10 +7017,18 @@ fn handle_app_shortcut(hwnd: HWND, key: usize) -> bool {
             if focus == controls().search.query {
                 return true;
             }
-            if direct_input_active()
+            if (direct_input_active()
+                || SESSIONS.with(|sessions| {
+                    sessions
+                        .borrow()
+                        .active()
+                        .is_some_and(|active| active.answers_view)
+                }))
                 && (direct_input_has_focus() || (reading_active() && vt_reading_active()))
             {
-                navigate_vt_reading(hwnd, previous);
+                if !navigate_answer(hwnd, Some(previous)) {
+                    navigate_vt_reading(hwnd, previous);
+                }
             } else if !focus_adjacent_output_block(previous) {
                 if focus == controls().output {
                     // Without command blocks, the native journal can still
@@ -5513,7 +7036,9 @@ fn handle_app_shortcut(hwnd: HWND, key: usize) -> bool {
                     return false;
                 }
                 let position = if previous {
-                    unsafe { GetWindowTextLengthW(controls().output).max(0) as u32 }
+                    accessible_text::length(controls().output).unwrap_or_else(|| unsafe {
+                        GetWindowTextLengthW(controls().output).max(0) as u32
+                    })
                 } else {
                     0
                 };
@@ -5621,11 +7146,11 @@ fn handle_direct_key(key: usize, key_data: isize) -> bool {
     let control = unsafe { GetKeyState(VK_CONTROL.0 as i32) < 0 };
     let shift = unsafe { GetKeyState(VK_SHIFT.0 as i32) < 0 };
     let alt = unsafe { GetKeyState(VK_MENU.0 as i32) < 0 };
-    let modes = SESSIONS.with(|sessions| {
+    let (modes, adapter) = SESSIONS.with(|sessions| {
         sessions
             .borrow()
             .active()
-            .map(|active| active.terminal.modes())
+            .map(|active| (active.terminal.modes(), active.adapter))
             .unwrap_or_default()
     });
     if modes.application_keypad && !shift && !control && !alt {
@@ -5641,7 +7166,28 @@ fn handle_direct_key(key: usize, key_data: isize) -> bool {
     if control && !alt && !matches!(key, 0x43 | 0x44 | 0x5a) {
         if let Some(code) = control_char(key, shift) {
             begin_direct_feedback();
-            write_active_input(&[code]);
+            if adapter == tui_adapters::AdapterKind::Codex && modes.win32_input {
+                write_active_input(&codex::win32_key(
+                    key as u16,
+                    ((key_data >> 16) & 0xff) as u16,
+                    u16::from(code),
+                    shift,
+                    alt,
+                    control,
+                    key_data & (1 << 24) != 0,
+                ));
+            } else {
+                write_active_input(&[code]);
+            }
+            return true;
+        }
+    }
+    if control && !alt && key == 0x43 && unsafe { GetFocus() == controls().input } {
+        let selection = edit_selection(controls().input);
+        if selection.0 != selection.1 {
+            unsafe {
+                SendMessageW(controls().input, WM_COPY, None, None);
+            }
             return true;
         }
     }
@@ -5677,7 +7223,7 @@ fn handle_direct_key(key: usize, key_data: isize) -> bool {
         0x5a if control && !alt => SpecialKey::CtrlZ,
         _ => return false,
     };
-    if special == SpecialKey::Enter && !control && !alt {
+    if special == SpecialKey::Enter && !control && !alt && !shift {
         SESSIONS.with(|sessions| {
             if let Some(active) = sessions.borrow_mut().active_mut() {
                 let document = active.reading_document_snapshot();
@@ -5686,13 +7232,48 @@ fn handle_direct_key(key: usize, key_data: isize) -> bool {
         });
     }
     begin_direct_feedback();
-    write_active_input(&encode_key(
-        special,
-        shift,
-        alt,
-        control,
-        modes.application_cursor,
-    ));
+    if !shift && !control && !alt {
+        use tui_input_echo::EditAction;
+        let action = match special {
+            SpecialKey::Backspace => Some(EditAction::Backspace),
+            SpecialKey::Delete => Some(EditAction::Delete),
+            SpecialKey::Left => Some(EditAction::Left),
+            SpecialKey::Right => Some(EditAction::Right),
+            SpecialKey::Home => Some(EditAction::Home),
+            SpecialKey::End => Some(EditAction::End),
+            _ => None,
+        };
+        if let Some(action) = action {
+            SESSIONS.with(|sessions| {
+                if let Some(active) = sessions.borrow().active() {
+                    arm_direct_edit(&active.terminal.live_snapshot(), action, Instant::now());
+                }
+            });
+        }
+    }
+    if special == SpecialKey::Enter
+        && (shift || alt || control)
+        && adapter == tui_adapters::AdapterKind::Codex
+        && modes.win32_input
+    {
+        write_active_input(&codex::win32_key(
+            key as u16,
+            ((key_data >> 16) & 0xff) as u16,
+            13,
+            shift,
+            alt,
+            control,
+            key_data & (1 << 24) != 0,
+        ));
+    } else {
+        write_active_input(&adapter.encode_key(
+            special,
+            shift,
+            alt,
+            control,
+            modes.application_cursor,
+        ));
+    }
     true
 }
 
@@ -5708,10 +7289,12 @@ fn handle_direct_char(unit: u16) {
             if !control || alt {
                 if let Ok(text) = std::str::from_utf8(&bytes) {
                     SESSIONS.with(|sessions| {
-                        if let Some(active) = sessions.borrow().active() {
+                        if let Some(active) = sessions.borrow_mut().active_mut() {
+                            active.reading_document_snapshot();
                             DIRECT_ECHO.with(|echo| {
-                                echo.borrow_mut().typed(
+                                echo.borrow_mut().typed_with_composer(
                                     &active.terminal.live_snapshot(),
+                                    active.tui_composer.as_ref(),
                                     text,
                                     Instant::now(),
                                 );
@@ -5727,6 +7310,132 @@ fn handle_direct_char(unit: u16) {
 }
 
 fn write_active_input(data: &[u8]) {
+    let Some(data) = route_shared_selection_input(data) else {
+        return;
+    };
+    write_active_input_now(&data);
+}
+
+fn route_shared_selection_input(data: &[u8]) -> Option<Vec<u8>> {
+    if !direct_input_has_focus() || unsafe { GetFocus() != controls().input } {
+        SHARED_SELECTION_EDIT.with(|edit| *edit.borrow_mut() = None);
+        return Some(data.to_vec());
+    }
+    let next = SESSIONS.with(|sessions| {
+        let mut sessions = sessions.borrow_mut();
+        let active = sessions.active_mut()?;
+        active.reading_document_snapshot();
+        let mut frame = active.terminal.live_snapshot();
+        frame.cursor = direct_accessibility::reading_cursor(&frame, None);
+        Some((
+            active.id,
+            frame,
+            active.terminal.reading_revision(),
+            active.tui_composer.clone(),
+            active.tui_menu.is_some(),
+            active.terminal.modes().application_cursor,
+        ))
+    });
+    let Some((id, frame, revision, input, menu, application_cursor)) = next else {
+        return Some(data.to_vec());
+    };
+    SHARED_SELECTION_EDIT.with(|pending| {
+        let mut pending = pending.borrow_mut();
+        if let Some((session, edit)) = pending.as_mut() {
+            if *session == id
+                && !menu
+                && !input.as_ref().is_some_and(|input| input.protected)
+                && data != b"\x1b"
+                && edit.queue(data)
+            {
+                DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
+                DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
+                return None;
+            }
+            // Escape, mode/focus/source changes and limits discard deferred
+            // bytes. They must never reach a different source application.
+            *pending = None;
+        }
+        if menu {
+            return Some(data.to_vec());
+        }
+        let Some(mut edit) = input.as_ref().and_then(|input| {
+            source_input::NativeSelectionEdit::begin(
+                &frame,
+                revision,
+                input,
+                &window_text(controls().input),
+                edit_selection(controls().input),
+                data,
+                Instant::now(),
+            )
+        }) else {
+            return Some(data.to_vec());
+        };
+        let key = edit.first_key(application_cursor);
+        *pending = Some((id, edit));
+        // Native/source updates acknowledge this edit. Single-key echo cannot
+        // describe the cursor movement and deletion of an entire selection.
+        DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
+        DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
+        Some(key)
+    })
+}
+
+fn poll_shared_selection_edit() {
+    if !SHARED_SELECTION_EDIT.with(|edit| edit.borrow().is_some()) {
+        return;
+    }
+    if !direct_input_has_focus() || unsafe { GetFocus() != controls().input } {
+        SHARED_SELECTION_EDIT.with(|edit| *edit.borrow_mut() = None);
+        return;
+    }
+    let next = SESSIONS.with(|sessions| {
+        let sessions = sessions.borrow();
+        let active = sessions.active()?;
+        let mut frame = active.terminal.live_snapshot();
+        frame.cursor = direct_accessibility::reading_cursor(&frame, None);
+        Some((
+            active.id,
+            frame,
+            active.terminal.reading_revision(),
+            active.tui_composer.clone(),
+            active.tui_menu.is_some(),
+            active.terminal.modes().application_cursor,
+        ))
+    });
+    let data = SHARED_SELECTION_EDIT.with(|pending| {
+        use source_input::SelectionProgress;
+        let mut pending = pending.borrow_mut();
+        let progress = match (pending.as_mut(), next) {
+            (Some((session, edit)), Some((id, frame, revision, input, false, mode)))
+                if *session == id =>
+            {
+                edit.observe(&frame, revision, input.as_ref(), mode, Instant::now())
+            }
+            _ => SelectionProgress::Cancelled,
+        };
+        match progress {
+            SelectionProgress::Waiting => Vec::new(),
+            SelectionProgress::Send(data) => vec![data],
+            SelectionProgress::Complete(data) => {
+                *pending = None;
+                data
+            }
+            SelectionProgress::Cancelled => {
+                *pending = None;
+                Vec::new()
+            }
+        }
+    });
+    for bytes in data {
+        if !write_active_input_now(&bytes) {
+            break;
+        }
+    }
+}
+
+fn write_active_input_now(data: &[u8]) -> bool {
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             active.terminal.scroll_to_bottom();
@@ -5735,17 +7444,111 @@ fn write_active_input(data: &[u8]) {
     });
     invalidate_terminal();
     let result = SESSIONS.with(|sessions| {
-        sessions
-            .borrow()
-            .active()
-            .ok_or_else(|| "Нет активной сессии.".to_string())
-            .and_then(|active| active.write(data).map_err(|error| error.to_string()))
+        let mut sessions = sessions.borrow_mut();
+        let active = sessions
+            .active_mut()
+            .ok_or_else(|| "Нет активной сессии.".to_string())?;
+        active
+            .write_interactive(data)
+            .map_err(|error| error.to_string())?;
+        if active.direct_input {
+            active.turn_speech.typing();
+            let mut frame = active.terminal.live_snapshot();
+            MENU_INTENT.set(Some(keyboard_navigation::MenuFocusIntent::new(
+                active.id,
+                active.terminal.reading_revision(),
+                (frame.cols, frame.rows, frame.alternate_screen),
+                Instant::now(),
+            )));
+            active
+                .menu_observer
+                .accepted(data, active.terminal.reading_revision());
+            if !active
+                .tui_composer
+                .as_ref()
+                .is_some_and(|input| input.protected)
+                && active.tui_menu.is_none()
+            {
+                frame.cursor = direct_accessibility::reading_cursor(&frame, None);
+                active.source_input.accepted(
+                    &frame,
+                    active.terminal.reading_revision(),
+                    data,
+                    active.tui_composer.as_ref(),
+                    Instant::now(),
+                );
+            } else {
+                active.source_input.clear();
+            }
+            active
+                .tui_submission
+                .observe(active.tui_composer.as_ref(), active.tui_menu.is_some());
+            let document = active.reading_document_snapshot();
+            let request = active.tui_submission.accepted_request(
+                data,
+                Instant::now(),
+                Arc::clone(&document),
+                active.turns.has_active_turn(),
+            );
+            active.record_output_submission(data, request.is_some(), &document, Instant::now());
+            if let Some(request) = request {
+                active.turn_speech.reset();
+                active.turns.submitted_request(
+                    &request.text,
+                    &request.baseline,
+                    request.kind,
+                    Instant::now(),
+                );
+            }
+        }
+        active.record_direct_input(data);
+        Ok::<_, String>(())
     });
     if let Err(error) = result {
+        SHARED_SELECTION_EDIT.with(|edit| *edit.borrow_mut() = None);
         DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().cancel());
         DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
-        report_terminal_error("Ошибка прямого ввода", &error);
+        let stopped = SESSIONS.with(|sessions| {
+            sessions.borrow().active().is_none_or(|active| {
+                !active.is_alive()
+                    || !matches!(active.state, SessionState::Starting | SessionState::Running)
+            })
+        });
+        if stopped {
+            // Exit can race the next key before the timer observes it. Do not
+            // replay that key into a replacement shell or open one modal per key.
+            poll_terminal();
+            let message = SESSIONS.with(|sessions| {
+                sessions.borrow().active().map_or_else(
+                    || "Нет активной сессии".into(),
+                    |active| {
+                        if active.is_alive() && active.state == SessionState::Closing {
+                            "Оболочка завершает работу. Ввод временно приостановлен".into()
+                        } else if active.is_alive() && active.can_submit_command() {
+                            "Оболочка восстановлена. Введите команду заново".into()
+                        } else if active.is_alive()
+                            && matches!(
+                                active.state,
+                                SessionState::Starting | SessionState::Running
+                            )
+                        {
+                            "Оболочка запускается. Дождитесь готовности".into()
+                        } else {
+                            format!(
+                                "{}. Перезапуск доступен в меню профилей",
+                                session_status(active)
+                            )
+                        }
+                    },
+                )
+            });
+            announce(&message);
+        } else {
+            report_terminal_error("Ошибка прямого ввода", &error);
+        }
+        return false;
     }
+    true
 }
 
 fn focus_last_output_block() -> bool {
@@ -5775,12 +7578,7 @@ fn copy_current_output_block() -> bool {
         return false;
     }
     unsafe {
-        SendMessageW(
-            output,
-            EM_SETSEL,
-            Some(WPARAM(start as usize)),
-            Some(LPARAM(end as isize)),
-        );
+        accessible_text::select(output, start, end);
         SendMessageW(output, WM_COPY, None, None);
     }
     true
@@ -5791,17 +7589,7 @@ fn output_selection() -> (u32, u32) {
 }
 
 fn edit_selection(output: HWND) -> (u32, u32) {
-    let mut start = 0_u32;
-    let mut end = 0_u32;
-    unsafe {
-        SendMessageW(
-            output,
-            EM_GETSEL,
-            Some(WPARAM(&mut start as *mut u32 as usize)),
-            Some(LPARAM(&mut end as *mut u32 as isize)),
-        );
-    }
-    (start, end)
+    accessible_text::selection(output)
 }
 
 fn focus_output_position(position: u32) -> bool {
@@ -5812,20 +7600,19 @@ fn focus_output_position(position: u32) -> bool {
     SESSIONS.with(|sessions| {
         if let Some(active) = sessions.borrow_mut().active_mut() {
             active.vt_reading = false;
+            active.set_answers_view(false);
         }
     });
     set_reading(hwnd, true);
     unsafe {
-        if position as i32 > GetWindowTextLengthW(output) {
+        if position
+            > accessible_text::length(output)
+                .unwrap_or_else(|| GetWindowTextLengthW(output).max(0) as u32)
+        {
             return false;
         }
         let _ = SetFocus(Some(output));
-        SendMessageW(
-            output,
-            EM_SETSEL,
-            Some(WPARAM(position as usize)),
-            Some(LPARAM(position as isize)),
-        );
+        accessible_text::select(output, position, position);
         SendMessageW(output, EM_SCROLLCARET, None, None);
     }
     true
@@ -5851,7 +7638,7 @@ fn to_wide(text: &str) -> Vec<u16> {
 fn show_error(context: &str, error: &Error) {
     let text = to_wide(&format!("{context}\r\n{error}"));
     unsafe {
-        MessageBoxW(
+        ui_message::show(
             None,
             PCWSTR(text.as_ptr()),
             w!("BKS Term"),
@@ -5872,12 +7659,144 @@ fn report_terminal_error(context: &str, error: &str) {
     let text = to_wide(&format!("{context}\r\n{error}"));
     let owner = unsafe { GetParent(controls().terminal).ok() };
     unsafe {
-        MessageBoxW(
+        ui_message::show(
             owner,
             PCWSTR(text.as_ptr()),
             w!("BKS Term"),
             MB_OK | MB_ICONERROR,
         );
+    }
+}
+
+#[cfg(test)]
+mod message_dispatch_tests {
+    use super::*;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        PeekMessageW, IDCANCEL, PM_REMOVE, WM_CLOSE, WM_KEYUP, WS_EX_NOACTIVATE,
+    };
+
+    thread_local! {
+        static CLOSE_REQUESTS: RefCell<Vec<(u32, usize)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    unsafe extern "system" fn probe_proc(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        if message == WM_CLOSE
+            || (message == WM_COMMAND && wparam.0 & 0xffff == IDCANCEL.0 as usize)
+        {
+            CLOSE_REQUESTS.with(|requests| requests.borrow_mut().push((message, wparam.0)));
+            return LRESULT(0);
+        }
+        DefWindowProcW(hwnd, message, wparam, lparam)
+    }
+
+    struct HiddenWindow(HWND);
+
+    impl Drop for HiddenWindow {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = DestroyWindow(self.0);
+            }
+        }
+    }
+
+    #[test]
+    fn escape_in_native_shell_fields_never_requests_main_window_close() {
+        let _native_fixture = accessible_text::NATIVE_TEXT_FIXTURE
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let _apartment = accessibility::ComApartment::initialize().unwrap();
+        accessible_text::load().unwrap();
+        unsafe {
+            let instance = HINSTANCE(GetModuleHandleW(None).unwrap().0);
+            let class = w!("BksTermEscapeRegressionWindow");
+            assert_ne!(
+                RegisterClassW(&WNDCLASSW {
+                    lpfnWndProc: Some(probe_proc),
+                    hInstance: instance,
+                    lpszClassName: class,
+                    ..Default::default()
+                }),
+                0
+            );
+            let parent = HiddenWindow(
+                CreateWindowExW(
+                    WS_EX_NOACTIVATE,
+                    class,
+                    w!("BKS private Escape regression"),
+                    WS_OVERLAPPEDWINDOW,
+                    0,
+                    0,
+                    640,
+                    240,
+                    None,
+                    None,
+                    Some(instance),
+                    None,
+                )
+                .unwrap(),
+            );
+            for read_only in [false, true] {
+                let editor = HiddenWindow(
+                    CreateWindowExW(
+                        WINDOW_EX_STYLE::default(),
+                        w!("RICHEDIT50W"),
+                        w!("draft Ж🙂"),
+                        WS_CHILD
+                            | WS_VISIBLE
+                            | WS_TABSTOP
+                            | WINDOW_STYLE(
+                                (ES_MULTILINE
+                                    | if read_only {
+                                        ES_READONLY
+                                    } else {
+                                        ES_WANTRETURN
+                                    }) as u32,
+                            ),
+                        0,
+                        0,
+                        620,
+                        220,
+                        Some(parent.0),
+                        None,
+                        Some(instance),
+                        None,
+                    )
+                    .unwrap(),
+                );
+                CLOSE_REQUESTS.with(|requests| requests.borrow_mut().clear());
+                for press in 1..=3 {
+                    for (message, flags) in [(WM_KEYDOWN, 1), (WM_KEYUP, 0xc0000001)] {
+                        dispatch_main_message(
+                            parent.0,
+                            &MSG {
+                                hwnd: editor.0,
+                                message,
+                                wParam: WPARAM(VK_ESCAPE.0 as usize),
+                                lParam: LPARAM(flags),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                    let mut queued = MSG::default();
+                    while PeekMessageW(&mut queued, Some(parent.0), 0, 0, PM_REMOVE).as_bool() {
+                        dispatch_main_message(parent.0, &queued);
+                    }
+                    CLOSE_REQUESTS.with(|requests| {
+                        assert!(
+                            requests.borrow().is_empty(),
+                            "Esc {press} requested close/cancel from read_only={read_only}: {:?}",
+                            requests.borrow()
+                        );
+                    });
+                    assert_eq!(window_text(editor.0), "draft Ж🙂");
+                }
+            }
+        }
     }
 }
 
@@ -5893,6 +7812,7 @@ mod startup_cli_tests {
             executable: r"C:\Tools\cli.exe".to_owned(),
             args: Vec::new(),
             working_directory: directory.map(str::to_owned),
+            launch: Default::default(),
         }
     }
 
@@ -5961,6 +7881,48 @@ mod startup_cli_tests {
 #[cfg(test)]
 mod tui_adapter_tests {
     use super::*;
+
+    #[test]
+    fn menu_home_end_retains_generic_feedback_when_no_edit_is_confirmed() {
+        let mut model = bks_terminal::TerminalModel::new(40, 4);
+        model.push_bytes("❯ Alpha\r\n  Bravo\x1b[?25l".as_bytes());
+        let before = model.live_snapshot();
+        let now = Instant::now();
+        DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().begin(&before, now));
+        arm_direct_edit(&before, tui_input_echo::EditAction::End, now);
+        assert!(!DIRECT_ECHO.with(|echo| echo.borrow().has_pending()));
+        assert!(DIRECT_FEEDBACK.with(|feedback| feedback.borrow().has_pending()));
+        model.push_bytes("\x1b[H  Alpha\r\n❯ Bravo".as_bytes());
+        let after = model.live_snapshot();
+        assert!(observe_direct_edit(&after, now).is_none());
+        DIRECT_FEEDBACK.with(|feedback| {
+            let mut feedback = feedback.borrow_mut();
+            assert_eq!(feedback.observe(&after, now), None);
+            assert_eq!(
+                feedback.observe(&after, now + Duration::from_millis(100)),
+                Some("Bravo".to_owned())
+            );
+            feedback.cancel();
+        });
+        DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
+    }
+
+    #[test]
+    fn confirmed_edit_suppresses_generic_feedback_for_the_same_key() {
+        let mut model = bks_terminal::TerminalModel::new(40, 4);
+        model.push_bytes(b"> abcd\x1b[5G");
+        let before = model.live_snapshot();
+        let now = Instant::now();
+        DIRECT_FEEDBACK.with(|feedback| feedback.borrow_mut().begin(&before, now));
+        arm_direct_edit(&before, tui_input_echo::EditAction::Backspace, now);
+        model.push_bytes(b"\r> acd \x1b[4G");
+        assert_eq!(
+            observe_direct_edit(&model.live_snapshot(), now),
+            Some("Удалено".to_owned())
+        );
+        assert!(!DIRECT_FEEDBACK.with(|feedback| feedback.borrow().has_pending()));
+        DIRECT_ECHO.with(|echo| echo.borrow_mut().cancel());
+    }
 
     #[test]
     fn overview_keeps_full_context_and_source_rows_without_mapped_actions() {

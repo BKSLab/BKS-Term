@@ -1,6 +1,7 @@
 //! Pure caret mapping and short feedback for explicitly requested VT navigation.
 //! This module produces text only; it never recognizes or executes actions.
 
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use bks_terminal::{CellSnapshot, Color, Flags, NamedColor, ReadingDocument, TerminalSnapshot};
@@ -11,6 +12,8 @@ const MAX_SCREEN_ROWS: usize = 256;
 const MAX_ROW_CHARS: usize = 1_024;
 const MAX_EVENT_CHARS: usize = 300;
 const MAX_FALLBACK_ROW_CHARS: usize = 140;
+const MAX_DIAGNOSTICS: usize = 64;
+const MAX_DIAGNOSTIC_MARKERS: usize = 16;
 
 /// Text reading may also follow a single inverse cell used as a software
 /// cursor, or a recently confirmed visible insertion. Neither hint is an
@@ -170,6 +173,86 @@ pub fn cursor_offset(document: &ReadingDocument, frame: &TerminalSnapshot) -> u3
 #[derive(Default)]
 pub struct InputFeedback {
     pending: Option<Navigation>,
+    diagnostics: Diagnostics,
+}
+
+/// Optional metadata for matching a navigation observation to its source.
+/// The trace deliberately contains no input, labels, text hashes or commands.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
+pub struct DiagnosticSource {
+    pub session: u64,
+    pub screen_revision: u64,
+    pub input_revision: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticPhase {
+    Armed,
+    Waiting,
+    Candidate,
+    Stabilizing,
+    Announced,
+    Cancelled,
+    Rejected,
+    Expired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticReason {
+    ExplicitNavigation,
+    Cancelled,
+    ScrolledHistory,
+    GeometryChanged,
+    ScreenChanged,
+    Expired,
+    MarkerTransfer,
+    AmbiguousMarkerTransfer,
+    ChangedText,
+    StyleTransfer,
+    CursorMove,
+    NoSelectionEvidence,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct DiagnosticMarker {
+    pub row: usize,
+    pub codepoint: u32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct DiagnosticChanges {
+    pub text_rows: usize,
+    pub style_rows: usize,
+    pub foreground_cells: usize,
+    pub background_cells: usize,
+    pub inverse_cells: usize,
+    pub bold_cells: usize,
+    pub underline_cells: usize,
+}
+
+/// Bounded, serializable metadata suitable for an explicitly enabled trace.
+/// Raw VT cells and the candidate's speech text never enter this structure.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FeedbackDiagnostic {
+    pub source: DiagnosticSource,
+    pub phase: DiagnosticPhase,
+    pub reason: DiagnosticReason,
+    pub age_ms: u64,
+    pub cols: usize,
+    pub rows: usize,
+    pub alternate_screen: bool,
+    pub cursor_row: Option<usize>,
+    pub changes: DiagnosticChanges,
+    pub markers: Vec<DiagnosticMarker>,
+}
+
+#[derive(Default)]
+struct Diagnostics {
+    enabled: bool,
+    source: DiagnosticSource,
+    events: VecDeque<FeedbackDiagnostic>,
 }
 
 struct Navigation {
@@ -196,10 +279,19 @@ enum MarkerTransfer {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+enum LabelEvidence {
+    None,
+    Stable,
+    Ambiguous,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct CellStyle {
     foreground: Color,
     background: Color,
     inverse: bool,
+    bold: bool,
+    underline: bool,
 }
 
 struct Screen {
@@ -212,15 +304,53 @@ struct Screen {
 }
 
 impl InputFeedback {
+    /// Check before requesting a VT snapshot on an otherwise idle UI tick.
+    pub fn has_pending(&self) -> bool {
+        self.pending.is_some()
+    }
+
+    /// Diagnostics are off by default and never retain terminal text.
+    pub fn enable_diagnostics(&mut self, enabled: bool) {
+        self.diagnostics.enabled = enabled;
+        if !enabled {
+            self.diagnostics.events.clear();
+        }
+    }
+
+    pub fn set_diagnostic_source(&mut self, source: DiagnosticSource) {
+        self.diagnostics.source = source;
+    }
+
+    /// Draining is explicit so the UI caller controls where/when metadata is
+    /// written. This module performs no file IO and has no implicit trace path.
+    pub fn take_diagnostics(&mut self) -> Vec<FeedbackDiagnostic> {
+        self.diagnostics.events.drain(..).collect()
+    }
+
     /// Arm feedback immediately before forwarding an explicit navigation key.
     /// Both this frame and subsequent observations must be live VT snapshots.
     pub fn begin(&mut self, frame: &TerminalSnapshot, now: Instant) {
         self.cancel();
         if frame.display_offset != 0 {
+            self.record_frame(
+                frame,
+                DiagnosticPhase::Rejected,
+                DiagnosticReason::ScrolledHistory,
+                0,
+                None,
+            );
             return;
         }
+        let before = Screen::new(frame);
+        self.record(
+            &before,
+            DiagnosticPhase::Armed,
+            DiagnosticReason::ExplicitNavigation,
+            0,
+            None,
+        );
         self.pending = Some(Navigation {
-            before: Screen::new(frame),
+            before,
             started: now,
             candidate: None,
         });
@@ -231,20 +361,37 @@ impl InputFeedback {
     /// Reciprocal highlight transfers and visible cursor row moves also qualify;
     /// incidental colors, borders, spinners and cursor visibility alone do not.
     pub fn observe(&mut self, frame: &TerminalSnapshot, now: Instant) -> Option<String> {
-        let pending = self.pending.as_mut()?;
-        if now.saturating_duration_since(pending.started) >= MAX_AGE
-            || frame.display_offset != 0
-            || frame.alternate_screen != pending.before.alternate
-            || frame.cols != pending.before.cols
-            || frame.rows != pending.before.height
-        {
-            self.cancel();
+        let mut pending = self.pending.take()?;
+        let age = now.saturating_duration_since(pending.started);
+        let age_ms = age.as_millis().min(u64::MAX as u128) as u64;
+        let rejected = if age >= MAX_AGE {
+            Some((DiagnosticPhase::Expired, DiagnosticReason::Expired))
+        } else if frame.display_offset != 0 {
+            Some((DiagnosticPhase::Rejected, DiagnosticReason::ScrolledHistory))
+        } else if frame.alternate_screen != pending.before.alternate {
+            Some((DiagnosticPhase::Rejected, DiagnosticReason::ScreenChanged))
+        } else if frame.cols != pending.before.cols || frame.rows != pending.before.height {
+            Some((DiagnosticPhase::Rejected, DiagnosticReason::GeometryChanged))
+        } else {
+            None
+        };
+        if let Some((phase, reason)) = rejected {
+            self.record_frame(frame, phase, reason, age_ms, Some(&pending.before));
             return None;
         }
 
         let current = Screen::new(frame);
-        let Some(reply) = feedback(&pending.before, &current) else {
+        let (reply, reason) = feedback(&pending.before, &current);
+        let Some(reply) = reply else {
             pending.candidate = None;
+            self.record(
+                &current,
+                DiagnosticPhase::Waiting,
+                reason,
+                age_ms,
+                Some(&pending.before),
+            );
+            self.pending = Some(pending);
             return None;
         };
         if let Some(candidate) = pending
@@ -253,21 +400,141 @@ impl InputFeedback {
             .filter(|candidate| candidate.reply == reply)
         {
             if now.saturating_duration_since(candidate.stable_since) >= STABLE_FOR {
-                self.cancel();
+                self.record(
+                    &current,
+                    DiagnosticPhase::Announced,
+                    reason,
+                    age_ms,
+                    Some(&pending.before),
+                );
                 return Some(clipped(&reply.text, MAX_EVENT_CHARS));
             }
+            self.record(
+                &current,
+                DiagnosticPhase::Stabilizing,
+                reason,
+                age_ms,
+                Some(&pending.before),
+            );
+            self.pending = Some(pending);
             return None;
         }
+        self.record(
+            &current,
+            DiagnosticPhase::Candidate,
+            reason,
+            age_ms,
+            Some(&pending.before),
+        );
         pending.candidate = Some(Candidate {
             reply,
             stable_since: now,
         });
+        self.pending = Some(pending);
         None
     }
 
     pub fn cancel(&mut self) {
-        self.pending = None;
+        if let Some(pending) = self.pending.take() {
+            self.record(
+                &pending.before,
+                DiagnosticPhase::Cancelled,
+                DiagnosticReason::Cancelled,
+                0,
+                None,
+            );
+        }
     }
+
+    fn record_frame(
+        &mut self,
+        frame: &TerminalSnapshot,
+        phase: DiagnosticPhase,
+        reason: DiagnosticReason,
+        age_ms: u64,
+        before: Option<&Screen>,
+    ) {
+        if self.diagnostics.enabled {
+            self.record(&Screen::new(frame), phase, reason, age_ms, before);
+        }
+    }
+
+    fn record(
+        &mut self,
+        screen: &Screen,
+        phase: DiagnosticPhase,
+        reason: DiagnosticReason,
+        age_ms: u64,
+        before: Option<&Screen>,
+    ) {
+        if !self.diagnostics.enabled {
+            return;
+        }
+        let changes = before.map_or_else(DiagnosticChanges::default, |before| {
+            diagnostic_changes(before, screen)
+        });
+        let markers = screen
+            .rows
+            .iter()
+            .enumerate()
+            .filter_map(|(row, text)| {
+                let (marker, _) = selector_prefix(text)?;
+                Some(DiagnosticMarker {
+                    row,
+                    codepoint: marker.chars().next()? as u32,
+                })
+            })
+            .take(MAX_DIAGNOSTIC_MARKERS)
+            .collect();
+        if self.diagnostics.events.len() == MAX_DIAGNOSTICS {
+            self.diagnostics.events.pop_front();
+        }
+        self.diagnostics.events.push_back(FeedbackDiagnostic {
+            source: self.diagnostics.source,
+            phase,
+            reason,
+            age_ms,
+            cols: screen.cols,
+            rows: screen.height,
+            alternate_screen: screen.alternate,
+            cursor_row: screen.cursor,
+            changes,
+            markers,
+        });
+    }
+}
+
+fn diagnostic_changes(before: &Screen, after: &Screen) -> DiagnosticChanges {
+    let mut changes = DiagnosticChanges {
+        text_rows: before
+            .rows
+            .iter()
+            .zip(&after.rows)
+            .filter(|(before, after)| !same_row_text(before, after))
+            .count()
+            + before.rows.len().abs_diff(after.rows.len()),
+        style_rows: before
+            .styles
+            .iter()
+            .zip(&after.styles)
+            .filter(|(before, after)| before != after)
+            .count()
+            + before.styles.len().abs_diff(after.styles.len()),
+        ..DiagnosticChanges::default()
+    };
+    for (before, after) in before
+        .styles
+        .iter()
+        .zip(&after.styles)
+        .flat_map(|(before, after)| before.iter().zip(after))
+    {
+        changes.foreground_cells += usize::from(before.foreground != after.foreground);
+        changes.background_cells += usize::from(before.background != after.background);
+        changes.inverse_cells += usize::from(before.inverse != after.inverse);
+        changes.bold_cells += usize::from(before.bold != after.bold);
+        changes.underline_cells += usize::from(before.underline != after.underline);
+    }
+    changes
 }
 
 impl Screen {
@@ -327,6 +594,8 @@ fn screen_row(cells: &[CellSnapshot]) -> (String, Vec<CellStyle>) {
                 foreground: cell.fg,
                 background: cell.bg,
                 inverse: cell.flags.contains(Flags::INVERSE),
+                bold: cell.flags.contains(Flags::BOLD),
+                underline: cell.flags.intersects(Flags::ALL_UNDERLINES),
             });
         }
     }
@@ -336,14 +605,16 @@ fn screen_row(cells: &[CellSnapshot]) -> (String, Vec<CellStyle>) {
     (text, styles)
 }
 
-fn feedback(before: &Screen, after: &Screen) -> Option<Reply> {
+fn feedback(before: &Screen, after: &Screen) -> (Option<Reply>, DiagnosticReason) {
     match marker_transfer(&before.rows, &after.rows) {
-        MarkerTransfer::Selected(reply) => return Some(reply),
-        MarkerTransfer::Ambiguous => return None,
+        MarkerTransfer::Selected(reply) => {
+            return (Some(reply), DiagnosticReason::MarkerTransfer);
+        }
+        MarkerTransfer::Ambiguous => return (None, DiagnosticReason::AmbiguousMarkerTransfer),
         MarkerTransfer::None => {}
     }
     if let Some(reply) = feedback_text(&before.rows, &after.rows, after.cursor) {
-        return Some(reply);
+        return (Some(reply), DiagnosticReason::ChangedText);
     }
     if before.rows.len() != after.rows.len()
         || !before
@@ -352,64 +623,76 @@ fn feedback(before: &Screen, after: &Screen) -> Option<Reply> {
             .zip(&after.rows)
             .all(|(before, after)| same_row_text(before, after))
     {
-        return None;
+        return (None, DiagnosticReason::NoSelectionEvidence);
     }
     if let Some(row) = selection_row(before, after) {
-        return Some(Reply {
-            text: after.rows[row].clone(),
-            row: Some(row),
-        });
+        return (
+            Some(Reply {
+                // A highlight establishes the selected row, but cannot by
+                // itself distinguish a selector from substantive punctuation.
+                text: after.rows[row].clone(),
+                row: Some(row),
+            }),
+            DiagnosticReason::StyleTransfer,
+        );
     }
     // A hidden cursor becoming visible is not evidence of movement. Cursor
     // feedback also requires unchanged text/style, so an ambiguous repaint
     // cannot acquire meaning merely because its cursor was repositioned.
     if before.styles != after.styles {
-        return None;
+        return (None, DiagnosticReason::NoSelectionEvidence);
     }
     let (Some(previous), Some(row)) = (before.cursor, after.cursor) else {
-        return None;
+        return (None, DiagnosticReason::NoSelectionEvidence);
     };
-    (previous != row && !after.styles[row].is_empty()).then(|| Reply {
+    let reply = (previous != row && !after.styles[row].is_empty()).then(|| Reply {
         text: after.rows[row].clone(),
         row: Some(row),
-    })
+    });
+    let reason = if reply.is_some() {
+        DiagnosticReason::CursorMove
+    } else {
+        DiagnosticReason::NoSelectionEvidence
+    };
+    (reply, reason)
 }
 
 /// The same prefix leaving one stable label and appearing on another is
-/// selection evidence even when the labels contain several different styles.
-/// Unknown glyphs qualify only through this reciprocal transfer, never merely
-/// because a line starts with punctuation.
+/// selection evidence even when the labels contain several different styles
+/// or scroll to different physical rows. Unknown glyphs qualify only through
+/// this reciprocal transfer, never merely because a line starts with punctuation.
 fn marker_transfer(before: &[String], after: &[String]) -> MarkerTransfer {
+    let lost: Vec<_> = before
+        .iter()
+        .enumerate()
+        .filter_map(|(row, text)| {
+            let (marker, label) = selector_prefix(text)?;
+            let evidence = selector_label_evidence(after, row, text, label);
+            (evidence != LabelEvidence::None).then_some((marker, evidence))
+        })
+        .collect();
     let mut selected = None;
     for (row, text) in after.iter().enumerate() {
         let Some((marker, label)) = selector_prefix(text) else {
             continue;
         };
-        if !before
-            .get(row)
-            .is_some_and(|previous| same_row_text(previous, label))
-        {
+        let evidence = selector_label_evidence(before, row, text, label);
+        if evidence == LabelEvidence::None {
             continue;
         }
-        let lost = before
+        let mut losses = lost
             .iter()
-            .enumerate()
-            .filter(|(previous_row, text)| {
-                *previous_row != row
-                    && selector_prefix(text).is_some_and(|(previous_marker, previous_label)| {
-                        previous_marker == marker
-                            && after
-                                .get(*previous_row)
-                                .is_some_and(|current| same_row_text(current, previous_label))
-                    })
-            })
-            .count();
-        if lost == 0 {
+            .filter(|(previous_marker, _)| *previous_marker == marker);
+        let Some((_, loss_evidence)) = losses.next() else {
             continue;
-        }
+        };
         // Only actual losses/gains compete; an unchanged prompt or bullet
         // using the same glyph elsewhere is not another transfer.
-        if lost != 1 || selected.is_some() {
+        if evidence == LabelEvidence::Ambiguous
+            || *loss_evidence == LabelEvidence::Ambiguous
+            || losses.next().is_some()
+            || selected.is_some()
+        {
             return MarkerTransfer::Ambiguous;
         }
         selected = Some(Reply {
@@ -418,6 +701,33 @@ fn marker_transfer(before: &[String], after: &[String]) -> MarkerTransfer {
         });
     }
     selected.map_or(MarkerTransfer::None, MarkerTransfer::Selected)
+}
+
+fn selector_label_evidence(
+    rows: &[String],
+    row: usize,
+    marked: &str,
+    label: &str,
+) -> LabelEvidence {
+    if rows.get(row).is_some_and(|text| same_row_text(text, label)) {
+        return LabelEvidence::Stable;
+    }
+    // A marked label moving with the viewport is unchanged decoration, not a
+    // newly selected item. Otherwise a unique bare label can establish its
+    // identity across a scroll; duplicates cannot supply that identity.
+    if rows.iter().any(|text| same_row_text(text, marked)) {
+        return LabelEvidence::None;
+    }
+    match rows
+        .iter()
+        .filter(|text| same_row_text(text, label))
+        .take(2)
+        .count()
+    {
+        0 => LabelEvidence::None,
+        1 => LabelEvidence::Stable,
+        _ => LabelEvidence::Ambiguous,
+    }
 }
 
 fn selector_prefix(text: &str) -> Option<(&str, &str)> {
@@ -461,6 +771,15 @@ fn selection_row(before: &Screen, after: &Screen) -> Option<usize> {
     // Several changing rows are a theme/redraw, not an inferred selection.
     let choices = [
         reciprocal_row(before, after, *first, *second, |style| style.inverse, false),
+        reciprocal_row(before, after, *first, *second, |style| style.bold, false),
+        reciprocal_row(
+            before,
+            after,
+            *first,
+            *second,
+            |style| style.underline,
+            false,
+        ),
         reciprocal_row(
             before,
             after,
@@ -884,6 +1203,66 @@ mod tests {
     }
 
     #[test]
+    fn kimi_fullrow_slash_selection_keeps_arguments_and_content_punctuation() {
+        // Source-derived 24-bit selectedText/description layout. These are
+        // synthetic frames, not a recorded session or an NVDA speech trace.
+        let before = frame(concat!(
+            "> /\r\n",
+            "\x1b[38;2;112;145;200m→ swarm [on|off] | <task>  Toggle swarm mode; a > b → c\x1b[0m\r\n",
+            "  auto                     \x1b[38;2;128;128;128mNever Ask: auto-approve requests\x1b[0m\r\n",
+            "  effort                   \x1b[38;2;128;128;128mSwitch thinking effort\x1b[0m\r\n",
+            "  help                     \x1b[38;2;128;128;128mShow help\x1b[0m\r\n",
+            "  (1/42)\x1b[?25l"
+        ));
+        let after = frame(concat!(
+            "> /\r\n",
+            "  swarm [on|off] | <task>  \x1b[38;2;128;128;128mToggle swarm mode; a > b → c\x1b[0m\r\n",
+            "\x1b[38;2;112;145;200m→ auto                     Never Ask: auto-approve requests\x1b[0m\r\n",
+            "  effort                   \x1b[38;2;128;128;128mSwitch thinking effort\x1b[0m\r\n",
+            "  help                     \x1b[38;2;128;128;128mShow help\x1b[0m\r\n",
+            "  (2/42)\x1b[?25l"
+        ));
+        assert_eq!(
+            navigation_reply(&before, &after).as_deref(),
+            Some("auto                     Never Ask: auto-approve requests")
+        );
+        assert_eq!(
+            navigation_reply(&after, &before).as_deref(),
+            Some("swarm [on|off] | <task>  Toggle swarm mode; a > b → c")
+        );
+    }
+
+    #[test]
+    fn scrolling_kimi_slash_selection_uses_label_identity_across_physical_rows() {
+        // The viewport scrolls around the selected item, so its pointer stays
+        // on physical row 2 while auto/effort move to different physical rows.
+        let before = frame(concat!(
+            "> /\r\n",
+            "  swarm [on|off] | <task>  \x1b[90mToggle swarm mode\x1b[0m\r\n",
+            "\x1b[36m→ auto                     Never Ask: auto-approve requests\x1b[0m\r\n",
+            "  effort                   \x1b[90mSwitch thinking effort\x1b[0m\r\n",
+            "  help                     \x1b[90mShow help\x1b[0m\r\n",
+            "  (2/42)\x1b[?25l"
+        ));
+        let after = frame(concat!(
+            "> /\r\n",
+            "  auto                     \x1b[90mNever Ask: auto-approve requests\x1b[0m\r\n",
+            "\x1b[36m→ effort                   Switch thinking effort\x1b[0m\r\n",
+            "  help                     \x1b[90mShow help\x1b[0m\r\n",
+            "  quit                     \x1b[90mExit\x1b[0m\r\n",
+            "  (3/42)\x1b[?25l"
+        ));
+        assert_eq!(
+            navigation_reply(&before, &after).as_deref(),
+            Some("effort                   Switch thinking effort")
+        );
+        assert_eq!(
+            navigation_reply(&after, &before).as_deref(),
+            Some("auto                     Never Ask: auto-approve requests")
+        );
+    }
+
+    #[test]
     fn kimi_model_pointer_transfer_handles_mixed_label_and_provider_colors() {
         // Source-derived ModelSelectorComponent layout, not a recorded session:
         // the name alone gains primary/bold; provider and current mark stay styled.
@@ -902,6 +1281,34 @@ mod tests {
         assert_eq!(
             navigation_reply(&before, &after),
             Some("Bravo model  Kimi Code".to_owned())
+        );
+    }
+
+    #[test]
+    fn scrolling_kimi_model_selection_keeps_the_provider_and_omits_only_the_pointer() {
+        let before = frame(concat!(
+            "\x1b[90m    \x1b[0mK3-256k              \x1b[90mKimi Code\x1b[0m\r\n",
+            "\x1b[36m  ❯ \x1b[1mK3\x1b[0m                   \x1b[90mKimi Code\x1b[0m\r\n",
+            "\x1b[90m    \x1b[0mK2.7 Code Highspeed  \x1b[90mKimi Code\x1b[0m\r\n",
+            "\x1b[90m    \x1b[0mK2.8 Preview         \x1b[90mKimi Code\x1b[0m\r\n",
+            " Thinking (←→ to switch)\r\n",
+            " [ On ]   Off\x1b[?25l"
+        ));
+        let after = frame(concat!(
+            "\x1b[90m    \x1b[0mK3                   \x1b[90mKimi Code\x1b[0m\r\n",
+            "\x1b[36m  ❯ \x1b[1mK2.7 Code Highspeed\x1b[0m  \x1b[90mKimi Code\x1b[0m\r\n",
+            "\x1b[90m    \x1b[0mK2.8 Preview         \x1b[90mKimi Code\x1b[0m\r\n",
+            "\x1b[90m    \x1b[0mOther model          \x1b[90mOther provider\x1b[0m\r\n",
+            " Thinking\r\n",
+            " On (Unsupported)   [ Off ]\x1b[?25l"
+        ));
+        assert_eq!(
+            navigation_reply(&before, &after).as_deref(),
+            Some("K2.7 Code Highspeed  Kimi Code")
+        );
+        assert_eq!(
+            navigation_reply(&after, &before).as_deref(),
+            Some("K3                   Kimi Code")
         );
     }
 
@@ -956,6 +1363,39 @@ mod tests {
         ] {
             assert_eq!(navigation_reply(&frame(before), &frame(after)), None);
         }
+    }
+
+    #[test]
+    fn shifted_duplicate_labels_or_competing_transfers_remain_ambiguous() {
+        for (before, after) in [
+            (
+                "❯ Alpha\r\nBravo\r\nBravo\r\nCharlie\x1b[?25l",
+                "❯ Bravo\r\nAlpha\r\nCharlie\r\nDelta\x1b[?25l",
+            ),
+            (
+                "◆ Alpha\r\nBravo\r\n● Charlie\r\nDelta\x1b[?25l",
+                "● Delta\r\nAlpha\r\n◆ Bravo\r\nCharlie\x1b[?25l",
+            ),
+        ] {
+            let before = frame(before);
+            let after = frame(after);
+            assert!(matches!(
+                marker_transfer(&Screen::new(&before).rows, &Screen::new(&after).rows),
+                MarkerTransfer::Ambiguous
+            ));
+            assert_eq!(navigation_reply(&before, &after), None);
+        }
+    }
+
+    #[test]
+    fn an_unchanged_marker_scrolling_with_its_label_is_not_a_transfer() {
+        let before = frame("◆ Alpha\r\nBravo\r\nCharlie\x1b[?25l");
+        let after = frame("status\r\n◆ Alpha\r\nBravo\r\nCharlie\x1b[?25l");
+        assert!(matches!(
+            marker_transfer(&Screen::new(&before).rows, &Screen::new(&after).rows),
+            MarkerTransfer::None
+        ));
+        assert_eq!(navigation_reply(&before, &after).as_deref(), Some("status"));
     }
 
     #[test]
@@ -1077,6 +1517,50 @@ mod tests {
         row_inverse(&mut after, 0, false);
         row_inverse(&mut after, 1, true);
         assert_eq!(navigation_reply(&before, &after), Some("Bravo".to_owned()));
+    }
+
+    #[test]
+    fn reciprocal_bold_or_underline_transfer_announces_the_new_row() {
+        for (selected, reset) in [("1", "22"), ("4", "24")] {
+            let before = frame(&format!(
+                "\x1b[{selected}mAlpha model\x1b[{reset}m  Provider\r\nBravo model  Provider\r\nCharlie  Provider\x1b[?25l"
+            ));
+            let after = frame(&format!(
+                "Alpha model  Provider\r\n\x1b[{selected}mBravo model\x1b[{reset}m  Provider\r\nCharlie  Provider\x1b[?25l"
+            ));
+            assert_eq!(
+                navigation_reply(&before, &after),
+                Some("Bravo model  Provider".to_owned())
+            );
+            assert_eq!(
+                navigation_reply(&after, &before),
+                Some("Alpha model  Provider".to_owned())
+            );
+        }
+    }
+
+    #[test]
+    fn bold_software_caret_theme_and_conflicting_highlights_remain_quiet() {
+        for (before, after) in [
+            (
+                "\x1b[1mA\x1b[22mlpha\r\nBravo\x1b[?25l",
+                "Alpha\r\n\x1b[1mB\x1b[22mravo\x1b[?25l",
+            ),
+            (
+                "Alpha\r\nBravo\r\nCharlie\x1b[?25l",
+                "\x1b[1mAlpha\r\nBravo\r\nCharlie\x1b[?25l",
+            ),
+            (
+                "\x1b[1mAlpha\x1b[22m\r\nBravo\r\n\x1b[1mCharlie\x1b[22m\x1b[?25l",
+                "Alpha\r\n\x1b[1mBravo\x1b[22m\r\n\x1b[1mCharlie\x1b[22m\x1b[?25l",
+            ),
+            (
+                "\x1b[8;1mAlpha\x1b[0m\r\n\x1b[8mBravo\x1b[0m\x1b[?25l",
+                "\x1b[8mAlpha\x1b[0m\r\n\x1b[8;1mBravo\x1b[0m\x1b[?25l",
+            ),
+        ] {
+            assert_eq!(navigation_reply(&frame(before), &frame(after)), None);
+        }
     }
 
     #[test]
@@ -1272,6 +1756,54 @@ mod tests {
         let mut after = before.clone();
         after.cursor = Some(CursorSnapshot { row: 1, column: 3 });
         assert_eq!(navigation_reply(&before, &after), Some("Bravo".to_owned()));
+    }
+
+    #[test]
+    fn style_and_cursor_selection_preserve_punctuation_without_selector_evidence() {
+        for label in [
+            "> 1 remains true",
+            "→ target",
+            ") closing punctuation remains content",
+            "[on|off] | <task>  Arguments; a > b → c",
+            "swarm [on|off] | <task>  Toggle swarm mode",
+            "K3 (Kimi Code)",
+        ] {
+            let text = format!("Alpha\r\n{label}\r\nCharlie");
+            let mut before = frame(&text);
+            before.cursor = Some(CursorSnapshot { row: 0, column: 0 });
+            let mut after = before.clone();
+            after.cursor = Some(CursorSnapshot { row: 1, column: 0 });
+            assert_eq!(
+                navigation_reply(&before, &after).as_deref(),
+                Some(label),
+                "cursor: {label}"
+            );
+
+            before.cursor = None;
+            after.cursor = None;
+            row_background(&mut before, 0, Color::Indexed(4));
+            row_background(&mut after, 1, Color::Indexed(4));
+            assert_eq!(
+                navigation_reply(&before, &after).as_deref(),
+                Some(label),
+                "style: {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn isolated_punctuation_cannot_supply_custom_navigation_speech() {
+        for punctuation in ["/", ">", "❯", "(", ")"] {
+            let mut before = frame(&format!("Alpha\r\n{punctuation}\r\nCharlie"));
+            before.cursor = Some(CursorSnapshot { row: 0, column: 0 });
+            let mut after = before.clone();
+            after.cursor = Some(CursorSnapshot { row: 1, column: 0 });
+            assert_eq!(navigation_reply(&before, &after), None);
+            assert_eq!(
+                navigation_reply(&frame("previous\x1b[?25l"), &frame(punctuation)),
+                None
+            );
+        }
     }
 
     #[test]
@@ -1500,5 +2032,93 @@ mod tests {
         feedback.begin(&before, now);
         assert_eq!(feedback.observe(&after, now + STABLE_FOR), None);
         assert!(feedback.pending.is_none());
+    }
+
+    #[test]
+    fn diagnostics_are_opt_in_and_contain_metadata_without_labels_or_input() {
+        let before = frame("❯ SECRET_ALPHA\r\n  SECRET_BRAVO\x1b[?25l");
+        let after = frame("  SECRET_ALPHA\r\n❯ SECRET_BRAVO\x1b[?25l");
+        let now = Instant::now();
+        let mut feedback = InputFeedback::default();
+        assert!(!feedback.has_pending());
+        feedback.begin(&before, now);
+        assert!(feedback.has_pending());
+        feedback.observe(&after, now);
+        assert!(feedback.take_diagnostics().is_empty());
+        feedback.cancel();
+
+        feedback.enable_diagnostics(true);
+        feedback.set_diagnostic_source(DiagnosticSource {
+            session: 7,
+            screen_revision: 11,
+            input_revision: 13,
+        });
+        feedback.begin(&before, now);
+        feedback.observe(&after, now);
+        feedback.observe(&after, now + STABLE_FOR);
+        assert!(!feedback.has_pending());
+        let diagnostics = feedback.take_diagnostics();
+        assert_eq!(diagnostics.len(), 3);
+        assert_eq!(diagnostics[0].phase, DiagnosticPhase::Armed);
+        assert_eq!(diagnostics[1].phase, DiagnosticPhase::Candidate);
+        assert_eq!(diagnostics[2].phase, DiagnosticPhase::Announced);
+        assert_eq!(diagnostics[2].reason, DiagnosticReason::MarkerTransfer);
+        assert_eq!(diagnostics[2].source.screen_revision, 11);
+        assert_eq!(diagnostics[2].changes.text_rows, 2);
+        assert_eq!(diagnostics[2].markers[0].codepoint, '❯' as u32);
+        let serialized = serde_json::to_string(&diagnostics).unwrap();
+        assert!(!serialized.contains("SECRET"));
+        assert!(!serialized.contains("ALPHA"));
+        assert!(!serialized.contains("BRAVO"));
+        assert!(feedback.take_diagnostics().is_empty());
+    }
+
+    #[test]
+    fn diagnostics_explain_silence_expiry_and_geometry_without_weakening_them() {
+        let before = frame("Alpha\r\nBravo\x1b[?25l");
+        let mut after = before.clone();
+        after.cells[0].flags.insert(Flags::BOLD);
+        let now = Instant::now();
+        let mut feedback = InputFeedback::default();
+        feedback.enable_diagnostics(true);
+        feedback.begin(&before, now);
+        feedback.observe(&after, now);
+        let diagnostics = feedback.take_diagnostics();
+        assert_eq!(diagnostics[1].phase, DiagnosticPhase::Waiting);
+        assert_eq!(diagnostics[1].reason, DiagnosticReason::NoSelectionEvidence);
+        assert_eq!(diagnostics[1].changes.bold_cells, 1);
+        assert_eq!(feedback.observe(&after, now + MAX_AGE), None);
+        assert_eq!(
+            feedback.take_diagnostics()[0].reason,
+            DiagnosticReason::Expired
+        );
+        assert!(!feedback.has_pending());
+
+        feedback.begin(&before, now);
+        after.rows += 1;
+        assert_eq!(feedback.observe(&after, now), None);
+        assert_eq!(
+            feedback.take_diagnostics()[1].reason,
+            DiagnosticReason::GeometryChanged
+        );
+        assert!(!feedback.has_pending());
+    }
+
+    #[test]
+    fn diagnostics_remain_bounded_and_disable_clears_retained_metadata() {
+        let before = frame("❯ Alpha\r\n  Bravo\x1b[?25l");
+        let now = Instant::now();
+        let mut feedback = InputFeedback::default();
+        feedback.enable_diagnostics(true);
+        for _ in 0..MAX_DIAGNOSTICS * 2 {
+            feedback.begin(&before, now);
+        }
+        assert_eq!(feedback.take_diagnostics().len(), MAX_DIAGNOSTICS);
+        feedback.observe(&before, now);
+        feedback.enable_diagnostics(false);
+        assert!(feedback.take_diagnostics().is_empty());
+        assert!(feedback.has_pending());
+        feedback.cancel();
+        assert!(!feedback.has_pending());
     }
 }

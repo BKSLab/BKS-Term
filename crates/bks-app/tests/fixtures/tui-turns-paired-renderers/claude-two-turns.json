@@ -1,0 +1,17 @@
+{
+  "kind": "source-equivalent, not an authenticated capture",
+  "columns": 80,
+  "rows": 26,
+  "phase_ends": [
+    542,
+    1181,
+    1848,
+    2624,
+    3429
+  ],
+  "accepted_inputs": [
+    "First accepted question",
+    "Second accepted question"
+  ],
+  "sha256": "bfa14e1ba27d1c5ede2af2962bc38c566096a1fb8715fc7696e6b7381530c398"
+}

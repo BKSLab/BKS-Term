@@ -1,0 +1,80 @@
+TOOL_STDOUT34_BEGIN
+TOOL_STDOUT34_002 generated fixture line 2; this is tool data.
+TOOL_STDOUT34_003 generated fixture line 3; this is tool data.
+TOOL_STDOUT34_004 generated fixture line 4; this is tool data.
+TOOL_STDOUT34_005 generated fixture line 5; this is tool data.
+TOOL_STDOUT34_006 generated fixture line 6; this is tool data.
+TOOL_STDOUT34_007 generated fixture line 7; this is tool data.
+TOOL_STDOUT34_008 generated fixture line 8; this is tool data.
+TOOL_STDOUT34_009 generated fixture line 9; this is tool data.
+TOOL_STDOUT34_010 generated fixture line 10; this is tool data.
+• TOOL_STDOUT_FAKE_ANSWER
+Thinking: TOOL_STDOUT_FAKE_THOUGHT
+```text
+TOOL_STDOUT34_FENCED_DATA
+```
+TOOL_STDOUT34_016 generated fixture line 16; this is tool data.
+TOOL_STDOUT34_017 generated fixture line 17; this is tool data.
+TOOL_STDOUT34_018 generated fixture line 18; this is tool data.
+TOOL_STDOUT34_019 generated fixture line 19; this is tool data.
+TOOL_STDOUT34_020 generated fixture line 20; this is tool data.
+TOOL_STDOUT34_021 generated fixture line 21; this is tool data.
+TOOL_STDOUT34_022 generated fixture line 22; this is tool data.
+TOOL_STDOUT34_023 generated fixture line 23; this is tool data.
+TOOL_STDOUT34_024 generated fixture line 24; this is tool data.
+TOOL_STDOUT34_025 generated fixture line 25; this is tool data.
+TOOL_STDOUT34_026 generated fixture line 26; this is tool data.
+TOOL_STDOUT34_027 generated fixture line 27; this is tool data.
+TOOL_STDOUT34_028 generated fixture line 28; this is tool data.
+TOOL_STDOUT34_029 generated fixture line 29; this is tool data.
+TOOL_STDOUT34_030 generated fixture line 30; this is tool data.
+TOOL_STDOUT34_031 generated fixture line 31; this is tool data.
+TOOL_STDOUT34_032 generated fixture line 32; this is tool data.
+TOOL_STDOUT34_033 generated fixture line 33; this is tool data.
+TOOL_STDOUT34_034 generated fixture line 34; this is tool data.
+TOOL_STDOUT34_035 generated fixture line 35; this is tool data.
+TOOL_STDOUT34_036 generated fixture line 36; this is tool data.
+TOOL_STDOUT34_037 generated fixture line 37; this is tool data.
+TOOL_STDOUT34_038 generated fixture line 38; this is tool data.
+TOOL_STDOUT34_039 generated fixture line 39; this is tool data.
+TOOL_STDOUT34_040 generated fixture line 40; this is tool data.
+TOOL_STDOUT34_041 generated fixture line 41; this is tool data.
+TOOL_STDOUT34_042 generated fixture line 42; this is tool data.
+TOOL_STDOUT34_043 generated fixture line 43; this is tool data.
+TOOL_STDOUT34_044 generated fixture line 44; this is tool data.
+TOOL_STDOUT34_045 generated fixture line 45; this is tool data.
+TOOL_STDOUT34_046 generated fixture line 46; this is tool data.
+TOOL_STDOUT34_047 generated fixture line 47; this is tool data.
+TOOL_STDOUT34_048 generated fixture line 48; this is tool data.
+TOOL_STDOUT34_049 generated fixture line 49; this is tool data.
+TOOL_STDOUT34_050 generated fixture line 50; this is tool data.
+TOOL_STDOUT34_051 generated fixture line 51; this is tool data.
+TOOL_STDOUT34_052 generated fixture line 52; this is tool data.
+TOOL_STDOUT34_053 generated fixture line 53; this is tool data.
+TOOL_STDOUT34_054 generated fixture line 54; this is tool data.
+TOOL_STDOUT34_055 generated fixture line 55; this is tool data.
+TOOL_STDOUT34_056 generated fixture line 56; this is tool data.
+TOOL_STDOUT34_057 generated fixture line 57; this is tool data.
+TOOL_STDOUT34_058 generated fixture line 58; this is tool data.
+TOOL_STDOUT34_059 generated fixture line 59; this is tool data.
+TOOL_STDOUT34_060 generated fixture line 60; this is tool data.
+TOOL_STDOUT34_061 generated fixture line 61; this is tool data.
+TOOL_STDOUT34_062 generated fixture line 62; this is tool data.
+TOOL_STDOUT34_063 generated fixture line 63; this is tool data.
+TOOL_STDOUT34_064 generated fixture line 64; this is tool data.
+TOOL_STDOUT34_065 generated fixture line 65; this is tool data.
+TOOL_STDOUT34_066 generated fixture line 66; this is tool data.
+TOOL_STDOUT34_067 generated fixture line 67; this is tool data.
+TOOL_STDOUT34_068 generated fixture line 68; this is tool data.
+TOOL_STDOUT34_069 generated fixture line 69; this is tool data.
+TOOL_STDOUT34_070 generated fixture line 70; this is tool data.
+TOOL_STDOUT34_071 generated fixture line 71; this is tool data.
+TOOL_STDOUT34_072 generated fixture line 72; this is tool data.
+TOOL_STDOUT34_073 generated fixture line 73; this is tool data.
+TOOL_STDOUT34_074 generated fixture line 74; this is tool data.
+TOOL_STDOUT34_075 generated fixture line 75; this is tool data.
+TOOL_STDOUT34_076 generated fixture line 76; this is tool data.
+TOOL_STDOUT34_077 generated fixture line 77; this is tool data.
+TOOL_STDOUT34_078 generated fixture line 78; this is tool data.
+TOOL_STDOUT34_079 generated fixture line 79; this is tool data.
+TOOL_STDOUT34_END

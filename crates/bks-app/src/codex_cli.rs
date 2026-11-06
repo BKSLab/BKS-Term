@@ -20,6 +20,7 @@ use crate::profile::{Profile, ProfileKind};
 use crate::tui_dialog::SUPPORTED_CODEX_VERSION;
 
 pub const PROFILE_ID: &str = "codex-tui-0.164.0";
+const RENDERED_PASTE_ARGS: [&str; 2] = ["-c", "tui.disable_paste_burst=true"];
 
 const VERSION_OUTPUT_LIMIT: usize = 4096;
 const VERSION_TIMEOUT: Duration = Duration::from_secs(2);
@@ -72,8 +73,28 @@ impl LaunchEvidence {
 fn direct_profile(profile: &Profile) -> bool {
     [PROFILE_ID, "cli-codex"].contains(&profile.id.as_str())
         && profile.kind == ProfileKind::Local
-        && profile.args.is_empty()
+        && (profile.args.is_empty() || has_rendered_paste_args(&profile.args))
         && Path::new(&profile.executable).is_absolute()
+}
+
+fn has_rendered_paste_args(args: &[String]) -> bool {
+    args == RENDERED_PASTE_ARGS
+}
+
+/// A rendering-only default for the managed native version we have captured.
+/// Preserve explicit argv and unknown versions; never rewrite user config.
+pub(crate) fn configure_managed_profile(profile: &mut Profile, version: Option<&str>) -> bool {
+    if version != Some(SUPPORTED_CODEX_VERSION)
+        || !direct_profile(profile)
+        || !profile.args.is_empty()
+        || !Path::new(&profile.executable)
+            .file_name()
+            .is_some_and(|name| name.eq_ignore_ascii_case("codex.exe"))
+    {
+        return false;
+    }
+    profile.args = RENDERED_PASTE_ARGS.map(str::to_owned).into();
+    true
 }
 
 /// Deliberately excludes last-access time: executing --version can update it.
@@ -105,7 +126,7 @@ impl FileStamp {
 
 impl SupportedCli {
     pub fn profile(&self) -> Profile {
-        Profile {
+        let mut profile = Profile {
             id: PROFILE_ID.to_owned(),
             name: "Codex CLI 0.164.0".to_owned(),
             kind: ProfileKind::Local,
@@ -113,7 +134,14 @@ impl SupportedCli {
             executable: self.native_path.to_string_lossy().into_owned(),
             args: Vec::new(),
             working_directory: None,
-        }
+            launch: crate::launch_profile::LaunchSettings {
+                adapter: crate::tui_adapters::AdapterKind::Codex,
+                after_exit: crate::launch_profile::AfterExit::OpenShell,
+                ..Default::default()
+            },
+        };
+        configure_managed_profile(&mut profile, Some(self.version()));
+        profile
     }
 
     pub fn version(&self) -> &str {
@@ -123,6 +151,30 @@ impl SupportedCli {
     pub fn matches(&self, profile: &Profile) -> bool {
         LaunchEvidence::capture(profile)
             .is_some_and(|evidence| self.version_for_launch(profile, &evidence).is_some())
+    }
+
+    /// Refresh only an unchanged legacy managed template after native version
+    /// discovery. Saved names, argv, directories and launch customizations win.
+    pub fn refresh_managed_profile(&self, profile: &mut Profile) -> bool {
+        let expected_name = match profile.id.as_str() {
+            "cli-codex" => "Codex CLI",
+            PROFILE_ID => "Codex CLI 0.164.0",
+            _ => return false,
+        };
+        let managed_launch = crate::launch_profile::LaunchSettings {
+            adapter: crate::tui_adapters::AdapterKind::Codex,
+            after_exit: crate::launch_profile::AfterExit::OpenShell,
+            ..Default::default()
+        };
+        if !profile.args.is_empty()
+            || profile.name != expected_name
+            || profile.working_directory.is_some()
+            || !(profile.launch.is_default() || profile.launch == managed_launch)
+            || !self.matches(profile)
+        {
+            return false;
+        }
+        configure_managed_profile(profile, Some(self.version()))
     }
 
     /// Pure comparison with the executable selected before PTY spawn. It does
@@ -426,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn generated_profile_is_direct_and_has_no_arguments() {
+    fn generated_profile_is_direct_with_only_the_supported_rendering_override() {
         let fixture = Fixture::new();
         let supported = fixture.supported();
         let profile = supported.profile();
@@ -434,10 +486,148 @@ mod tests {
         assert_eq!(profile.name, "Codex CLI 0.164.0");
         assert_eq!(profile.kind, ProfileKind::Local);
         assert!(Path::new(&profile.executable).is_absolute());
-        assert!(profile.args.is_empty());
+        assert_eq!(profile.args, RENDERED_PASTE_ARGS);
         assert!(profile.working_directory.is_none());
+        assert_eq!(
+            profile.launch.after_exit,
+            crate::launch_profile::AfterExit::OpenShell
+        );
         assert_eq!(supported.version(), "0.164.0");
         assert!(supported.matches(&profile));
+    }
+
+    #[test]
+    fn rendering_defaults_require_exact_version_native_identity_and_empty_argv() {
+        let fixture = Fixture::new();
+        let supported = fixture.supported();
+        let mut plain = supported.profile();
+        plain.args.clear();
+        for version in [None, Some("0.163.0"), Some("0.164.1"), Some("0.164.0-beta")] {
+            let mut profile = plain.clone();
+            assert!(!configure_managed_profile(&mut profile, version));
+            assert_eq!(profile, plain);
+        }
+        for (id, executable, args) in [
+            ("local-1", plain.executable.as_str(), Vec::new()),
+            ("cli-codex", "codex.exe", Vec::new()),
+            ("cli-codex", r"C:\fixture\codex.cmd", Vec::new()),
+            ("cli-codex", r"C:\fixture\node.exe", Vec::new()),
+            (
+                "cli-codex",
+                plain.executable.as_str(),
+                vec!["--no-alt-screen".to_owned()],
+            ),
+            (
+                "cli-codex",
+                plain.executable.as_str(),
+                vec!["-c".to_owned(), "tui.disable_paste_burst=false".to_owned()],
+            ),
+        ] {
+            let mut profile = plain.clone();
+            profile.id = id.to_owned();
+            profile.executable = executable.to_owned();
+            profile.args = args;
+            let before = profile.clone();
+            assert!(!configure_managed_profile(
+                &mut profile,
+                Some(SUPPORTED_CODEX_VERSION)
+            ));
+            assert_eq!(profile, before);
+        }
+        assert!(configure_managed_profile(
+            &mut plain,
+            Some(SUPPORTED_CODEX_VERSION)
+        ));
+        assert_eq!(plain.args, RENDERED_PASTE_ARGS);
+        assert!(!configure_managed_profile(
+            &mut plain,
+            Some(SUPPORTED_CODEX_VERSION)
+        ));
+    }
+
+    #[test]
+    fn verified_startup_accepts_only_legacy_empty_or_exact_rendering_argv() {
+        let fixture = Fixture::new();
+        let supported = fixture.supported();
+        for id in [PROFILE_ID, "cli-codex"] {
+            let mut profile = supported.profile();
+            profile.id = id.to_owned();
+            assert!(supported.matches(&profile));
+            profile.args.clear();
+            assert!(supported.matches(&profile));
+            for args in [
+                vec!["--config", "tui.disable_paste_burst=true"],
+                vec!["-c", "tui.disable_paste_burst=false"],
+                vec!["-c", "tui.disable_paste_burst=true", "--version"],
+                vec!["-c", "tui.disable_paste_burst=true", "-c", "model=other"],
+                vec!["tui.disable_paste_burst=true", "-c"],
+            ] {
+                profile.args = args.into_iter().map(str::to_owned).collect();
+                assert!(LaunchEvidence::capture(&profile).is_none());
+                assert!(!supported.matches(&profile));
+            }
+        }
+    }
+
+    #[test]
+    fn verified_legacy_template_refresh_preserves_custom_profiles_and_settings() {
+        let fixture = Fixture::new();
+        let supported = fixture.supported();
+        for id in [PROFILE_ID, "cli-codex"] {
+            let mut legacy = supported.profile();
+            legacy.id = id.to_owned();
+            legacy.name = if id == PROFILE_ID {
+                "Codex CLI 0.164.0"
+            } else {
+                "Codex CLI"
+            }
+            .to_owned();
+            legacy.args.clear();
+            let before = legacy.clone();
+            assert!(supported.refresh_managed_profile(&mut legacy));
+            assert_eq!(legacy.args, RENDERED_PASTE_ARGS);
+            legacy.args.clear();
+            assert_eq!(legacy, before);
+            legacy.launch = Default::default();
+            assert!(supported.refresh_managed_profile(&mut legacy));
+            assert!(legacy.launch.is_default());
+
+            let mut customizations = Vec::new();
+            let mut changed = before.clone();
+            changed.id = "local-1".to_owned();
+            customizations.push(changed);
+            let mut changed = before.clone();
+            changed.name = "My Codex".to_owned();
+            customizations.push(changed);
+            let mut changed = before.clone();
+            changed.args = vec!["--model".to_owned(), "my-model".to_owned()];
+            customizations.push(changed);
+            let mut changed = before.clone();
+            changed.working_directory = Some(r"C:\my-project".to_owned());
+            customizations.push(changed);
+            let mut changed = before.clone();
+            changed
+                .launch
+                .environment
+                .insert("MY_CODEX_SETTING".into(), "local".into());
+            customizations.push(changed);
+            let mut changed = before.clone();
+            changed.launch.after_exit = crate::launch_profile::AfterExit::KeepTab;
+            customizations.push(changed);
+            let mut changed = before.clone();
+            changed.executable = fixture.0.join("other.exe").to_string_lossy().into_owned();
+            customizations.push(changed);
+            for mut profile in customizations {
+                let unchanged = profile.clone();
+                assert!(!supported.refresh_managed_profile(&mut profile));
+                assert_eq!(profile, unchanged);
+            }
+            let mut unknown = supported.clone();
+            unknown.version = "0.165.0".to_owned();
+            let mut profile = before.clone();
+            assert!(!unknown.refresh_managed_profile(&mut profile));
+            assert_eq!(profile, before);
+        }
     }
 
     #[test]

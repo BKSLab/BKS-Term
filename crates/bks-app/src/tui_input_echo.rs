@@ -3,6 +3,7 @@
 
 use std::time::{Duration, Instant};
 
+use crate::tui_projection::Composer;
 use bks_terminal::{Flags, TerminalSnapshot};
 
 const MAX_AGE: Duration = Duration::from_millis(750);
@@ -19,10 +20,37 @@ pub struct ConfirmedEcho {
     pub column: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditAction {
+    Backspace,
+    Delete,
+    Left,
+    Right,
+    Home,
+    End,
+}
+
+/// An explicit edit acknowledged by visible text and the live VT cursor.
+/// Messages contain no deleted text, so even a displayed mask is not repeated.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ConfirmedEdit {
+    pub message: String,
+    pub row: usize,
+    pub column: usize,
+}
+
 #[derive(Default)]
 pub struct InputEcho {
     pending: Option<Pending>,
+    editing: Option<Editing>,
     confirmed: Option<Anchor>,
+}
+
+struct Editing {
+    before: Screen,
+    origin: Point,
+    action: EditAction,
+    started: Instant,
 }
 
 struct Pending {
@@ -30,6 +58,14 @@ struct Pending {
     expected: Vec<char>,
     origin: Option<Point>,
     started: Instant,
+    empty_composer: Option<EmptyComposer>,
+}
+
+#[derive(Clone, Copy)]
+struct EmptyComposer {
+    adapter: crate::tui_adapters::AdapterKind,
+    left: usize,
+    right: usize,
 }
 
 struct Anchor {
@@ -88,13 +124,33 @@ struct Insertion {
 impl InputEcho {
     /// Call before forwarding committed printable Unicode to the PTY. Several
     /// calls before its acknowledgement retain one baseline and ordered queue.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn typed(&mut self, frame: &TerminalSnapshot, text: &str, now: Instant) {
+        self.typed_with_composer(frame, None, text, now);
+    }
+
+    /// The projector has already distinguished an empty editor from its hint.
+    /// Use that fact only in the private baseline; speech still requires the
+    /// child's actual visible glyphs and caret after this accepted key.
+    pub fn typed_with_composer(
+        &mut self,
+        frame: &TerminalSnapshot,
+        composer: Option<&Composer>,
+        text: &str,
+        now: Instant,
+    ) {
         if text.is_empty() {
             return;
         }
+        self.editing = None;
         // Check before extending an existing request: the concealed frame may
         // be observed by a key event and disappear again before the next poll.
-        if frame.cells.len() > MAX_ROWS * MAX_COLS
+        if frame.cols == 0
+            || frame.cols > MAX_COLS
+            || frame.rows == 0
+            || frame.rows > MAX_ROWS
+            || frame.cells.len() != frame.cols.saturating_mul(frame.rows)
+            || composer.is_some_and(|input| input.protected)
             || frame
                 .cells
                 .iter()
@@ -110,7 +166,7 @@ impl InputEcho {
         }
         if self.pending.as_ref().is_some_and(|pending| {
             now.saturating_duration_since(pending.started) >= MAX_AGE
-                || !pending.before.geometry.matches(frame)
+                || !pending.accepts_geometry(frame)
         }) {
             self.cancel_pending();
         }
@@ -122,7 +178,40 @@ impl InputEcho {
             }
             return;
         }
-        let Some(before) = Screen::new(frame) else {
+        let empty_composer = composer.filter(|input| {
+            !input.protected
+                && input.text.is_empty()
+                && input.caret == Some(0)
+                && input.matches_source(frame)
+        });
+        let mut baseline = None;
+        if let (Some(input), Some(cursor)) = (
+            empty_composer,
+            crate::direct_accessibility::reading_cursor(frame, None),
+        ) {
+            if (input.first_row..=input.last_row).contains(&cursor.row)
+                && cursor.column >= input.first_column
+                && cursor.column < input.last_column
+                && input.last_column < frame.cols
+            {
+                let mut cleared = frame.clone();
+                let right = &cleared.cells[cursor.row * frame.cols + input.last_column];
+                let end = input.last_column
+                    + usize::from(!matches!(right.text.as_str(), "│" | "┃" | "║" | "|"));
+                for column in cursor.column..end {
+                    let cell = &mut cleared.cells[cursor.row * frame.cols + column];
+                    cell.c = ' ';
+                    cell.text = " ".to_owned();
+                    cell.flags.remove(
+                        Flags::WIDE_CHAR
+                            | Flags::WIDE_CHAR_SPACER
+                            | Flags::LEADING_WIDE_CHAR_SPACER,
+                    );
+                }
+                baseline = Some(cleared);
+            }
+        }
+        let Some(before) = Screen::new(baseline.as_ref().unwrap_or(frame)) else {
             self.cancel();
             return;
         };
@@ -137,15 +226,30 @@ impl InputEcho {
             expected: characters,
             origin,
             started: now,
+            empty_composer: baseline.and(empty_composer).map(|input| EmptyComposer {
+                adapter: input.adapter(),
+                left: input.first_column,
+                right: input.last_column,
+            }),
         });
     }
 
     /// Acknowledged prefixes are returned once, without waiting for later keys.
     /// Concealed/masked input, unmatched redraws and expired requests stay quiet.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn observe(&mut self, frame: &TerminalSnapshot, now: Instant) -> Option<ConfirmedEcho> {
+        self.observe_with_composer(frame, None, now)
+    }
+
+    pub fn observe_with_composer(
+        &mut self,
+        frame: &TerminalSnapshot,
+        composer: Option<&Composer>,
+        now: Instant,
+    ) -> Option<ConfirmedEcho> {
         let mut pending = self.pending.take()?;
         if now.saturating_duration_since(pending.started) >= MAX_AGE
-            || !pending.before.geometry.matches(frame)
+            || !pending.accepts_geometry(frame)
         {
             return None;
         }
@@ -153,11 +257,32 @@ impl InputEcho {
         // Public VT projections already redact concealed text to spaces.
         // Its absence cannot leave a raw typing request armed for a later
         // redraw which reveals the same input. Prefer silence for this frame.
-        if current.concealed {
+        if current.concealed || composer.is_some_and(|input| input.protected) {
             self.cancel();
             return None;
         }
-        let insertion = match find_insertion(&pending, &current) {
+        let source_insertion = composer
+            .filter(|input| input.matches_source(frame))
+            .map_or(Ok(None), |input| {
+                confirmed_composer_prefix(&pending, &current, input)
+            });
+        let insertion = match source_insertion.and_then(|source| {
+            source.map_or_else(
+                || {
+                    find_insertion(&pending, &current).map(|insertion| {
+                        // History growth can move the whole editor. Only its fresh
+                        // source projection may confirm this kind of acknowledgement.
+                        pending
+                            .before
+                            .geometry
+                            .matches(frame)
+                            .then_some(insertion)
+                            .flatten()
+                    })
+                },
+                |insertion| Ok(Some(insertion)),
+            )
+        }) {
             Ok(Some(insertion)) => insertion,
             Ok(None) => {
                 self.pending = Some(pending);
@@ -175,6 +300,7 @@ impl InputEcho {
         });
         pending.before = current;
         pending.origin = Some(insertion.end);
+        pending.empty_composer = None;
         if !pending.expected.is_empty() {
             self.pending = Some(pending);
         }
@@ -198,18 +324,120 @@ impl InputEcho {
         (row == anchor.row).then_some((anchor.point.row, anchor.point.column))
     }
 
+    /// Arm only immediately before forwarding the user's unmodified edit key.
+    /// A key alone never supplies a new cursor position or an edit result.
+    pub fn edit(&mut self, frame: &TerminalSnapshot, action: EditAction, now: Instant) {
+        self.cancel_pending();
+        let before = Screen::new(frame);
+        self.confirmed = None;
+        let Some(before) = before.filter(|screen| !screen.concealed) else {
+            return;
+        };
+        let Some(origin) = before.cursor else {
+            return;
+        };
+        if line_at(&before, origin)
+            .is_none_or(|line| line.glyphs.iter().any(|glyph| !glyph.visible))
+        {
+            return;
+        }
+        self.editing = Some(Editing {
+            before,
+            origin,
+            action,
+            started: now,
+        });
+    }
+
+    pub fn has_pending(&self) -> bool {
+        self.pending.is_some() || self.editing.is_some()
+    }
+
+    /// Announce only a precise deletion at the old cursor, or a real cursor
+    /// movement on unchanged logical text. Unrelated redraws remain silent.
+    pub fn observe_edit(
+        &mut self,
+        frame: &TerminalSnapshot,
+        now: Instant,
+    ) -> Option<ConfirmedEdit> {
+        let editing = self.editing.take()?;
+        if now.saturating_duration_since(editing.started) >= MAX_AGE
+            || !editing.before.geometry.matches(frame)
+        {
+            return None;
+        }
+        let current = Screen::new(frame)?;
+        if current.concealed {
+            self.cancel();
+            return None;
+        }
+        let Some(end) = current.cursor else {
+            if unchanged_edit_point(&editing, &current, editing.origin) {
+                self.editing = Some(editing);
+            }
+            return None;
+        };
+        if line_at(&current, end).is_none_or(|line| line.glyphs.iter().any(|glyph| !glyph.visible))
+        {
+            self.cancel();
+            return None;
+        }
+        let message = match confirmed_edit(&editing, &current, end) {
+            Some(message) => message,
+            None => {
+                // Only an unchanged input point may still be waiting for the
+                // key. A transformed/masked or incompatible redraw disarms the
+                // request before a later reveal can look like an old edit.
+                if unchanged_edit_point(&editing, &current, end) {
+                    self.editing = Some(editing);
+                }
+                return None;
+            }
+        };
+        self.confirmed = Some(Anchor {
+            geometry: current.geometry,
+            point: end,
+            row: current.rows[end.row].clone(),
+        });
+        Some(ConfirmedEdit {
+            message,
+            row: end.row,
+            column: end.column,
+        })
+    }
+
     pub fn cancel_pending(&mut self) {
         self.pending = None;
+        self.editing = None;
     }
 
     /// Call on focus, session or reading-mode changes.
     pub fn cancel(&mut self) {
         self.pending = None;
+        self.editing = None;
         self.confirmed = None;
     }
 }
 
+impl Pending {
+    fn accepts_geometry(&self, frame: &TerminalSnapshot) -> bool {
+        self.before.geometry.matches(frame)
+            || (self
+                .empty_composer
+                .is_some_and(|input| input.adapter == crate::tui_adapters::AdapterKind::Codex)
+                && self.before.geometry.same_viewport(frame)
+                && self.before.geometry.history <= frame.history_size)
+    }
+}
+
 impl Geometry {
+    fn same_viewport(self, frame: &TerminalSnapshot) -> bool {
+        frame.display_offset == 0
+            && self.cols == frame.cols
+            && self.rows == frame.rows
+            && self.alternate == frame.alternate_screen
+    }
+
     fn matches(self, frame: &TerminalSnapshot) -> bool {
         frame.display_offset == 0
             && self.cols == frame.cols
@@ -217,6 +445,56 @@ impl Geometry {
             && self.alternate == frame.alternate_screen
             && self.history == frame.history_size
     }
+}
+
+fn confirmed_composer_prefix(
+    pending: &Pending,
+    current: &Screen,
+    input: &Composer,
+) -> Result<Option<Insertion>, ()> {
+    let Some(empty) = pending.empty_composer else {
+        return Ok(None);
+    };
+    let count = input.text.chars().count();
+    if input.protected
+        || input.adapter() != empty.adapter
+        || input.first_column != empty.left
+        || input.last_column != empty.right
+        || count == 0
+        || count > pending.expected.len()
+        || !input
+            .text
+            .chars()
+            .eq(pending.expected[..count].iter().copied())
+        || input.caret != Some(input.text.encode_utf16().count() as u32)
+    {
+        return Ok(None);
+    }
+    let Some(end) = current
+        .cursor
+        .filter(|end| (input.first_row..=input.last_row).contains(&end.row))
+    else {
+        return Ok(None);
+    };
+    let Some(line) = line_at(current, end) else {
+        return Ok(None);
+    };
+    let stop = caret_index(line, end);
+    let Some(start) = stop.checked_sub(count) else {
+        return Ok(None);
+    };
+    let inserted = &line.glyphs[start..stop];
+    if !inserted
+        .iter()
+        .map(|glyph| glyph.ch)
+        .eq(pending.expected[..count].iter().copied())
+    {
+        return Ok(None);
+    }
+    if inserted.iter().any(|glyph| !glyph.visible) {
+        return Err(());
+    }
+    Ok(Some(Insertion { count, end }))
 }
 
 impl Anchor {
@@ -326,6 +604,98 @@ fn same_text(before: &[Glyph], after: &[Glyph]) -> bool {
 
 fn matches_caret(point: Point, caret: Point, cols: usize) -> bool {
     point == caret || (point.row == caret.row && point.column == cols && caret.column + 1 == cols)
+}
+
+fn confirmed_edit(editing: &Editing, current: &Screen, end: Point) -> Option<String> {
+    let before = line_at(&editing.before, editing.origin)?;
+    let after = line_at(current, end)?;
+    let start = caret_index(before, editing.origin);
+    let stop = caret_index(after, end);
+    // A concealed/indistinguishable part of the input must not become an edit
+    // announcement when another redraw makes it visible later.
+    if before
+        .glyphs
+        .iter()
+        .chain(&after.glyphs)
+        .any(|glyph| !glyph.visible)
+    {
+        return None;
+    }
+    let deleted = match editing.action {
+        EditAction::Backspace if stop < start && start <= before.glyphs.len() => {
+            let removed = &before.glyphs[stop..start];
+            one_cell(removed)
+                && same_text(&before.glyphs[..stop], &after.glyphs[..stop])
+                && same_text_without_blank_fill(&after.glyphs[stop..], &before.glyphs[start..])
+        }
+        EditAction::Delete if stop == start => {
+            let first = before.glyphs.get(start)?;
+            let cell_end =
+                before.glyphs[start..].partition_point(|glyph| glyph.start == first.start) + start;
+            same_text(&before.glyphs[..start], &after.glyphs[..stop])
+                && (start + 1..=cell_end).any(|removed_end| {
+                    same_text_without_blank_fill(
+                        &after.glyphs[stop..],
+                        &before.glyphs[removed_end..],
+                    )
+                })
+        }
+        EditAction::Left | EditAction::Home if stop < start => {
+            return movement_message(before, after, stop);
+        }
+        EditAction::Right | EditAction::End if stop > start => {
+            return movement_message(before, after, stop);
+        }
+        _ => false,
+    };
+    deleted.then(|| "Удалено".to_owned())
+}
+
+fn one_cell(glyphs: &[Glyph]) -> bool {
+    glyphs
+        .first()
+        .is_some_and(|first| glyphs.iter().all(|glyph| glyph.start == first.start))
+}
+
+fn movement_message(before: &Line, after: &Line, stop: usize) -> Option<String> {
+    if !same_logical_text(before, after) {
+        return None;
+    }
+    let mut previous = None;
+    let position = after.glyphs[..stop]
+        .iter()
+        .filter(|glyph| {
+            let new_cell = previous != Some(glyph.start);
+            previous = Some(glyph.start);
+            new_cell
+        })
+        .count()
+        + 1;
+    Some(format!("Позиция {position}"))
+}
+
+fn unchanged_edit_point(editing: &Editing, current: &Screen, end: Point) -> bool {
+    let (Some(before), Some(after)) = (
+        line_at(&editing.before, editing.origin),
+        line_at(current, end),
+    ) else {
+        return false;
+    };
+    same_logical_text(before, after)
+        && caret_index(before, editing.origin) == caret_index(after, end)
+}
+
+fn same_logical_text(before: &Line, after: &Line) -> bool {
+    let trim = |glyphs: &[Glyph]| {
+        glyphs
+            .iter()
+            .rposition(|glyph| glyph.ch != ' ')
+            .map_or(0, |index| index + 1)
+    };
+    same_text(
+        &before.glyphs[..trim(&before.glyphs)],
+        &after.glyphs[..trim(&after.glyphs)],
+    )
 }
 
 fn find_insertion(pending: &Pending, current: &Screen) -> Result<Option<Insertion>, ()> {
@@ -550,6 +920,269 @@ mod tests {
         );
         assert_eq!(echo.observe(frame, now), None);
         assert_eq!(echo.last_confirmed(frame), Some((row, column)));
+    }
+
+    fn empty_codex_with_hint() -> (TerminalModel, Composer) {
+        let mut model = TerminalModel::new(40, 6);
+        for row in 2..=4 {
+            model.push_bytes(
+                format!("\x1b[{row};1H\x1b[48;2;40;40;40m{}", " ".repeat(40)).as_bytes(),
+            );
+        }
+        model.push_bytes("\x1b[3;1H› \x1b[2mAsk Codex to do anything\x1b[22m\x1b[3;3H".as_bytes());
+        let frame = model.live_snapshot();
+        let input = crate::tui_projection::project_for_adapter(
+            crate::tui_adapters::AdapterKind::Codex,
+            &frame,
+            &model.tui_reading_document(),
+            None,
+            None,
+        )
+        .input
+        .expect("a bounded empty source field");
+        assert!(input.text.is_empty());
+        assert_eq!(input.caret, Some(0));
+        (model, input)
+    }
+
+    #[test]
+    fn a_confirmed_empty_composer_replaces_its_hint_without_losing_or_repeating_echo() {
+        let (mut model, input) = empty_codex_with_hint();
+        let now = Instant::now();
+        let before = model.live_snapshot();
+        let mut echo = InputEcho::default();
+        echo.typed_with_composer(&before, Some(&input), "Ж", now);
+        assert_eq!(echo.observe_with_composer(&before, Some(&input), now), None);
+        model.push_bytes("\x1b[3;3H\x1b[0m\x1b[48;2;40;40;40mЖ\x1b[K".as_bytes());
+        assert_echo(&mut echo, &model.live_snapshot(), now, "Ж", 2, 3);
+        echo.typed(&model.live_snapshot(), "a", now);
+        model.push_bytes(b"a");
+        assert_echo(&mut echo, &model.live_snapshot(), now, "a", 2, 4);
+    }
+
+    #[test]
+    fn replacing_a_hint_cannot_echo_masked_or_concealed_text_after_a_later_reveal() {
+        for concealment in ["mask", "hidden", "indistinguishable"] {
+            let (mut model, input) = empty_codex_with_hint();
+            let now = Instant::now();
+            let before = model.live_snapshot();
+            let mut echo = InputEcho::default();
+            echo.typed_with_composer(&before, Some(&input), "a", now);
+            model.push_bytes(b"\x1b[3;3H\x1b[0m\x1b[48;2;40;40;40m");
+            model.push_bytes(match concealment {
+                "mask" => b"*\x1b[K",
+                "hidden" => b"\x1b[8ma\x1b[K",
+                _ => b"\x1b[38;2;40;40;40ma\x1b[K",
+            });
+            assert_eq!(echo.observe(&model.live_snapshot(), now), None);
+            assert!(!echo.has_pending(), "{concealment}");
+            model.push_bytes(b"\x1b[3;3H\x1b[0m\x1b[48;2;40;40;40ma\x1b[K");
+            assert_eq!(echo.observe(&model.live_snapshot(), now), None);
+        }
+    }
+
+    #[test]
+    fn an_unproven_hint_and_changed_source_do_not_supply_typing_speech() {
+        let (mut model, input) = empty_codex_with_hint();
+        let now = Instant::now();
+        let before = model.live_snapshot();
+        let mut unknown = InputEcho::default();
+        unknown.typed_with_composer(&before, None, "a", now);
+        let mut echo = InputEcho::default();
+        echo.typed_with_composer(&before, Some(&input), "a", now);
+        model.push_bytes(b"\x1b[3;3H\x1b[0m\x1b[48;2;40;40;40ma\x1b[K");
+        let after = model.live_snapshot();
+        assert_eq!(unknown.observe(&after, now), None);
+        let mut alternate = after.clone();
+        alternate.alternate_screen = !alternate.alternate_screen;
+        assert_eq!(echo.observe(&alternate, now), None);
+        assert!(!echo.has_pending());
+        echo.typed_with_composer(&before, Some(&input), "a", now);
+        assert_eq!(echo.observe(&after, now + MAX_AGE), None);
+    }
+
+    #[test]
+    fn protected_composer_metadata_alone_cancels_typing_speech() {
+        let (model, input) = empty_codex_with_hint();
+        let frame = model.live_snapshot();
+        let now = Instant::now();
+        let mut protected = input.clone();
+        protected.protected = true;
+        let mut echo = InputEcho::default();
+        echo.typed_with_composer(&frame, Some(&protected), "a", now);
+        assert!(!echo.has_pending());
+        echo.typed_with_composer(&frame, Some(&input), "a", now);
+        assert!(echo.has_pending());
+        assert_eq!(
+            echo.observe_with_composer(&frame, Some(&protected), now),
+            None
+        );
+        assert!(!echo.has_pending());
+    }
+
+    #[test]
+    fn edits_require_the_visible_deletion_and_report_once_without_deleted_text() {
+        let before = terminal(20, "> ab🙂e\u{301}").live_snapshot();
+        let after = terminal(20, "> ab🙂").live_snapshot();
+        let now = Instant::now();
+        let mut echo = InputEcho::default();
+        echo.edit(&before, EditAction::Backspace, now);
+        assert!(echo.has_pending());
+        assert_eq!(echo.observe_edit(&before, now), None);
+        let result = echo.observe_edit(&after, now).unwrap();
+        assert_eq!(result.message, "Удалено");
+        assert_eq!((result.row, result.column), (0, 6));
+        assert_eq!(echo.last_confirmed(&after), Some((0, 6)));
+        assert_eq!(echo.observe_edit(&after, now), None);
+        assert!(!echo.has_pending());
+    }
+
+    #[test]
+    fn delete_confirms_wide_and_combining_cells_without_moving_the_cursor() {
+        let now = Instant::now();
+        for (old, new) in [("🙂", ""), ("e\u{301}", "")] {
+            let before = terminal(20, &format!("> a{old}b\x1b[4G")).live_snapshot();
+            let after = terminal(20, &format!("> a{new}b\x1b[4G")).live_snapshot();
+            let mut echo = InputEcho::default();
+            echo.edit(&before, EditAction::Delete, now);
+            let result = echo.observe_edit(&after, now).unwrap();
+            assert_eq!(result.message, "Удалено");
+            assert_eq!((result.row, result.column), (0, 3));
+        }
+    }
+
+    #[test]
+    fn removing_only_a_combining_mark_is_confirmed_at_the_same_screen_position() {
+        let before = terminal(20, "> e\u{301}").live_snapshot();
+        let after = terminal(20, "> e").live_snapshot();
+        assert_eq!(before.cursor, after.cursor);
+        let now = Instant::now();
+        let mut echo = InputEcho::default();
+        echo.edit(&before, EditAction::Backspace, now);
+        assert_eq!(echo.observe_edit(&after, now).unwrap().message, "Удалено");
+    }
+
+    #[test]
+    fn padded_software_cursor_and_soft_wrapped_input_confirm_deletion() {
+        let now = Instant::now();
+        let mut echo = InputEcho::default();
+        echo.edit(&composer(2, "ab", 16), EditAction::Backspace, now);
+        let after = composer(2, "a", 17);
+        assert_eq!(echo.observe_edit(&after, now).unwrap().message, "Удалено");
+        assert_eq!(echo.last_confirmed(&after), Some((2, 5)));
+
+        let mut terminal = terminal(6, "> ab🙂e\u{301}");
+        let before = terminal.live_snapshot();
+        echo.edit(&before, EditAction::Backspace, now);
+        terminal.push_bytes(b"\x1b[2;1H\x1b[K");
+        let result = echo.observe_edit(&terminal.live_snapshot(), now).unwrap();
+        assert_eq!(result.message, "Удалено");
+        assert_eq!((result.row, result.column), (1, 0));
+    }
+
+    #[test]
+    fn cursor_motion_reports_only_the_observed_position_on_unchanged_text() {
+        let now = Instant::now();
+        for (action, first, last, expected) in [
+            (EditAction::Left, 8, 7, "Позиция 6"),
+            (EditAction::Right, 7, 8, "Позиция 7"),
+            (EditAction::Home, 8, 3, "Позиция 3"),
+            (EditAction::End, 3, 8, "Позиция 7"),
+        ] {
+            let before = terminal(24, &format!("> a🙂e\u{301} b\x1b[{first}G")).live_snapshot();
+            let after = terminal(24, &format!("> a🙂e\u{301} b\x1b[{last}G")).live_snapshot();
+            let mut echo = InputEcho::default();
+            echo.edit(&before, action, now);
+            assert_eq!(echo.observe_edit(&before, now), None);
+            let result = echo.observe_edit(&after, now).unwrap();
+            assert_eq!(result.message, expected);
+            assert_eq!(echo.observe_edit(&after, now), None);
+        }
+    }
+
+    #[test]
+    fn redraws_wrong_direction_and_replaced_suffixes_do_not_confirm_edit_keys() {
+        let now = Instant::now();
+        let before = terminal(20, "> abcd\x1b[5G").live_snapshot();
+        for (action, next) in [
+            (EditAction::Backspace, "> aXcd\x1b[4G"),
+            (EditAction::Delete, "> abXd\x1b[5G"),
+            (EditAction::Left, "> abcd\x1b[6G"),
+            (EditAction::Right, "> abcd\x1b[4G"),
+            (EditAction::Home, "> axcd\x1b[3G"),
+            (EditAction::End, "> abcx\x1b[7G"),
+        ] {
+            let mut echo = InputEcho::default();
+            echo.edit(&before, action, now);
+            assert_eq!(
+                echo.observe_edit(&terminal(20, next).live_snapshot(), now),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn edit_requests_disarm_on_concealment_before_a_later_reveal() {
+        let now = Instant::now();
+        let plain = terminal(20, "> abc").live_snapshot();
+        let after = terminal(20, "> ab").live_snapshot();
+        for escape in ["\x1b[8m", "\x1b[30;40m"] {
+            let hidden = terminal(20, &format!("> {escape}abc\x1b[0m")).live_snapshot();
+            let mut echo = InputEcho::default();
+            echo.edit(&hidden, EditAction::Backspace, now);
+            assert!(!echo.has_pending());
+            assert_eq!(echo.observe_edit(&after, now), None);
+            echo.edit(&plain, EditAction::Backspace, now);
+            assert_eq!(echo.observe_edit(&hidden, now), None);
+            assert!(!echo.has_pending());
+            assert_eq!(echo.observe_edit(&after, now), None);
+        }
+        // Displayed masks need no semantic guessing: their incompatible text
+        // change disarms the old key, and no deleted value is ever announced.
+        for mask in ["**", "••", "●●", "xx"] {
+            let mut echo = InputEcho::default();
+            echo.edit(&plain, EditAction::Backspace, now);
+            let masked = terminal(20, &format!("> {mask}")).live_snapshot();
+            assert_eq!(echo.observe_edit(&masked, now), None);
+            assert!(!echo.has_pending());
+            assert_eq!(echo.observe_edit(&after, now), None);
+        }
+    }
+
+    #[test]
+    fn edits_expire_and_focus_geometry_or_new_input_cancel_the_old_request() {
+        let now = Instant::now();
+        let before = terminal(20, "> abc").live_snapshot();
+        let after = terminal(20, "> ab").live_snapshot();
+        let mut echo = InputEcho::default();
+        echo.edit(&before, EditAction::Backspace, now);
+        assert_eq!(echo.observe_edit(&after, now + MAX_AGE), None);
+        assert!(!echo.has_pending());
+        echo.edit(&before, EditAction::Backspace, now);
+        let resized = terminal(21, "> ab").live_snapshot();
+        assert_eq!(echo.observe_edit(&resized, now), None);
+        assert!(!echo.has_pending());
+        echo.edit(&before, EditAction::Backspace, now);
+        echo.cancel();
+        assert_eq!(echo.observe_edit(&after, now), None);
+        echo.edit(&before, EditAction::Backspace, now);
+        echo.typed(&before, "x", now);
+        assert_eq!(echo.observe_edit(&after, now), None);
+    }
+
+    #[test]
+    fn unknown_cursors_and_multi_cell_deletion_do_not_guess_an_edit() {
+        let now = Instant::now();
+        let before = terminal(20, "> abc\x1b[?25l").live_snapshot();
+        let mut echo = InputEcho::default();
+        echo.edit(&before, EditAction::Backspace, now);
+        assert!(!echo.has_pending());
+        let before = terminal(20, "> abc").live_snapshot();
+        echo.edit(&before, EditAction::Backspace, now);
+        assert_eq!(
+            echo.observe_edit(&terminal(20, "> a").live_snapshot(), now),
+            None
+        );
     }
 
     #[test]

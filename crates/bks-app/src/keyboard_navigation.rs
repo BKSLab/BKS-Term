@@ -1,3 +1,50 @@
+/// One accepted key may focus its source-confirmed menu. The first new frame
+/// consumes that intent even if it has no menu; unrelated later output cannot
+/// reuse it. This state is independent of HWND activation and is testable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MenuFocusIntent {
+    session: u64,
+    revision: u64,
+    source: (usize, usize, bool),
+    started: std::time::Instant,
+}
+
+impl MenuFocusIntent {
+    pub fn new(
+        session: u64,
+        revision: u64,
+        source: (usize, usize, bool),
+        now: std::time::Instant,
+    ) -> Self {
+        Self {
+            session,
+            revision,
+            source,
+            started: now,
+        }
+    }
+
+    pub fn source_frame(
+        self,
+        session: u64,
+        revision: u64,
+        source: (usize, usize, bool),
+        menu: bool,
+        now: std::time::Instant,
+    ) -> (Option<Self>, bool) {
+        if self.session != session
+            || self.source != source
+            || now.saturating_duration_since(self.started) > std::time::Duration::from_millis(800)
+        {
+            return (None, false);
+        }
+        if revision == self.revision {
+            return (Some(self), false);
+        }
+        (None, menu)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TabAction {
     MoveFocus,
@@ -10,6 +57,12 @@ pub enum TabAction {
 /// and ordinary navigation keep the source application's existing key path.
 pub fn starts_text_selection(key: usize, shift: bool, alt: bool) -> bool {
     shift && !alt && matches!(key, 0x21..=0x28)
+}
+
+/// Win32 message timestamps and GetTickCount share the same wrapping clock.
+/// Equal ticks are conservatively kept on the old side of an input handoff.
+pub fn predates_handoff(message_time: u32, handoff_time: u32) -> bool {
+    message_time.wrapping_sub(handoff_time) as i32 <= 0
 }
 
 /// Terminal capture is explicit and never overrides shell or system chords.
@@ -43,6 +96,59 @@ pub fn next_tab_stop<T: Copy + Eq>(stops: &[T], current: T, backwards: bool) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn menu_focus_intent_expires_and_is_consumed_by_an_acknowledged_frame_without_a_menu() {
+        let now = std::time::Instant::now();
+        let geometry = (80, 24, false);
+        let intent = MenuFocusIntent::new(1, 4, geometry, now);
+        assert_eq!(
+            intent.source_frame(1, 4, geometry, false, now),
+            (Some(intent), false)
+        );
+        assert_eq!(
+            intent.source_frame(1, 5, geometry, false, now),
+            (None, false)
+        );
+        assert_eq!(
+            intent.source_frame(
+                1,
+                5,
+                geometry,
+                true,
+                now + std::time::Duration::from_millis(801)
+            ),
+            (None, false)
+        );
+        assert_eq!(intent.source_frame(1, 5, geometry, true, now), (None, true));
+    }
+
+    #[test]
+    fn changing_session_geometry_or_screen_cancels_menu_focus_intent() {
+        let now = std::time::Instant::now();
+        let geometry = (80, 24, false);
+        let intent = MenuFocusIntent::new(1, 4, geometry, now);
+        for (session, source) in [
+            (2, geometry),
+            (1, (81, 24, false)),
+            (1, (80, 25, false)),
+            (1, (80, 24, true)),
+        ] {
+            assert_eq!(
+                intent.source_frame(session, 5, source, true, now),
+                (None, false)
+            );
+        }
+    }
+
+    #[test]
+    fn queued_enter_cannot_cross_the_shared_field_handoff_even_at_tick_wrap() {
+        assert!(predates_handoff(99, 100));
+        assert!(predates_handoff(100, 100));
+        assert!(!predates_handoff(101, 100));
+        assert!(predates_handoff(u32::MAX - 2, 3));
+        assert!(!predates_handoff(3, u32::MAX - 2));
+    }
 
     #[test]
     fn shift_navigation_selects_text_without_claiming_cli_or_system_keys() {

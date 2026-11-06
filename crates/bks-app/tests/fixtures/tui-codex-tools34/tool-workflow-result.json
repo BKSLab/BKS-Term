@@ -1,0 +1,17 @@
+{
+  "collapsed_stdout_observed": true,
+  "completed_model_turns": 2,
+  "exit_code": 0,
+  "http_requests": 6,
+  "mode": "tool-workflow-fixture-no-sandbox",
+  "model_requests": 4,
+  "natural_exit": true,
+  "own_listener_closed": true,
+  "own_pty_closed": true,
+  "ran_get_content_observed": true,
+  "responses_requests": 6,
+  "root": "C:\\work\\BKS.Lab\\python\\my_projects\\BKS-Term\\target/codex-tools34\\tool-workflow-fixture-no-sandbox-1793979206862-400",
+  "running_observed": false,
+  "title_requests": 2,
+  "visible_commentary_observed": true
+}

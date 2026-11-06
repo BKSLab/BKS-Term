@@ -1,0 +1,14 @@
+/status
+
+  >_ OpenAI Codex (v0.164.0)
+
+  Model:               bks-offline (reasoning none, summaries auto)
+  Model provider:      bks-offline
+  Directory:           ~\AppData\Local\Temp\BKSC33\c218682231
+  Permissions:         Read Only (never)
+  Agents.md:           <none>
+  Collaboration mode:  Default
+  Session:             01a1b155-f479-7b51-b9ac-91ddc1053ec2
+
+  Token usage:         0 total  (0 input + 0 output)
+  Limits:              data not available yet

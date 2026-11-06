@@ -3,7 +3,7 @@ use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::TermMode;
 
-use crate::{Flags, TerminalModel};
+use crate::{Flags, StyleSpan, TerminalModel, TextStyle};
 
 /// Text of the active screen and all its retained history, independent of the
 /// visual viewport. Offsets are UTF-16 code units for native Windows controls.
@@ -14,6 +14,7 @@ pub struct ReadingDocument {
     pub text: String,
     pub cells: Vec<ReadingCell>,
     pub lines: Vec<ReadingLine>,
+    pub styles: Vec<StyleSpan>,
 }
 
 /// One glyph, including combining characters, and its position in the VT grid.
@@ -28,7 +29,8 @@ pub struct ReadingCell {
     pub width: usize,
 }
 
-/// A logical line, which may span several soft-wrapped physical grid lines.
+/// A document line. Ordinary shell text joins soft-wrapped physical rows;
+/// screen-oriented TUI text keeps each active physical row separate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReadingLine {
     pub start: u32,
@@ -53,7 +55,19 @@ impl TerminalModel {
         self.reading_revision
     }
 
+    /// Source text for a screen-oriented TUI. Active screen rows are explicit
+    /// lines with trailing layout spaces trimmed; retained history keeps its
+    /// ordinary logical paragraphs up to the live-screen boundary. No grid
+    /// cells, scrollback, or cursor state are changed by this view.
+    pub fn tui_reading_document(&self) -> ReadingDocument {
+        self.document_with_screen_rows(true)
+    }
+
     pub fn reading_document(&self) -> ReadingDocument {
+        self.document_with_screen_rows(false)
+    }
+
+    fn document_with_screen_rows(&self, physical: bool) -> ReadingDocument {
         let grid = self.term.grid();
         let first_line = grid.topmost_line().0;
         // Preserve explicit blank lines up to the cursor, and all visible
@@ -62,21 +76,34 @@ impl TerminalModel {
             .rev()
             .find(|&line| content_columns(&grid[Line(line as i32)], self.cols) > 0)
             .unwrap_or(0) as i32;
-        let last_line = last_content.max(grid.cursor.point.line.0);
+        let last_line = if physical {
+            // Blank rows are also layout in a TUI. Their grid anchors keep
+            // menus, composer removal, selections and visual padding aligned.
+            self.rows as i32 - 1
+        } else {
+            last_content.max(grid.cursor.point.line.0)
+        };
         let mut document = ReadingDocument {
             revision: self.reading_revision,
             alternate_screen: self.term.mode().contains(TermMode::ALT_SCREEN),
             text: String::new(),
             cells: Vec::new(),
             lines: Vec::new(),
+            styles: Vec::new(),
         };
         let mut offset = 0u32;
         let mut logical_start = 0u32;
         let mut logical_line = first_line;
         for line in first_line..=last_line {
             let row = &grid[Line(line)];
-            let wrapped = row[Column(self.cols - 1)].flags.contains(Flags::WRAPLINE);
-            for column in 0..content_columns(row, self.cols) {
+            let wrapped = row[Column(self.cols - 1)].flags.contains(Flags::WRAPLINE)
+                && (!physical || line < -1);
+            let columns = if physical && line >= 0 {
+                text_columns(row)
+            } else {
+                content_columns(row, self.cols)
+            };
+            for column in 0..columns {
                 let cell = &row[Column(column)];
                 if cell
                     .flags
@@ -109,6 +136,12 @@ impl TerminalModel {
                         offset += character.len_utf16() as u32;
                     }
                 }
+                let style = if cell.flags.contains(Flags::HIDDEN) {
+                    TextStyle::default()
+                } else {
+                    TextStyle::new(cell.fg, cell.bg, cell.flags)
+                };
+                StyleSpan::append(&mut document.styles, start, offset, style);
                 document.cells.push(ReadingCell {
                     start,
                     end: offset,
@@ -129,6 +162,12 @@ impl TerminalModel {
                 });
                 if line != last_line {
                     document.text.push_str("\r\n");
+                    StyleSpan::append(
+                        &mut document.styles,
+                        offset,
+                        offset + 2,
+                        TextStyle::default(),
+                    );
                     offset += 2;
                     logical_start = offset;
                     logical_line = line + 1;
@@ -183,6 +222,10 @@ fn content_columns(row: &Row<Cell>, columns: usize) -> usize {
     if row[Column(columns - 1)].flags.contains(Flags::WRAPLINE) {
         return columns;
     }
+    text_columns(row)
+}
+
+fn text_columns(row: &Row<Cell>) -> usize {
     row[..]
         .iter()
         .rposition(|cell| {
@@ -198,6 +241,149 @@ fn content_columns(row: &Row<Cell>, columns: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tui_space_filled_two_answer_screen_has_physical_lines_and_unicode_cells() {
+        let mut terminal = TerminalModel::new(40, 12);
+        let rows = [
+            "Chat session",
+            "",
+            "Question one",
+            "Answer one: alpha",
+            "",
+            "",
+            "Question two",
+            "Answer two: beta",
+            "second continuation",
+            "",
+            "> unsent",
+            "model / context",
+        ];
+        // Screen renderers can paint every cell consecutively, without LF.
+        // Alacritty then marks every completed row WRAPLINE, including all of
+        // its layout padding. These are not paragraphs from a shell stream.
+        let mut bytes = String::from("\x1b[?1049h\x1b[48;2;10;10;10m");
+        for row in rows {
+            bytes.push_str(&format!("{row:<40}"));
+        }
+        bytes.push_str("\x1b[5;4H\x1b[31mЖ🙂e\u{301}\x1b[0m\x1b[11;9H");
+        terminal.push_bytes(bytes.as_bytes());
+        let original = terminal.reading_document();
+        assert!(original.lines.len() < 3, "fixture must exercise WRAPLINE");
+        let frame = terminal.live_snapshot();
+        let document = terminal.tui_reading_document();
+        let actual: Vec<_> = document.text.split("\r\n").collect();
+        assert_eq!(actual.len(), rows.len());
+        for (index, expected) in rows.into_iter().enumerate() {
+            assert_eq!(
+                actual[index],
+                if index == 4 {
+                    "   Ж🙂e\u{301}"
+                } else {
+                    expected
+                }
+            );
+            assert_eq!(document.lines[index].line, index as i32);
+            assert!(!actual[index].ends_with(' '));
+        }
+        let start = document.lines[4].start + 3;
+        let wide = document.cell_at(start + 2).unwrap();
+        assert_eq!((wide.line, wide.column, wide.width), (4, 4, 2));
+        assert_eq!(wide.end - wide.start, 2);
+        let combined = document.cell_at(wide.end + 1).unwrap();
+        assert_eq!((combined.line, combined.column, combined.width), (4, 6, 1));
+        assert_eq!(combined.end - combined.start, 2);
+        assert!(document.styles.iter().any(|span| {
+            span.start <= start
+                && span.end >= combined.end
+                && span.style.foreground == crate::Color::Named(crate::NamedColor::Red)
+        }));
+        assert_eq!(terminal.live_snapshot(), frame);
+        assert_eq!(terminal.reading_document(), original);
+    }
+
+    #[test]
+    fn tui_rows_preserve_logical_scrollback_and_split_only_the_live_boundary() {
+        let mut terminal = TerminalModel::new(4, 2);
+        terminal.push_bytes(b"abcdefghijklmnopqrst");
+        let logical = terminal.reading_document();
+        assert_eq!(logical.text, "abcdefghijklmnopqrst");
+        let physical = terminal.tui_reading_document();
+        assert_eq!(physical.text, "abcdefghijkl\r\nmnop\r\nqrst");
+        assert_eq!(
+            physical
+                .lines
+                .iter()
+                .map(|line| line.line)
+                .collect::<Vec<_>>(),
+            [-3, 0, 1]
+        );
+        assert_eq!(
+            physical
+                .cells
+                .iter()
+                .take_while(|cell| cell.line < 0)
+                .collect::<Vec<_>>(),
+            logical
+                .cells
+                .iter()
+                .take_while(|cell| cell.line < 0)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(terminal.reading_document(), logical);
+        for columns in [8, 5, 12] {
+            terminal.resize(columns, 2);
+            let before = terminal.live_snapshot();
+            let physical = terminal.tui_reading_document();
+            assert_eq!(
+                physical.lines.iter().filter(|line| line.line >= 0).count(),
+                2
+            );
+            assert!(physical
+                .lines
+                .windows(2)
+                .all(|pair| pair[0].line < pair[1].line));
+            assert_eq!(terminal.reading_document().text, logical.text);
+            assert_eq!(terminal.live_snapshot(), before);
+        }
+        terminal.push_bytes(b"\x1b[?1049h\x1b[Halternate");
+        assert!(terminal.tui_reading_document().alternate_screen);
+        terminal.push_bytes(b"\x1b[?1049l");
+        assert_eq!(terminal.reading_document().text, logical.text);
+    }
+
+    #[test]
+    fn style_ranges_preserve_unicode_wrap_history_and_color_only_updates() {
+        let mut model = TerminalModel::new(8, 2);
+        model.push_bytes("\x1b[31;44;1mЖ🙂e\u{301}\x1b[0m\r\nplain".as_bytes());
+        let first = model.reading_document();
+        assert_eq!(first.text, "Ж🙂e\u{301}\r\nplain");
+        assert_eq!((first.styles[0].start, first.styles[0].end), (0, 5));
+        assert_eq!(
+            first.styles[0].style.foreground,
+            crate::Color::Named(crate::NamedColor::Red)
+        );
+        assert!(first.styles[0].style.flags.contains(Flags::BOLD));
+        model.push_bytes(b"\x1b[1;1H\x1b[32;44;1m");
+        model.push_bytes("Ж🙂e\u{301}".as_bytes());
+        let second = model.reading_document();
+        assert_eq!(first.text, second.text);
+        assert_ne!(first.styles, second.styles);
+        assert!(second.revision > first.revision);
+        model.push_bytes(b"\r\n\x1b[38;2;12;34;56mabcdefghij\r\nlast");
+        let document = model.reading_document();
+        assert!(document.text.contains("abcdefghij"));
+        assert!(document.styles.iter().any(|span| span.style.foreground
+            == crate::Color::Spec(crate::Rgb {
+                r: 12,
+                g: 34,
+                b: 56
+            })));
+        assert_eq!(
+            document.styles.last().unwrap().end,
+            document.text.encode_utf16().count() as u32
+        );
+    }
 
     #[test]
     fn concealed_reading_copy_and_search_source_preserve_utf16_and_grid_ranges() {

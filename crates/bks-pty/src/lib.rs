@@ -2,6 +2,7 @@
 
 mod input_writer;
 mod output_buffer;
+mod terminal_environment;
 
 pub use input_writer::{PtyInputWriter, INPUT_QUEUE_MAX_BYTES, INPUT_QUEUE_MAX_MESSAGES};
 pub use output_buffer::{OUTPUT_BUFFER_MAX_BYTES, OUTPUT_DRAIN_BUDGET};
@@ -30,8 +31,9 @@ use windows::Win32::System::Pipes::CreatePipe;
 use windows::Win32::System::Threading::{
     CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess,
     InitializeProcThreadAttributeList, TerminateProcess, UpdateProcThreadAttribute,
-    WaitForSingleObject, EXTENDED_STARTUPINFO_PRESENT, LPPROC_THREAD_ATTRIBUTE_LIST,
-    PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    WaitForSingleObject, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
+    LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+    STARTF_USESTDHANDLES, STARTUPINFOEXW,
 };
 use windows::Win32::System::IO::CancelSynchronousIo;
 
@@ -72,7 +74,14 @@ struct ConsoleState {
 }
 
 fn win_err(e: WinError) -> io::Error {
-    io::Error::other(e)
+    let code = e.code().0 as u32;
+    if code & 0xffff_0000 == 0x8007_0000 {
+        // Preserve native Win32 codes through worker error copies. Flattening
+        // a WindowsError into Other + text hides pipe closure from callers.
+        io::Error::from_raw_os_error((code & 0xffff) as i32)
+    } else {
+        io::Error::other(e)
+    }
 }
 
 fn handle(raw: isize) -> HANDLE {
@@ -87,6 +96,17 @@ impl PtySession {
     /// Start a child in an explicit directory without changing the parent
     /// process directory or environment. Validate before allocating ConPTY.
     pub fn spawn_in(command: &str, size: PtySize, cwd: Option<&Path>) -> io::Result<PtySession> {
+        Self::spawn_in_with_env(command, size, cwd, &std::collections::BTreeMap::new())
+    }
+
+    /// Apply explicit profile values to a private child environment. The
+    /// desktop process and concurrently running sessions are never modified.
+    pub fn spawn_in_with_env(
+        command: &str,
+        size: PtySize,
+        cwd: Option<&Path>,
+        overrides: &std::collections::BTreeMap<String, String>,
+    ) -> io::Result<PtySession> {
         if command.contains('\0') {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -118,6 +138,7 @@ impl PtySession {
                 Ok(wide)
             })
             .transpose()?;
+        let environment = terminal_environment::capture(overrides)?;
         // stdin: PTY читает из pty_in_read, мы пишем в our_in_write.
         let mut pty_in_read = HANDLE::default();
         let mut our_in_write = HANDLE::default();
@@ -224,7 +245,8 @@ impl PtySession {
 
         let mut cmd: Vec<u16> = command.encode_utf16().chain(std::iter::once(0)).collect();
         let mut pi = PROCESS_INFORMATION::default();
-        // SAFETY: cmd — изменяемый UTF-16 буфер с нулём; si_ex содержит валидный список атрибутов.
+        // SAFETY: cmd and environment are terminated UTF-16 buffers kept alive
+        // until CreateProcessW returns; si_ex contains a valid attribute list.
         let create_res = unsafe {
             CreateProcessW(
                 None,
@@ -232,8 +254,8 @@ impl PtySession {
                 None,
                 None,
                 BOOL(0).into(),
-                EXTENDED_STARTUPINFO_PRESENT,
-                None,
+                EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+                Some(environment.as_ptr().cast()),
                 current_directory
                     .as_ref()
                     .map_or(PCWSTR::null(), |wide| PCWSTR(wide.as_ptr())),

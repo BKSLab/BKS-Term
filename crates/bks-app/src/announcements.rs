@@ -13,13 +13,14 @@ use windows::Win32::Foundation::{
     E_FAIL, E_HANDLE, E_NOINTERFACE, E_POINTER, HANDLE, HINSTANCE, HWND, LPARAM, LRESULT, S_OK,
     WPARAM,
 };
-use windows::Win32::System::SystemServices::{SS_CENTERIMAGE, SS_ENDELLIPSIS};
+use windows::Win32::System::SystemServices::SS_OWNERDRAW;
 use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::Accessibility::{
     IRawElementProviderSimple, IRawElementProviderSimple_Vtbl, NotificationKind_Other,
-    NotificationProcessing_MostRecent, ProviderOptions, ProviderOptions_ServerSideProvider,
-    ProviderOptions_UseComThreading, UIA_AutomationIdPropertyId, UIA_ControlTypePropertyId,
-    UIA_HasKeyboardFocusPropertyId, UIA_IsContentElementPropertyId, UIA_IsControlElementPropertyId,
+    NotificationProcessing_CurrentThenMostRecent, NotificationProcessing_MostRecent,
+    ProviderOptions, ProviderOptions_ServerSideProvider, ProviderOptions_UseComThreading,
+    UIA_AutomationIdPropertyId, UIA_ControlTypePropertyId, UIA_HasKeyboardFocusPropertyId,
+    UIA_IsContentElementPropertyId, UIA_IsControlElementPropertyId,
     UIA_IsKeyboardFocusablePropertyId, UIA_NamePropertyId, UIA_TextControlTypeId,
     UiaDisconnectProvider, UiaHostProviderFromHwnd, UiaRaiseNotificationEvent,
     UiaReturnRawElementProvider, UiaRootObjectId, UIA_E_ELEMENTNOTAVAILABLE, UIA_PATTERN_ID,
@@ -64,7 +65,7 @@ pub fn create(parent: HWND, instance: HINSTANCE) -> Result<Announcer> {
             WINDOW_EX_STYLE::default(),
             w!("STATIC"),
             w!(""),
-            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_CENTERIMAGE.0 | SS_ENDELLIPSIS.0),
+            WS_CHILD | WS_VISIBLE | WINDOW_STYLE(SS_OWNERDRAW.0),
             0,
             0,
             240,
@@ -103,6 +104,16 @@ impl Announcer {
     /// and deduplication: identical text can be intentional (e.g. F3: 1 of 1).
     /// This never changes focus or the terminal/reading document's layout.
     pub fn announce(&self, text: &str) -> Result<()> {
+        self.emit(text, false)
+    }
+
+    /// Background progress waits for the current announcement. It does not
+    /// move focus or reset the user's reading selection.
+    pub fn progress(&self, text: &str) -> Result<()> {
+        self.emit(text, true)
+    }
+
+    fn emit(&self, text: &str, progress: bool) -> Result<()> {
         if text.is_empty() {
             return Ok(());
         }
@@ -138,9 +149,17 @@ impl Announcer {
             UiaRaiseNotificationEvent(
                 &provider,
                 NotificationKind_Other,
-                NotificationProcessing_MostRecent,
+                if progress {
+                    NotificationProcessing_CurrentThenMostRecent
+                } else {
+                    NotificationProcessing_MostRecent
+                },
                 &BSTR::from(text),
-                &BSTR::from(ACTIVITY_ID),
+                &BSTR::from(if progress {
+                    "bks.tui.activity"
+                } else {
+                    ACTIVITY_ID
+                }),
             )
         }
     }

@@ -55,19 +55,20 @@ pub fn is_high_contrast() -> bool {
 }
 
 pub fn dark_colors() -> SystemThemeColors {
+    use crate::theme;
     SystemThemeColors {
-        window: rgb(0x08, 0x0D, 0x0E),
-        terminal: rgb(0x03, 0x06, 0x07),
-        toolbar: rgb(0x0C, 0x11, 0x12),
-        sidebar: rgb(0x0C, 0x14, 0x14),
-        surface: rgb(0x0B, 0x11, 0x12),
-        selected: rgb(0x1A, 0x39, 0x2D),
-        text_primary: rgb(0xE6, 0xEE, 0xEB),
-        text_secondary: rgb(0xAC, 0xBB, 0xB4),
-        text_muted: rgb(0x8D, 0x9E, 0x96),
-        brand: rgb(0x24, 0xE6, 0x9C),
-        on_primary: rgb(0x04, 0x14, 0x0D),
-        status_success: rgb(0x44, 0xD7, 0x9E),
+        window: theme::BG_WINDOW,
+        terminal: theme::BG_TERMINAL,
+        toolbar: theme::BG_TOOLBAR,
+        sidebar: theme::BG_SIDEBAR,
+        surface: theme::BG_SURFACE,
+        selected: theme::SELECTED,
+        text_primary: theme::TEXT_PRIMARY,
+        text_secondary: theme::TEXT_SECONDARY,
+        text_muted: theme::TEXT_MUTED,
+        brand: theme::BRAND_PRIMARY,
+        on_primary: theme::TEXT_PRIMARY,
+        status_success: rgb(0x49, 0xE4, 0x7E),
         status_error: rgb(0xFF, 0x64, 0x75),
     }
 }
@@ -99,20 +100,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dark_colors_bgr() {
+    fn ui_text_and_focus_keep_contrast_on_opaque_surfaces() {
         let colors = dark_colors();
-        assert_eq!(colors.window.0, 0x000E0D08);
-        assert_eq!(colors.terminal.0, 0x00070603);
-        assert_eq!(colors.toolbar.0, 0x0012110C);
-        assert_eq!(colors.sidebar.0, 0x0014140C);
-        assert_eq!(colors.surface.0, 0x0012110B);
-        assert_eq!(colors.selected.0, 0x002D391A);
-        assert_eq!(colors.text_primary.0, 0x00EBEEE6);
-        assert_eq!(colors.text_secondary.0, 0x00B4BBAC);
-        assert_eq!(colors.text_muted.0, 0x00969E8D);
-        assert_eq!(colors.brand.0, 0x009CE624);
-        assert_eq!(colors.on_primary.0, 0x000D1404);
-        assert_eq!(colors.status_success.0, 0x009ED744);
-        assert_eq!(colors.status_error.0, 0x007564FF);
+        fn luminance(color: COLORREF) -> f64 {
+            let channel = |shift: u32| {
+                let v = ((color.0 >> shift) & 255_u32) as f64 / 255.0;
+                if v <= 0.04045 {
+                    v / 12.92
+                } else {
+                    ((v + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            0.2126 * channel(0) + 0.7152 * channel(8) + 0.0722 * channel(16)
+        }
+        for background in [
+            colors.window,
+            colors.toolbar,
+            colors.sidebar,
+            colors.surface,
+        ] {
+            for foreground in [
+                colors.text_primary,
+                colors.text_secondary,
+                colors.text_muted,
+            ] {
+                assert!((luminance(foreground) + 0.05) / (luminance(background) + 0.05) >= 4.5);
+            }
+        }
+        assert!(
+            (luminance(crate::theme::FOCUS_RING) + 0.05) / (luminance(colors.selected) + 0.05)
+                >= 3.0
+        );
     }
 }

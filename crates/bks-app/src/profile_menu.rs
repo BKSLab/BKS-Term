@@ -28,9 +28,9 @@ use windows::Win32::UI::Controls::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreatePopupMenu, DestroyMenu, GetMenuItemCount, GetMenuItemInfoW, InsertMenuItemW, SetMenuInfo,
-    HMENU, MENUINFO, MENUITEMINFOW, MFS_CHECKED, MFS_DISABLED, MFS_ENABLED, MFS_HILITE,
-    MFT_OWNERDRAW, MFT_SEPARATOR, MIIM_DATA, MIIM_FTYPE, MIIM_ID, MIIM_STATE, MIIM_STRING,
-    MIM_BACKGROUND, MIM_STYLE, MNC_EXECUTE, MNC_IGNORE, MNC_SELECT, MNS_NOCHECK,
+    SetMenuItemInfoW, HMENU, MENUINFO, MENUITEMINFOW, MFS_CHECKED, MFS_DISABLED, MFS_ENABLED,
+    MFS_HILITE, MFT_OWNERDRAW, MFT_SEPARATOR, MIIM_DATA, MIIM_FTYPE, MIIM_ID, MIIM_STATE,
+    MIIM_STRING, MIM_BACKGROUND, MIM_STYLE, MNC_EXECUTE, MNC_IGNORE, MNC_SELECT, MNS_NOCHECK,
 };
 
 const ROW_HEIGHT: i32 = 32;
@@ -118,7 +118,48 @@ pub struct ProfileMenu {
     _ui_thread: PhantomData<Rc<()>>,
 }
 
+/// A native command row; ID zero denotes a separator.
+pub struct Command<'a> {
+    pub id: u32,
+    pub label: &'a str,
+    pub enabled: bool,
+    pub checked: bool,
+}
+
 impl ProfileMenu {
+    /// Reuse the same native/MSAA menu renderer for text-control commands.
+    pub fn commands(commands: &[Command<'_>], theme: &Theme, dpi: u32) -> Result<Self> {
+        let mut menu = Self::new(&[], false, false, theme, dpi)?;
+        for command in commands {
+            menu.append(
+                command.label,
+                if command.id == 0 {
+                    EntryKind::Separator
+                } else {
+                    EntryKind::InputMode
+                },
+                command.id,
+                command.checked,
+                theme,
+            )?;
+            if !command.enabled && command.id != 0 {
+                let info = MENUITEMINFOW {
+                    cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
+                    fMask: MIIM_STATE,
+                    fState: MFS_DISABLED
+                        | if command.checked {
+                            MFS_CHECKED
+                        } else {
+                            MFS_ENABLED
+                        },
+                    ..Default::default()
+                };
+                unsafe { SetMenuItemInfoW(menu.handle, command.id, false, &info)? };
+            }
+        }
+        Ok(menu)
+    }
+
     /// Include the input-mode action only for the full profile menu.
     pub fn new(
         profiles: &[Profile],
@@ -229,6 +270,14 @@ impl ProfileMenu {
                     theme,
                 )?;
             }
+            for (label, command) in [
+                ("Последний блок вывода TUI", crate::MENU_LAST_ANSWER),
+                ("Предыдущий блок вывода TUI", crate::MENU_PREVIOUS_ANSWER),
+                ("Следующий блок вывода TUI", crate::MENU_NEXT_ANSWER),
+                ("Очистить журнал вывода TUI", crate::MENU_CLEAR_ANSWERS),
+            ] {
+                menu.append(label, EntryKind::InputMode, command as u32, false, theme)?;
+            }
             menu.append(
                 &crate::shortcut_caption(
                     "Поиск по истории терминала",
@@ -236,6 +285,13 @@ impl ProfileMenu {
                 ),
                 EntryKind::InputMode,
                 crate::MENU_SEARCH as u32,
+                false,
+                theme,
+            )?;
+            menu.append(
+                "Профили запуска и оболочка…",
+                EntryKind::InputMode,
+                crate::MENU_LAUNCH_PROFILES as u32,
                 false,
                 theme,
             )?;
@@ -500,22 +556,17 @@ unsafe fn paint(item: &DRAWITEMSTRUCT, entry: &MenuEntry, theme: &Theme, dpi: u3
     let selected = item.itemState.0 & ODS_SELECTED.0 != 0;
     let hot = item.itemState.0 & ODS_HOTLIGHT.0 != 0;
     if !disabled && (selected || hot) {
-        let _ = FillRect(
+        crate::background::selected(
             hdc,
-            &rc,
-            if selected {
-                theme.selected
-            } else {
-                theme.hover
+            RECT {
+                left: rc.left + crate::dpi::scale(4, dpi),
+                right: rc.right - crate::dpi::scale(4, dpi),
+                top: rc.top + crate::dpi::scale(2, dpi),
+                bottom: rc.bottom - crate::dpi::scale(2, dpi),
             },
+            theme,
+            dpi,
         );
-        let indicator = RECT {
-            left: rc.left + crate::dpi::scale(2, dpi),
-            top: rc.top + crate::dpi::scale(6, dpi),
-            right: rc.left + crate::dpi::scale(4, dpi),
-            bottom: rc.bottom - crate::dpi::scale(6, dpi),
-        };
-        let _ = FillRect(hdc, &indicator, theme.brand);
     }
     let color = if disabled {
         theme.colors.text_muted

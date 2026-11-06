@@ -1,0 +1,39 @@
+BKS Term — Frosted Glass logo
+
+Mode: built-in imagegen. Transparent background enabled for both calls.
+Final asset: bks-term-logo-frosted.png
+
+Initial inputs:
+- Edit target: bks-term-logo.png
+- Material reference: BKS_Term_Design_Spec_and_Reference/BKS_Term_Visual_Reference.png
+- Palette source: ../crates/bks-app/src/theme.rs
+
+Initial prompt (verbatim):
+
+Use case: style-transfer / logo-brand.
+Asset type: a standalone transparent PNG logo for the BKS Term project, suitable for a project description attachment.
+
+Input images:
+1. EDIT TARGET: the existing BKS Term logo. Preserve its identity: the terminal >_ symbol inside a rounded square at left and the exact brand name "BKS Term" at right, in a horizontal lockup.
+2. SUPPORTING MATERIAL REFERENCE ONLY: a BKS Term frosted-glass interface mockup. Borrow its restrained glass material, soft corners and subtle depth. Do not reproduce the window, interface, terminal content or wallpaper.
+
+Primary request: redesign the existing green logo to match the application's CURRENT neutral Frosted Glass theme. The current implementation is more neutral graphite than the blue-purple mockup. The authoritative palette is: graphite #17191C and #30343A, slate #3B506F, accent blue #5E8CFF, pale blue #99C4FF and near-white #F1F3F6. Remove the former emerald/turquoise/green branding completely.
+
+Composition: one clean horizontal logo only, front-facing, the rounded-square terminal mark at left and the wordmark at right, vertically balanced. Keep the terminal chevron and underscore bold, simple and recognizable. Use a dark frosted graphite glass icon with a restrained blue edge and a near-white/ice-blue >_ mark. Place the exact wordmark "BKS Term" on a quiet rounded graphite glass nameplate, using crisp bold contemporary Windows-style sans-serif typography, "BKS" in accent blue and "Term" near-white. The nameplate should be integrated and understated, with minimal framing.
+
+Material and lighting: refined matte translucent glass, very soft internal reflections, slight satin grain, delicate pale edge highlights, gentle depth, excellent text contrast. Avoid saturated purple, cyan/green neon, thick glowing outlines, dramatic diagonal highlights, metallic chrome, heavy shadows and glossy gaming aesthetics.
+
+Text (verbatim): "BKS Term". Preserve spelling, capitalization and spacing. No tagline, no extra lettering, no watermark, no UI elements, no extra badges or variants.
+
+Background and framing: true transparent alpha outside the logo, including the rounded corners; no opaque background, checkerboard pattern or surrounding scene. Fit the horizontal artwork closely in a wide canvas with a small consistent clear margin, no excessive empty space. Deliver one polished high-resolution logo, not a presentation sheet.
+
+Refinement input: the image produced by the initial call.
+
+Refinement prompt (verbatim):
+
+Use case: precise-object-edit.
+Edit target: the attached blue/graphite BKS Term frosted-glass logo.
+
+Make one finishing correction: clean the outer silhouette and transparent margins. Remove the isolated cyan/blue specks above the left icon, every stray colored particle around the logo, and the saturated neon fringe outside its rounded outline. The clear space must be truly empty transparent alpha, with clean antialiased edges. Keep a restrained thin pale-blue edge highlight inside the icon's silhouette.
+
+Preserve the existing horizontal composition, proportions, >_ symbol, the exact text "BKS Term", letter shapes, blue BKS / white Term colors, graphite frosted-glass material, nameplate and small consistent padding. No new objects, no new lettering, no opaque background, no checkerboard, no cast shadow or glow outside the silhouette. Deliver the single finished transparent PNG logo.

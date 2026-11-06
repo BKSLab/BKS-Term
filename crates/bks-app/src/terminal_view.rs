@@ -11,13 +11,18 @@ use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, CreateFontIndirectW, DeleteDC,
     DeleteObject, ExtTextOutW, FillRect, FrameRect, GetDC, GetObjectW, GetStockObject,
     GetTextMetricsW, ReleaseDC, RestoreDC, SaveDC, SelectObject, SetBkMode, SetDCBrushColor,
-    SetTextAlign, SetTextColor, DC_BRUSH, ETO_CLIPPED, FW_BOLD, HBITMAP, HBRUSH, HDC, HFONT,
-    HGDIOBJ, LOGFONTW, SRCCOPY, TA_LEFT, TA_NOUPDATECP, TA_TOP, TEXTMETRICW, TRANSPARENT,
+    SetTextAlign, SetTextColor, DC_BRUSH, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_TOP, ETO_CLIPPED,
+    FW_BOLD, HBITMAP, HBRUSH, HDC, HFONT, HGDIOBJ, LOGFONTW, SRCCOPY, TA_LEFT, TA_NOUPDATECP,
+    TA_TOP, TEXTMETRICW, TRANSPARENT,
 };
 use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
 
-use crate::ansi_palette::{AnsiPalette, DARK_PALETTE};
+use crate::ansi_palette::DARK_PALETTE;
 use crate::search::SearchMatch;
+use crate::text_style::blend;
+use crate::text_style::TuiSurface;
+#[cfg(test)]
+use crate::text_style::{indexed_color, resolve_color, rgb};
 use crate::theme::Theme;
 
 pub struct SearchOverlay<'a> {
@@ -223,85 +228,22 @@ struct CellColors {
     bg: COLORREF,
 }
 
-fn rgb(r: u8, g: u8, b: u8) -> COLORREF {
-    COLORREF(u32::from(r) | (u32::from(g) << 8) | (u32::from(b) << 16))
-}
-
-fn blend(first: COLORREF, second: COLORREF, second_percent: u32) -> COLORREF {
-    let channel = |shift: u32| {
-        let first = (first.0 >> shift) & 0xffu32;
-        let second = (second.0 >> shift) & 0xffu32;
-        ((first * (100 - second_percent) + second * second_percent) / 100) as u8
+fn cell_colors(
+    cell: &CellSnapshot,
+    theme: &Theme,
+    selected: bool,
+    active_row: bool,
+    surface: Option<TuiSurface>,
+) -> CellColors {
+    let source = bks_terminal::TextStyle::new(cell.fg, cell.bg, cell.flags);
+    let resolved = surface.map_or_else(
+        || crate::text_style::resolve(source, theme),
+        |surface| surface.resolve(source, theme),
+    );
+    let mut colors = CellColors {
+        fg: resolved.foreground,
+        bg: resolved.background,
     };
-    rgb(channel(0), channel(8), channel(16))
-}
-
-fn indexed_color(index: u8, palette: &AnsiPalette) -> COLORREF {
-    match index {
-        0..=15 => palette.colors[usize::from(index)],
-        16..=231 => {
-            let index = index - 16;
-            let level = |component: u8| {
-                if component == 0 {
-                    0
-                } else {
-                    55 + 40 * component
-                }
-            };
-            rgb(level(index / 36), level(index / 6 % 6), level(index % 6))
-        }
-        232..=255 => {
-            let level = 8 + 10 * (index - 232);
-            rgb(level, level, level)
-        }
-    }
-}
-
-fn resolve_color(color: Color, palette: &AnsiPalette) -> COLORREF {
-    match color {
-        Color::Spec(color) => rgb(color.r, color.g, color.b),
-        Color::Indexed(index) => indexed_color(index, palette),
-        Color::Named(name) => match name {
-            NamedColor::Foreground => palette.default_fg,
-            NamedColor::Background => palette.default_bg,
-            NamedColor::Cursor => palette.cursor,
-            NamedColor::BrightForeground => palette.colors[15],
-            NamedColor::DimForeground => blend(palette.default_fg, palette.default_bg, 34),
-            NamedColor::DimBlack
-            | NamedColor::DimRed
-            | NamedColor::DimGreen
-            | NamedColor::DimYellow
-            | NamedColor::DimBlue
-            | NamedColor::DimMagenta
-            | NamedColor::DimCyan
-            | NamedColor::DimWhite => blend(
-                palette.colors[name as usize - NamedColor::DimBlack as usize],
-                palette.default_bg,
-                34,
-            ),
-            _ => palette.colors[name as usize],
-        },
-    }
-}
-
-fn cell_colors(cell: &CellSnapshot, theme: &Theme, selected: bool, active_row: bool) -> CellColors {
-    let mut colors = if theme.high_contrast {
-        CellColors {
-            fg: theme.colors.text_primary,
-            bg: theme.colors.terminal,
-        }
-    } else {
-        CellColors {
-            fg: resolve_color(cell.fg, &DARK_PALETTE),
-            bg: resolve_color(cell.bg, &DARK_PALETTE),
-        }
-    };
-    if cell.flags.contains(Flags::DIM) && !theme.high_contrast {
-        colors.fg = blend(colors.fg, colors.bg, 34);
-    }
-    if cell.flags.contains(Flags::INVERSE) {
-        std::mem::swap(&mut colors.fg, &mut colors.bg);
-    }
     if selected {
         if theme.high_contrast {
             colors.fg = theme.colors.on_primary;
@@ -315,7 +257,11 @@ fn cell_colors(cell: &CellSnapshot, theme: &Theme, selected: bool, active_row: b
         && !cell.flags.contains(Flags::INVERSE)
         && cell.bg == Color::Named(NamedColor::Background)
     {
-        colors.bg = blend(colors.bg, DARK_PALETTE.cursor, 4);
+        colors.bg = blend(
+            colors.bg,
+            crate::theme::BRAND_PRIMARY,
+            crate::theme::CARET_ROW_TINT,
+        );
     }
     colors
 }
@@ -326,9 +272,10 @@ fn colors_with_search(
     selected: bool,
     active_row: bool,
     highlight: SearchHighlight,
+    surface: Option<TuiSurface>,
 ) -> CellColors {
     if selected || highlight == SearchHighlight::None {
-        return cell_colors(cell, theme, selected, active_row);
+        return cell_colors(cell, theme, selected, active_row, surface);
     }
     if theme.high_contrast {
         if highlight == SearchHighlight::Current {
@@ -507,16 +454,26 @@ impl Painter {
             unsafe {
                 let _ = SelectObject(self.hdc, fonts.for_flags(cell.flags).into());
                 let _ = SetTextColor(self.hdc, color);
-                let _ = ExtTextOutW(
-                    self.hdc,
-                    rect.left,
-                    rect.top,
-                    ETO_CLIPPED,
-                    Some(rect),
-                    PCWSTR(text.as_ptr()),
-                    text.len() as u32,
-                    None,
-                );
+                if !crate::backdrop::active()
+                    || !crate::glass_buffer::draw_text(
+                        self.hdc,
+                        &text,
+                        *rect,
+                        DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX,
+                        color,
+                    )
+                {
+                    let _ = ExtTextOutW(
+                        self.hdc,
+                        rect.left,
+                        rect.top,
+                        ETO_CLIPPED,
+                        Some(rect),
+                        PCWSTR(text.as_ptr()),
+                        text.len() as u32,
+                        None,
+                    );
+                }
             }
         }
         let thickness = ((rect.bottom - rect.top) / 16).max(1);
@@ -590,8 +547,17 @@ pub fn paint_with_search(
     }
     let target = hdc;
     // Fall back to direct painting if GDI cannot allocate a compatible bitmap.
-    let buffer = BackBuffer::new(target, client.right, client.bottom);
-    let hdc = buffer.as_ref().map_or(target, |buffer| buffer.hdc);
+    let mut glass = (crate::backdrop::active() && !theme.high_contrast)
+        .then(|| crate::glass_buffer::GlassBuffer::new(target, client))
+        .flatten();
+    let buffer = glass
+        .is_none()
+        .then(|| BackBuffer::new(target, client.right, client.bottom))
+        .flatten();
+    let hdc = glass.as_ref().map_or_else(
+        || buffer.as_ref().map_or(target, |buffer| buffer.hdc),
+        |buffer| buffer.hdc(),
+    );
     let saved = unsafe { SaveDC(hdc) };
     let old_font = unsafe { SelectObject(hdc, theme.terminal_font.into()) };
     let fonts = Fonts::new(theme.terminal_font);
@@ -611,6 +577,9 @@ pub fn paint_with_search(
             DARK_PALETTE.default_bg
         },
     );
+    if let Some(glass) = glass.as_mut() {
+        glass.seal_background(crate::theme::TERMINAL_GLASS_ALPHA);
+    }
 
     let visible_cols = (client.right.max(0) as usize)
         .div_ceil(metrics.0 as usize)
@@ -633,6 +602,18 @@ pub fn paint_with_search(
             .copied()
             .unwrap_or_default()
     };
+    let surface = TuiSurface::detect_grid(frame);
+    let glass_background = |cell: &CellSnapshot, index: usize, active_row: bool| {
+        glass.is_some()
+            && (cell.bg == Color::Named(NamedColor::Background)
+                || surface.is_some_and(|surface| {
+                    surface.is_canvas(bks_terminal::TextStyle::new(cell.fg, cell.bg, cell.flags))
+                }))
+            && !cell.flags.contains(Flags::INVERSE)
+            && !is_selected(index)
+            && search_at(index) == SearchHighlight::None
+            && !active_row
+    };
 
     // Paint all backgrounds first: a spacer must not erase its wide glyph.
     for row in 0..visible_rows {
@@ -653,8 +634,10 @@ pub fn paint_with_search(
                 is_selected(index),
                 active_row,
                 search_at(index),
+                surface,
             )
             .bg;
+            let transparent = glass_background(cell, index, active_row);
             let start = column;
             column += 1;
             while column < visible_cols {
@@ -668,14 +651,18 @@ pub fn paint_with_search(
                     is_selected(index),
                     active_row,
                     search_at(index),
+                    surface,
                 )
                 .bg != color
+                    || glass_background(cell, index, active_row) != transparent
                 {
                     break;
                 }
                 column += 1;
             }
-            painter.fill(&cell_rect(row, start, column - start, metrics), color);
+            if !transparent {
+                painter.fill(&cell_rect(row, start, column - start, metrics), color);
+            }
         }
     }
     for row in 0..visible_rows {
@@ -695,7 +682,14 @@ pub fn paint_with_search(
                 1
             };
             let highlight = search_at(index);
-            let colors = colors_with_search(cell, theme, is_selected(index), active_row, highlight);
+            let colors = colors_with_search(
+                cell,
+                theme,
+                is_selected(index),
+                active_row,
+                highlight,
+                surface,
+            );
             painter.text(
                 cell,
                 &cell_rect(row, column, width, metrics),
@@ -759,7 +753,14 @@ pub fn paint_with_search(
     if let Some(buffer) = buffer {
         buffer.present(target);
     }
+    if let Some(glass) = glass {
+        glass.finish();
+    }
 }
+
+#[cfg(test)]
+#[path = "terminal_view_native_tests.rs"]
+mod native_tests;
 
 #[cfg(test)]
 mod tests {
@@ -906,18 +907,18 @@ mod tests {
         let frame = model.snapshot();
         let theme = Theme::default();
         assert_ne!(
-            cell_colors(&frame.cells[0], &theme, false, true).bg,
+            cell_colors(&frame.cells[0], &theme, false, true, None).bg,
             DARK_PALETTE.default_bg
         );
         assert_eq!(
-            cell_colors(&frame.cells[1], &theme, false, true).bg,
+            cell_colors(&frame.cells[1], &theme, false, true, None).bg,
             rgb(10, 20, 30)
         );
-        let inverse = cell_colors(&frame.cells[2], &theme, false, true);
+        let inverse = cell_colors(&frame.cells[2], &theme, false, true, None);
         assert_eq!(inverse.fg, DARK_PALETTE.default_bg);
         assert_eq!(inverse.bg, DARK_PALETTE.default_fg);
         assert_eq!(
-            cell_colors(&frame.cells[1], &theme, true, true).bg,
+            cell_colors(&frame.cells[1], &theme, true, true, None).bg,
             DARK_PALETTE.selection_bg
         );
     }
@@ -936,14 +937,14 @@ mod tests {
         theme.colors.brand = rgb(0, 0, 255);
         theme.colors.on_primary = rgb(255, 255, 255);
         assert_eq!(
-            cell_colors(&frame.cells[0], &theme, false, true),
+            cell_colors(&frame.cells[0], &theme, false, true, None),
             CellColors {
                 fg: theme.colors.text_primary,
                 bg: theme.colors.terminal
             }
         );
         assert_eq!(
-            cell_colors(&frame.cells[0], &theme, true, true),
+            cell_colors(&frame.cells[0], &theme, true, true, None),
             CellColors {
                 fg: theme.colors.on_primary,
                 bg: theme.colors.brand
@@ -1072,22 +1073,22 @@ mod tests {
         let highlights = search_highlights(&frame, &overlay, frame.cols, frame.rows);
         let cell = &frame.cells[0];
         let theme = Theme::default();
-        let ansi = cell_colors(cell, &theme, false, false);
-        let selected = cell_colors(cell, &theme, true, false);
+        let ansi = cell_colors(cell, &theme, false, false, None);
+        let selected = cell_colors(cell, &theme, true, false, None);
         assert_ne!(
-            colors_with_search(cell, &theme, false, false, SearchHighlight::Match),
+            colors_with_search(cell, &theme, false, false, SearchHighlight::Match, None),
             ansi
         );
         assert_ne!(
-            colors_with_search(cell, &theme, false, false, highlights[0]),
+            colors_with_search(cell, &theme, false, false, highlights[0], None),
             ansi
         );
         assert_eq!(
-            colors_with_search(cell, &theme, true, false, highlights[0]),
+            colors_with_search(cell, &theme, true, false, highlights[0], None),
             selected
         );
         assert_eq!(
-            colors_with_search(cell, &theme, false, false, SearchHighlight::None),
+            colors_with_search(cell, &theme, false, false, SearchHighlight::None, None),
             ansi
         );
         assert_eq!(
@@ -1117,6 +1118,7 @@ mod tests {
             false,
             false,
             SearchHighlight::Match,
+            None,
         );
         let current = colors_with_search(
             &frame.cells[0],
@@ -1124,6 +1126,7 @@ mod tests {
             false,
             false,
             SearchHighlight::Current,
+            None,
         );
         assert_eq!(
             normal,

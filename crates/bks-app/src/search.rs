@@ -31,6 +31,9 @@ struct CurrentAnchor {
 }
 
 impl SearchState {
+    pub fn invalidate_view(&mut self) {
+        self.revision = None;
+    }
     pub fn query(&self) -> &str {
         &self.query
     }

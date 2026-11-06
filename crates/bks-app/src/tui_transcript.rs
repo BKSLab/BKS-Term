@@ -10,6 +10,32 @@ use bks_terminal::ReadingDocument;
 // for a very long soft-wrapped logical line or a full 10,000-row history.
 const MAX_BASELINE_LINES: usize = 4_096;
 
+/// Keep an older retained block from hiding output of a pending submission.
+/// The same stable ID space includes model answers and local command results.
+#[derive(Clone, Copy, Default)]
+pub enum LatestOutput {
+    #[default]
+    Any,
+    After {
+        after: Option<u64>,
+    },
+}
+
+impl LatestOutput {
+    pub fn submitted(&mut self, previous_output: Option<u64>) {
+        *self = Self::After {
+            after: previous_output,
+        };
+    }
+
+    pub fn prefers_archive(self, latest_output: Option<u64>) -> bool {
+        match self {
+            Self::Any => latest_output.is_some(),
+            Self::After { after } => latest_output.is_some() && latest_output != after,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct ReplyAnchor {
     baseline: Option<Baseline>,
@@ -147,30 +173,54 @@ fn unique_positions(lines: &[LineKey]) -> HashMap<LineKey, Option<usize>> {
 }
 
 fn retained_alignment(previous: &[LineKey], current: &[LineKey]) -> Option<(usize, usize)> {
-    // One unique retained line is enough to align a trimmed suffix. Repeated
-    // lines alone are deliberately inconclusive; no quadratic diff is needed.
+    // Unique retained lines must agree on the same history shift. A redraw
+    // can reorder old labels; the first matching label alone cannot establish
+    // where new output starts. Repeats alone remain deliberately inconclusive.
     let old_positions = unique_positions(previous);
     let positions = unique_positions(current);
+    let mut shift = None;
     for (old, key) in previous.iter().enumerate() {
         if let Some(Some(new)) = positions.get(key) {
             if old_positions.get(key) != Some(&Some(old)) {
                 continue;
             }
-            // Insertion of unrelated text before the retained window has no
-            // reliable origin. A caller's live-page fallback is more useful.
-            if *new >= old {
-                return Some((0, *new - old));
+            let candidate = *new as isize - old as isize;
+            if shift.is_some_and(|shift| shift != candidate) {
+                return None;
             }
-            return Some((old - *new, 0));
+            shift = Some(candidate);
         }
     }
-    None
+    shift.map(|shift| {
+        if shift >= 0 {
+            (0, shift as usize)
+        } else {
+            (shift.unsigned_abs(), 0)
+        }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use bks_terminal::TerminalModel;
+
+    #[test]
+    fn newest_output_does_not_reopen_an_older_answer_after_a_local_command_or_pending_request() {
+        let mut output = LatestOutput::default();
+        assert!(!output.prefers_archive(None));
+        assert!(output.prefers_archive(Some(1)));
+        output.submitted(Some(1));
+        assert!(!output.prefers_archive(None));
+        assert!(!output.prefers_archive(Some(1)));
+        assert!(output.prefers_archive(Some(2)));
+        output.submitted(Some(2));
+        assert!(!output.prefers_archive(Some(2)));
+        assert!(output.prefers_archive(Some(3)));
+        output.submitted(None);
+        assert!(!output.prefers_archive(None));
+        assert!(output.prefers_archive(Some(1)));
+    }
 
     fn document(text: &str) -> ReadingDocument {
         let mut terminal = TerminalModel::new(120, 8);
@@ -333,6 +383,14 @@ mod tests {
         anchor.submitted(&document(&repeated));
         let unrelated = document("unrelated reset\r\nnew output");
         assert_eq!(anchor.offset(&unrelated), None);
+    }
+
+    #[test]
+    fn reordered_retained_lines_do_not_claim_a_stable_history_origin() {
+        let mut anchor = ReplyAnchor::default();
+        anchor.submitted(&document("removed first\r\nretained a\r\nretained b"));
+        let reordered = document("retained b\r\nretained a\r\nnew output");
+        assert_eq!(anchor.offset(&reordered), None);
     }
 
     #[test]

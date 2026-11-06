@@ -13,18 +13,45 @@ use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, GetParent, GetWindo
 pub enum Surface {
     Title,
     Sidebar,
+    Status,
+    Terminal,
 }
 
 pub fn paint(hdc: HDC, bounds: RECT, canvas: RECT, surface: Surface, theme: &Theme) {
+    if crate::backdrop::active() && !theme.high_contrast {
+        if let Some(mut buffer) = crate::glass_buffer::GlassBuffer::new(hdc, bounds) {
+            paint_opaque(buffer.hdc(), bounds, canvas, surface, theme);
+            // Desktop Acrylic already blurs and tints the backdrop. Keep our
+            // tint light so it does not turn that material into a solid panel.
+            buffer.seal_background(match surface {
+                Surface::Title => 80,
+                Surface::Sidebar => 112,
+                Surface::Status => 80,
+                Surface::Terminal => theme::TERMINAL_GLASS_ALPHA,
+            });
+            buffer.finish();
+            return;
+        }
+    }
+    paint_opaque(hdc, bounds, canvas, surface, theme);
+}
+
+fn paint_opaque(hdc: HDC, bounds: RECT, canvas: RECT, surface: Surface, theme: &Theme) {
     let brush = match surface {
         Surface::Title => theme.window,
         Surface::Sidebar => theme.sidebar,
+        Surface::Status => theme.surface,
+        Surface::Terminal => theme.terminal,
     };
     if bounds.right <= bounds.left || bounds.bottom <= bounds.top {
         return;
     }
     unsafe {
-        if theme.high_contrast || canvas.right <= canvas.left || canvas.bottom <= canvas.top {
+        if theme.high_contrast
+            || matches!(surface, Surface::Terminal)
+            || canvas.right <= canvas.left
+            || canvas.bottom <= canvas.top
+        {
             FillRect(hdc, &bounds, brush);
             return;
         }
@@ -37,10 +64,13 @@ pub fn paint(hdc: HDC, bounds: RECT, canvas: RECT, surface: Surface, theme: &The
         let colors: &[[[u8; 3]; 3]] = match surface {
             Surface::Title => &theme::TITLE_GRADIENT,
             Surface::Sidebar => &theme::SIDEBAR_GRADIENT,
+            Surface::Status => &theme::STATUS_GRADIENT,
+            Surface::Terminal => unreachable!(),
         };
         let stops: &[i32] = match surface {
-            Surface::Title => &[0, 500, 1000],
+            Surface::Title | Surface::Status => &[0, 500, 1000],
             Surface::Sidebar => &[0, 400, 850, 1000],
+            Surface::Terminal => unreachable!(),
         };
         let mut vertices = Vec::with_capacity(colors.len() * 3);
         for (row, stops) in colors.iter().zip(stops) {
@@ -102,8 +132,18 @@ pub fn control(item: &DRAWITEMSTRUCT, surface: Surface, theme: &Theme, dpi: u32)
             crate::sidebar_expanded_for_width(client.right),
         );
         let canvas = match surface {
-            Surface::Title => layout.title_bar,
+            Surface::Title => layout::Rect {
+                height: layout.title_bar.height + layout.session_header.height,
+                ..layout.title_bar
+            },
             Surface::Sidebar => layout.sidebar,
+            Surface::Status => layout.status_bar,
+            Surface::Terminal => layout::Rect {
+                x: 0,
+                y: 0,
+                width: client.right,
+                height: client.bottom,
+            },
         };
         paint(
             item.hDC,
@@ -130,7 +170,7 @@ pub fn selected(hdc: HDC, rect: RECT, theme: &Theme, dpi: u32) {
         if saved == 0 {
             return;
         }
-        let radius = dpi::scale(8, dpi);
+        let radius = dpi::scale(12, dpi);
         let region = CreateRoundRectRgn(
             rect.left,
             rect.top,
@@ -168,6 +208,93 @@ pub fn selected(hdc: HDC, rect: RECT, theme: &Theme, dpi: u32) {
         );
         let _ = RestoreDC(hdc, saved);
         let _ = DeleteObject(region.into());
+    }
+}
+
+/// One vertical material ramp shared by a tab and its separate native close button.
+pub fn tab(
+    hdc: HDC,
+    bounds: RECT,
+    canvas: RECT,
+    active: bool,
+    theme: &Theme,
+    dpi: u32,
+    rounded: bool,
+) {
+    if bounds.right <= bounds.left || bounds.bottom <= bounds.top {
+        return;
+    }
+    unsafe {
+        if theme.high_contrast {
+            FillRect(
+                hdc,
+                &bounds,
+                if active {
+                    theme.selected
+                } else {
+                    theme.toolbar
+                },
+            );
+            return;
+        }
+        let saved = SaveDC(hdc);
+        if saved == 0 {
+            return;
+        }
+        IntersectClipRect(hdc, bounds.left, bounds.top, bounds.right, bounds.bottom);
+        let region = rounded.then(|| {
+            CreateRoundRectRgn(
+                canvas.left,
+                canvas.top,
+                canvas.right,
+                canvas.bottom,
+                dpi::scale(24, dpi),
+                dpi::scale(24, dpi),
+            )
+        });
+        if let Some(region) = region {
+            ExtSelectClipRgn(hdc, Some(region), RGN_AND);
+        }
+        let base = if active {
+            theme::TAB_ACTIVE
+        } else {
+            theme::TAB_INACTIVE
+        };
+        let [r, g, b] = [base.0 as u8, (base.0 >> 8) as u8, (base.0 >> 16) as u8];
+        let (top, bottom) = if active {
+            ([r + 9, g + 8, b + 3], [r - 12, g - 19, b - 38])
+        } else {
+            ([r + 5, g + 4, b - 1], [r - 7, g - 10, b - 17])
+        };
+        let vertices = [
+            vertex(canvas.left, canvas.top, top),
+            vertex(canvas.right, canvas.top, top),
+            vertex(canvas.left, canvas.bottom, bottom),
+            vertex(canvas.right, canvas.bottom, bottom),
+        ];
+        let triangles = [
+            GRADIENT_TRIANGLE {
+                Vertex1: 0,
+                Vertex2: 1,
+                Vertex3: 2,
+            },
+            GRADIENT_TRIANGLE {
+                Vertex1: 1,
+                Vertex2: 3,
+                Vertex3: 2,
+            },
+        ];
+        let _ = GradientFill(
+            hdc,
+            &vertices,
+            triangles.as_ptr().cast(),
+            2,
+            GRADIENT_FILL_TRIANGLE,
+        );
+        let _ = RestoreDC(hdc, saved);
+        if let Some(region) = region {
+            let _ = DeleteObject(region.into());
+        }
     }
 }
 

@@ -1,0 +1,22 @@
+BKS Term — circular Frosted Glass logo
+
+Mode: built-in imagegen. Transparent background enabled.
+Input: bks-term-logo-frosted.png (style and identity reference).
+Final asset: bks-term-logo-frosted-circle.png
+
+Prompt (verbatim):
+
+Use case: style-transfer / logo-brand.
+Asset type: a circular BKS Term logo for a project avatar, delivered as a standalone square PNG with true transparency outside the circle.
+
+Input image: style and identity reference — the approved BKS Term Frosted Glass logo. Preserve its graphite frosted material, restrained blue accent, near-white terminal >_ symbol, and exact brand name.
+
+Primary request: make ONE circular version of this logo. Redesign the outer silhouette as a perfectly round, front-facing disk. The circle itself is matte dark graphite glass, with gentle cool internal reflections and a thin restrained pale-blue inner edge. The source square and long nameplate are replaced by this single circular disk: do not place a square or a horizontal plaque inside a circle.
+
+Composition: a bold, simple, recognizable >_ terminal mark centered in the upper/middle part of the disk, with the compact wordmark "BKS Term" centered beneath it, all fully contained within the circle. Use crisp bold Windows-style sans-serif lettering, "BKS" in accent blue and "Term" near-white. The symbol is the dominant element, with generous internal padding; the wordmark remains legible. Balance the whole logo optically. Circular outside shape, no oval, no perspective or tilt, no coin thickness.
+
+Authoritative palette: graphite #17191C and #30343A, slate #3B506F, blue #5E8CFF, pale blue #99C4FF, near-white #F1F3F6. Refined matte translucent glass and subtle depth, no green, turquoise, saturated purple, heavy glow, chrome, or dramatic glare.
+
+Text (verbatim): "BKS Term". Keep this exact spelling and case. No other text, no tagline, no watermark, no extra variants.
+
+Background and edges: true transparent alpha outside the circular silhouette, including all four corners of the square canvas. Clean antialiased circumference with no particles, colored fringes, halos, cast shadows or checkerboard. Center the circle and leave a small, equal transparent safety margin on all four sides. One high-resolution polished logo only, not a presentation sheet.

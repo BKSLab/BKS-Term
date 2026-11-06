@@ -1,0 +1,2 @@
+# VT fixtures retain protocol CR/LF bytes and metadata byte offsets.
+*.vt -text

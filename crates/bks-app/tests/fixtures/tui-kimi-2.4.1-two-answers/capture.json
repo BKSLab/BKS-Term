@@ -1,0 +1,438 @@
+{
+  "columns": 100,
+  "rows": 29,
+  "phases": [
+    {
+      "alive": true,
+      "composer": [
+        "",
+        0
+      ],
+      "end_byte": 2875,
+      "name": "startup",
+      "requests": 0
+    },
+    {
+      "alive": true,
+      "composer": [
+        "audit-one",
+        9
+      ],
+      "end_byte": 2976,
+      "name": "draft-one",
+      "requests": 0
+    },
+    {
+      "alive": true,
+      "composer": [
+        "",
+        0
+      ],
+      "end_byte": 8699,
+      "name": "answer-one",
+      "requests": 1
+    },
+    {
+      "alive": true,
+      "composer": [
+        "audit-two",
+        9
+      ],
+      "end_byte": 8800,
+      "name": "draft-two",
+      "requests": 1
+    },
+    {
+      "alive": true,
+      "composer": [
+        "",
+        0
+      ],
+      "end_byte": 13254,
+      "name": "answer-two",
+      "requests": 2
+    }
+  ],
+  "chunks": [
+    {
+      "elapsed_ms": 12,
+      "end_byte": 16,
+      "phase": "startup"
+    },
+    {
+      "elapsed_ms": 500,
+      "end_byte": 52,
+      "phase": "startup"
+    },
+    {
+      "elapsed_ms": 889,
+      "end_byte": 69,
+      "phase": "startup"
+    },
+    {
+      "elapsed_ms": 900,
+      "end_byte": 83,
+      "phase": "startup"
+    },
+    {
+      "elapsed_ms": 913,
+      "end_byte": 125,
+      "phase": "startup"
+    },
+    {
+      "elapsed_ms": 953,
+      "end_byte": 2868,
+      "phase": "startup"
+    },
+    {
+      "elapsed_ms": 971,
+      "end_byte": 2875,
+      "phase": "startup"
+    },
+    {
+      "elapsed_ms": 4038,
+      "end_byte": 2973,
+      "phase": "draft-one"
+    },
+    {
+      "elapsed_ms": 4051,
+      "end_byte": 2976,
+      "phase": "draft-one"
+    },
+    {
+      "elapsed_ms": 4406,
+      "end_byte": 3065,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4422,
+      "end_byte": 3068,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4536,
+      "end_byte": 5088,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4564,
+      "end_byte": 5105,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4646,
+      "end_byte": 5234,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4774,
+      "end_byte": 5354,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4800,
+      "end_byte": 5357,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4906,
+      "end_byte": 5477,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 4919,
+      "end_byte": 5480,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5035,
+      "end_byte": 5600,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5048,
+      "end_byte": 5603,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5167,
+      "end_byte": 5723,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5180,
+      "end_byte": 5726,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5219,
+      "end_byte": 6883,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5231,
+      "end_byte": 6886,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5294,
+      "end_byte": 6998,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5307,
+      "end_byte": 7001,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5384,
+      "end_byte": 7107,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5409,
+      "end_byte": 7110,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5472,
+      "end_byte": 7216,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5485,
+      "end_byte": 7219,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5560,
+      "end_byte": 7325,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5573,
+      "end_byte": 7328,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5651,
+      "end_byte": 7344,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5664,
+      "end_byte": 7434,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5678,
+      "end_byte": 7437,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5745,
+      "end_byte": 7543,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5759,
+      "end_byte": 7546,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5836,
+      "end_byte": 7652,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5848,
+      "end_byte": 7655,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5936,
+      "end_byte": 7761,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 5949,
+      "end_byte": 7764,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 6023,
+      "end_byte": 8699,
+      "phase": "answer-one"
+    },
+    {
+      "elapsed_ms": 7028,
+      "end_byte": 8797,
+      "phase": "draft-two"
+    },
+    {
+      "elapsed_ms": 7041,
+      "end_byte": 8800,
+      "phase": "draft-two"
+    },
+    {
+      "elapsed_ms": 7403,
+      "end_byte": 9884,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7416,
+      "end_byte": 9887,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7533,
+      "end_byte": 9968,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7547,
+      "end_byte": 9971,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7655,
+      "end_byte": 10046,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7683,
+      "end_byte": 10049,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7788,
+      "end_byte": 10124,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7801,
+      "end_byte": 10127,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7904,
+      "end_byte": 10202,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 7917,
+      "end_byte": 10205,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8022,
+      "end_byte": 10280,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8035,
+      "end_byte": 10283,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8048,
+      "end_byte": 11438,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8061,
+      "end_byte": 11441,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8125,
+      "end_byte": 11553,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8138,
+      "end_byte": 11556,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8206,
+      "end_byte": 11662,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8219,
+      "end_byte": 11665,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8300,
+      "end_byte": 11771,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8313,
+      "end_byte": 11774,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8390,
+      "end_byte": 11790,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8403,
+      "end_byte": 11880,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8416,
+      "end_byte": 11883,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8481,
+      "end_byte": 11989,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8496,
+      "end_byte": 11992,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8575,
+      "end_byte": 12098,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8589,
+      "end_byte": 12101,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8667,
+      "end_byte": 12207,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8681,
+      "end_byte": 12210,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8758,
+      "end_byte": 12316,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8771,
+      "end_byte": 12319,
+      "phase": "answer-two"
+    },
+    {
+      "elapsed_ms": 8839,
+      "end_byte": 13254,
+      "phase": "answer-two"
+    }
+  ]
+}

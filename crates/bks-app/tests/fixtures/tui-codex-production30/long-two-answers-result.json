@@ -1,0 +1,13 @@
+{
+  "completed_streams": 2,
+  "conversation_requests": 2,
+  "exit_code": 0,
+  "http_requests": 4,
+  "mode": "long",
+  "natural_exit": true,
+  "own_listener_closed": true,
+  "own_pty_closed": true,
+  "responses_requests": 4,
+  "root": "C:\\work\\BKS.Lab\\python\\my_projects\\BKS-Term\\target/codex-production30/captures\\long-1793959754442-13856",
+  "title_requests": 2
+}

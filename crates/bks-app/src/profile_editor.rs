@@ -7,22 +7,23 @@ use crate::profile::{Profile, ProfileKind, ProfileManager, SshOptions};
 use crate::theme::{draw_mode_button, Theme};
 use windows::core::{w, Error, Result, PCWSTR};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};
 use windows::Win32::Graphics::Gdi::{
     DeleteObject, FillRect, GetMonitorInfoW, InvalidateRect, MonitorFromWindow, SetBkColor,
     SetTextColor, HDC, MONITORINFO, MONITOR_DEFAULTTONEAREST,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Controls::{SetWindowTheme, DRAWITEMSTRUCT, EM_SETSEL, ODS_HOTLIGHT};
+use windows::Win32::UI::Controls::{
+    GetComboBoxInfo, SetWindowTheme, COMBOBOXINFO, DRAWITEMSTRUCT, EM_SETSEL, ODS_HOTLIGHT,
+};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     EnableWindow, GetFocus, GetKeyState, IsWindowEnabled, SetFocus, VK_CONTROL, VK_ESCAPE, VK_MENU,
     VK_RETURN, VK_SHIFT, VK_TAB,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClassInfoW, GetClientRect,
-    GetWindowRect, GetWindowTextLengthW, GetWindowTextW, IsChild, IsDialogMessageW, IsIconic,
-    IsWindow, IsWindowVisible, LoadCursorW, LoadIconW, MessageBoxW, MoveWindow, RegisterClassW,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClassInfoW, GetClassNameW,
+    GetClientRect, GetWindowRect, GetWindowTextLengthW, GetWindowTextW, IsChild, IsDialogMessageW,
+    IsIconic, IsWindow, IsWindowVisible, LoadCursorW, LoadIconW, MoveWindow, RegisterClassW,
     SendMessageW, SetForegroundWindow, SetWindowPos, SetWindowTextW, ShowWindow, TranslateMessage,
     BN_CLICKED, BS_OWNERDRAW, CBN_SELCHANGE, CBS_DROPDOWNLIST, CB_ADDSTRING, CB_GETCURSEL,
     CB_SETCURSEL, ES_AUTOHSCROLL, ES_AUTOVSCROLL, ES_MULTILINE, ES_NUMBER, ES_READONLY, HMENU,
@@ -728,7 +729,7 @@ pub(crate) fn restore_focus(owner: HWND, previous: HWND) {
 pub(crate) fn show_validation(hwnd: HWND, message: &str) {
     let message = wide(message);
     unsafe {
-        let _ = MessageBoxW(
+        let _ = crate::ui_message::show(
             Some(hwnd),
             PCWSTR(message.as_ptr()),
             w!("Проверьте введённые данные"),
@@ -746,22 +747,43 @@ pub(crate) fn apply_theme(hwnd: HWND, theme: &Theme, all: &[HWND], edits: &[HWND
                 Some(WPARAM(theme.ui_font.0 as usize)),
                 Some(LPARAM(1)),
             );
+            crate::ui_menu::attach_edit(*control);
         }
-        let name = if theme.high_contrast {
+        for control in edits {
+            apply_control_theme(*control, theme.high_contrast);
+        }
+        crate::ui_message::decorate_dialog(hwnd, theme);
+    }
+}
+
+fn apply_control_theme(control: HWND, high_contrast: bool) {
+    unsafe {
+        let mut class = [0_u16; 32];
+        let count = GetClassNameW(control, &mut class).max(0) as usize;
+        let combo = String::from_utf16_lossy(&class[..count]).eq_ignore_ascii_case("ComboBox");
+        let name = if high_contrast {
             PCWSTR::null()
+        } else if combo {
+            // ComboBox's native body and arrow use the common-file-dialog theme.
+            w!("DarkMode_CFD")
         } else {
             w!("DarkMode_Explorer")
         };
-        for control in edits {
-            let _ = SetWindowTheme(*control, name, PCWSTR::null());
+        let _ = SetWindowTheme(control, name, PCWSTR::null());
+        if combo {
+            let mut info = COMBOBOXINFO {
+                cbSize: std::mem::size_of::<COMBOBOXINFO>() as u32,
+                ..Default::default()
+            };
+            if GetComboBoxInfo(control, &mut info).is_ok() && !info.hwndList.0.is_null() {
+                let popup_theme = if high_contrast {
+                    PCWSTR::null()
+                } else {
+                    w!("DarkMode_Explorer")
+                };
+                let _ = SetWindowTheme(info.hwndList, popup_theme, PCWSTR::null());
+            }
         }
-        let dark = u32::from(!theme.high_contrast);
-        let _ = DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_USE_IMMERSIVE_DARK_MODE,
-            &dark as *const u32 as *const c_void,
-            std::mem::size_of::<u32>() as u32,
-        );
     }
 }
 
@@ -792,7 +814,12 @@ pub(crate) unsafe fn control_color(wparam: WPARAM, theme: &Theme, edit: bool) ->
 
 pub(crate) fn release_theme(theme: Theme) {
     unsafe {
-        for font in [theme.ui_font, theme.title_font, theme.terminal_font] {
+        for font in [
+            theme.ui_font,
+            theme.title_font,
+            theme.terminal_font,
+            theme.status_font,
+        ] {
             if !font.0.is_null() {
                 let _ = DeleteObject(font.into());
             }

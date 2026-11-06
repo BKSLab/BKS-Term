@@ -1,0 +1,7 @@
+[?9001h[?1004h[?25l[2J[m[H]0;claude[?25h[?2004h[?1004h[?2031h[?25l[38;2;215;119;87mWelcome[1Cto[1CClaude[1CCode[38;2;153;153;153m[1Cv2.1.240[m
+..........................................................[4;6H*[39C█████▓▓░[5;34H*[9C███▓░[5C░░[6;13H░░░░░░[24C███▓░[7;5H░░░[3C░░░░░░░░░░[22C███▓░[8;4H░░░░░░░░░░░░░░░░░░░[1m[4C*[22m[16C██▓░░[6C▓[9;46H░▓▓███▓▓░[38;2;153;153;153m
+ *[33C░░░░
+ [32C░░░░░░░░
+ [30C░░░░░░░░░░░░░░░░[38;2;215;119;87m[13;7H █████████[38;2;153;153;153m[40C*[38;2;215;119;87m[14;7H██▄█████▄██[m[1m[24C*[38;2;215;119;87m[22m[15;7H █████████[m[6C*
+.......[38;2;215;119;87m█[1C█[3C█[1C█[m..........................................[>0q[38;2;255;107;128m[18;2HUnable[1Cto[1Cconnect[1Cto[1CAnthropic[1Cservices[20;2HFailed[1Cto[1Cconnect[1Cto[1Capi.anthropic.com:[1CConnectionRefused[m[22;2HA[1Cproxy[1Cis[1Cconfigured[1Cvia[1Chttps_proxy.[1CCheck[1Cthat[1Cit[1Callows[1Cconnections[1Cto[1Cthe[1Chost[1Cabove.[38;2;177;185;249m[1CSee[23;2Hhttps://code.claude.com/docs/en/network-config[m[25;2HPlease[1Ccheck[1Cyour[1Cinternet[1Cconnection[1Cand[1Cnetwork[1Csettings.[27;2HNote:[1CClaude[1CCode[1Cmight[1Cnot[1Cbe[1Cavailable[1Cin[1Cyour[1Ccountry.[1CCheck[1Csupported[1Ccountries[1Cat[38;2;177;185;249m[28;2Hhttps://anthropic.com/supported-countries[m
+[?25h[?1006l[?1003l[?1002l[?1000l[>4m[<u[?2031l[?2004l[>4m[<u[?2031l[?2004l

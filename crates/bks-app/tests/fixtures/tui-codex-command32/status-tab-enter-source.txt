@@ -1,0 +1,14 @@
+/status
+
+  >_ OpenAI Codex (v0.164.0)
+
+  Model:               bks-offline (reasoning none, summaries auto)
+  Model provider:      bks-offline
+  Directory:           ~\AppData\Local\Temp\BKSC32\command32-status-tab-1793973952538-6340            Permissions:         Read Only (never)
+  Agents.md:           <none>
+  Collaboration mode:  Default
+  Session:             01a1b12e-2338-7531-bcc3-3960a9a18146
+
+  Token usage:         112 total  (64 input + 48 output)
+  Context window:      100% left (112 used / 258K)
+  Limits:              data not available yet

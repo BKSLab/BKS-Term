@@ -78,6 +78,13 @@ public static class BksStage7 {
     public static string ClassName(IntPtr window) {
         var text = new StringBuilder(128); GetClassNameW(window, text, text.Capacity); return text.ToString();
     }
+    private static bool IsRichEdit(IntPtr window) {
+        return ClassName(window).Equals("RICHEDIT50W", StringComparison.OrdinalIgnoreCase);
+    }
+    public static bool IsTextControl(uint process, IntPtr window) {
+        Own(process,window);
+        return ClassName(window).Equals("Edit", StringComparison.OrdinalIgnoreCase) || IsRichEdit(window);
+    }
     public static IntPtr MainWindow(uint process) {
         IntPtr result = IntPtr.Zero;
         EnumWindows((window, unused) => {
@@ -127,14 +134,19 @@ public static class BksStage7 {
     }
     public static void SetText(uint process, IntPtr window, string text) {
         Own(process, window);
-        if (!ClassName(window).Equals("Edit", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Fixture target must be EDIT");
+        if (!ClassName(window).Equals("Edit", StringComparison.OrdinalIgnoreCase) &&
+            !(IsRichEdit(window) && ReadOnly(process,window)))
+            throw new InvalidOperationException("Fixture target must be EDIT or read-only RICHEDIT50W");
         UIntPtr result;
         if (WriteTimeout(window, 0x000C, IntPtr.Zero, text, 3, 1500, out result) == IntPtr.Zero)
             throw new TimeoutException("Own WM_SETTEXT exceeded 1500 ms");
     }
     public static bool ReadOnly(uint process, IntPtr window) { Own(process, window); return (WindowStyle(window,-16).ToInt64() & 0x800) != 0; }
     public static bool Password(uint process, IntPtr window) { Own(process, window); return (WindowStyle(window,-16).ToInt64() & 0x20) != 0; }
-    public static int Length(uint process, IntPtr window) { return ReadMessage(process,window,0x000E,0); }
+    public static int Length(uint process, IntPtr window) {
+        Own(process,window);
+        return IsRichEdit(window) ? Text(process,window).Length : ReadMessage(process,window,0x000E,0);
+    }
     public static void ComboChoice(uint process, IntPtr editor, IntPtr combo, int id, int index) {
         Own(process,editor); Own(process,combo); UIntPtr result;
         if(MessageTimeout(combo,0x014E,new IntPtr(index),IntPtr.Zero,2,1500,out result)==IntPtr.Zero)
@@ -148,20 +160,50 @@ public static class BksStage7 {
             throw new TimeoutException("Own native reading message exceeded 1500 ms");
         return unchecked((int)result.ToUInt64());
     }
+    // Harness offsets index the canonical WM_GETTEXT CRLF/UTF-16 string.
+    // RichEdit messages and the native UIA provider keep their own CP protocol.
+    private static int NativeOffset(string text, int offset) {
+        if(offset<0)return offset; // Preserve EM_SETSEL sentinel values.
+        int limit=Math.Min(offset,text.Length),removed=0;
+        for(int index=0;index<limit && index+1<text.Length;index++) {
+            if(text[index]=='\r' && text[index+1]=='\n') {removed++;index++;}
+        }
+        return limit-removed;
+    }
+    private static uint CanonicalOffset(string text, uint offset) {
+        int removed=0;
+        for(int index=0;index+1<text.Length && (long)index-removed<offset;index++) {
+            if(text[index]=='\r' && text[index+1]=='\n') {removed++;index++;}
+        }
+        return (uint)Math.Min(text.Length,(long)offset+removed);
+    }
     public static uint[] Selection(uint process, IntPtr window) {
         Own(process,window); uint start,end; UIntPtr result;
         if(SelectionTimeout(window,0x00B0,out start,out end,2,1500,out result)==IntPtr.Zero)
             throw new TimeoutException("Own EM_GETSEL exceeded 1500 ms");
+        if(IsRichEdit(window)) {
+            string text=Text(process,window);
+            return new[]{CanonicalOffset(text,start),CanonicalOffset(text,end)};
+        }
         return new[]{start,end};
     }
     public static void Select(uint process, IntPtr window, int start, int end) {
         Own(process,window); UIntPtr result;
+        if(IsRichEdit(window)) {
+            string text=Text(process,window);
+            start=NativeOffset(text,start);end=NativeOffset(text,end);
+        }
         if(MessageTimeout(window,0x00B1,new IntPtr(start),new IntPtr(end),2,1500,out result)==IntPtr.Zero)
             throw new TimeoutException("Own EM_SETSEL exceeded 1500 ms");
     }
     public static int FirstLine(uint process, IntPtr window) { return ReadMessage(process,window,0x00CE,0); }
-    public static int LineIndex(uint process, IntPtr window, int line) { return ReadMessage(process,window,0x00BB,line); }
+    public static int LineIndex(uint process, IntPtr window, int line) {
+        int offset=ReadMessage(process,window,0x00BB,line);
+        return offset<0 || !IsRichEdit(window) ? offset : (int)CanonicalOffset(Text(process,window),(uint)offset);
+    }
     public static void ScrollTo(uint process, IntPtr window, int character) {
+        Own(process,window);
+        if(IsRichEdit(window))character=NativeOffset(Text(process,window),character);
         int line=ReadMessage(process,window,0x00C9,character);
         int first=FirstLine(process,window); UIntPtr result;
         if(MessageTimeout(window,0x00B6,IntPtr.Zero,new IntPtr(line-first),2,1500,out result)==IntPtr.Zero)
@@ -220,7 +262,7 @@ function Element([IntPtr]$Window) {
 }
 function Uia-Text([IntPtr]$Window) {
     $pattern = $null
-    if (-not (Element $Window).TryGetCurrentPattern([Windows.Automation.TextPattern]::Pattern,[ref]$pattern)) { throw 'Native EDIT does not expose TextPattern' }
+    if (-not (Element $Window).TryGetCurrentPattern([Windows.Automation.TextPattern]::Pattern,[ref]$pattern)) { throw 'Native text control does not expose TextPattern' }
     $pattern.DocumentRange.GetText(-1)
 }
 function Click-Own([IntPtr]$Parent,[int]$Id) {
@@ -435,7 +477,7 @@ try {
     $execute = [BksStage7]::GetDlgItem($main,1003)
     Wait-For { [BksStage7]::Text($process.Id,$journal).Length -gt 0 } 'native startup text available'
     Check 'startup shows native journal and command editor' ([BksStage7]::IsWindowVisible($journal) -and [BksStage7]::IsWindowVisible($inputBox))
-    Check 'journal exposes named read-only native EDIT and TextPattern' ([BksStage7]::ClassName($journal) -ieq 'Edit' -and [BksStage7]::ReadOnly($process.Id,$journal) -and (Element $journal).Current.Name.Contains('Журнал') -and (Uia-Text $journal).Length -gt 0)
+    Check 'journal exposes named read-only native text and TextPattern' ([BksStage7]::IsTextControl($process.Id,$journal) -and [BksStage7]::ReadOnly($process.Id,$journal) -and (Element $journal).Current.Name.Contains('Журнал') -and (Uia-Text $journal).Length -gt 0)
     Check 'command editor is named and editable' ([BksStage7]::ClassName($inputBox) -ieq 'Edit' -and -not [BksStage7]::ReadOnly($process.Id,$inputBox) -and (Element $inputBox).Current.Name.Contains('Команда'))
     if($ProfilesOnly){
         Invoke-Profiles

@@ -444,7 +444,7 @@ try {
         [BksDirect]::Watch($pidOwn,(Field $main 1026))
         Menu 60004
         Wait-For { [BksStage7]::IsWindowVisible($direct) -and [BksDirect]::Focus($pidOwn,$main) -eq $direct -and (Own-Text $direct).Contains('BKS_DIRECT_READY') } 'capture focuses the native direct EDIT'
-        Check 'direct mode exposes a read-only multiline EDIT and hides the command field' ([BksStage7]::ClassName($direct) -ieq 'Edit' -and [BksStage7]::ReadOnly($pidOwn,$direct) -and [BksDirect]::Multiline($pidOwn,$direct) -and -not [BksStage7]::IsWindowVisible($command))
+        Check 'direct mode exposes a read-only multiline native text control and hides the command field' ([BksStage7]::IsTextControl($pidOwn,$direct) -and [BksStage7]::ReadOnly($pidOwn,$direct) -and [BksDirect]::Multiline($pidOwn,$direct) -and -not [BksStage7]::IsWindowVisible($command))
         $directBounds=[BksDirect]::Bounds($pidOwn,$direct)
         $canvasBounds=[BksDirect]::Bounds($pidOwn,$canvas)
         Check 'native direct EDIT covers the full terminal geometry and replaces the separate canvas' (-not [BksStage7]::IsWindowVisible($canvas) -and (Rect-Key $directBounds) -ceq (Rect-Key $canvasBounds) -and $directBounds.Bottom -gt $directBounds.Top)

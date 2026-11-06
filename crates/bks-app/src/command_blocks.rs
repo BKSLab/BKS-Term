@@ -92,6 +92,10 @@ impl CommandBlocks {
         if removed == 0 {
             return;
         }
+        let lost_command_echo = self
+            .blocks
+            .last()
+            .is_some_and(|block| block.command_start < removed);
         let dropped = self
             .blocks
             .iter()
@@ -123,11 +127,7 @@ impl CommandBlocks {
                 .output_end
                 .map(|offset| offset.saturating_sub(removed));
         }
-        if self
-            .blocks
-            .last()
-            .is_none_or(|block| block.output_start.is_some())
-        {
+        if self.blocks.is_empty() || lost_command_echo {
             self.active_command = None;
         }
         self.command_anchor = self
@@ -143,11 +143,24 @@ impl CommandBlocks {
         let Some(block) = self.blocks.last_mut() else {
             return;
         };
-        if block.output_start.is_some() {
-            return;
-        }
-        if let Some(start) = resolve_output_start(command, current_text, block.command_start) {
-            block.output_start = Some(start);
+        if let OutputStart::Found { offset, has_text } = resolve_output_start(
+            command,
+            current_text,
+            block.command_start,
+            block.output_end,
+            true,
+        ) {
+            block.output_start = Some(offset);
+            if has_text || block.output_end.is_some() {
+                self.active_command = None;
+            }
+        } else if let Some(end) = block.output_end {
+            // A submitted result must remain readable even if the source
+            // rewrote or suppressed its echo. Never search the next prompt
+            // or another command's output for a replacement echo.
+            let text: Vec<_> = current_text.encode_utf16().take(end as usize).collect();
+            let (fallback, _) = first_output_line(&text, block.command_start.min(end) as usize);
+            block.output_start.get_or_insert(fallback);
             self.active_command = None;
         }
     }
@@ -160,22 +173,24 @@ impl CommandBlocks {
             return;
         };
         let block = &mut self.blocks[untracked.index];
-        if let Some(start) = resolve_output_start(command, current_text, block.command_start) {
-            block.output_start = Some(start);
-            untracked.pending_echo = None;
-        } else {
-            // Wait for split echo, but stop trying after enough complete lines
-            // arrived without an exact match. Edited/no echo keeps the anchor.
-            let lines = command.split('\n').count();
-            let received = current_text
-                .encode_utf16()
-                .skip(block.command_start as usize)
-                .filter(|&c| c == b'\n' as u16)
-                .take(lines)
-                .count();
-            if received == lines {
+        match resolve_output_start(
+            command,
+            current_text,
+            block.command_start,
+            block.output_end,
+            false,
+        ) {
+            OutputStart::Found { offset, has_text } => {
+                block.output_start = Some(offset);
+                if has_text || block.output_end.is_some() {
+                    untracked.pending_echo = None;
+                }
+            }
+            OutputStart::Mismatch => untracked.pending_echo = None,
+            OutputStart::Pending if block.output_end.is_some() => {
                 untracked.pending_echo = None;
             }
+            OutputStart::Pending => {}
         }
     }
 
@@ -259,38 +274,256 @@ impl CommandBlocks {
     }
 }
 
-fn resolve_output_start(command: &str, current_text: &str, command_start: u32) -> Option<u32> {
-    let text: Vec<u16> = current_text.encode_utf16().collect();
-    let mut pos = command_start as usize;
+enum OutputStart {
+    Pending,
+    Mismatch,
+    Found { offset: u32, has_text: bool },
+}
+
+fn resolve_output_start(
+    command: &str,
+    current_text: &str,
+    command_start: u32,
+    output_end: Option<u32>,
+    integrated: bool,
+) -> OutputStart {
+    let text: Vec<u16> = current_text
+        .encode_utf16()
+        .take(output_end.unwrap_or(u32::MAX) as usize)
+        .collect();
+    let start = command_start as usize;
+    let mut resolved = resolve_echo(command, &text, start);
+    if matches!(resolved, OutputStart::Found { .. }) {
+        return resolved;
+    }
+    // ConPTY can omit cells whose contents it already published. Restrict
+    // partial recovery to short, submitted, single-line integrated commands.
+    // Generic/no-echo shells retain their complete source at the submit anchor.
+    if integrated && !command.contains('\n') && command.chars().count() <= 256 {
+        match resolve_partial_echo(command, &text, start) {
+            found @ OutputStart::Found { .. } => return found,
+            OutputStart::Pending => resolved = OutputStart::Pending,
+            OutputStart::Mismatch => {}
+        }
+    }
+    resolved
+}
+
+fn resolve_echo(command: &str, text: &[u16], start: usize) -> OutputStart {
+    let mut pos = start;
     if pos > text.len() {
-        return None;
+        return OutputStart::Pending;
     }
     let lines: Vec<&str> = command.split('\n').collect();
     for (i, line) in lines.iter().enumerate() {
-        let line16: Vec<u16> = line.encode_utf16().collect();
-        if pos + line16.len() > text.len() || text[pos..pos + line16.len()] != line16[..] {
-            return None;
+        for unit in line.encode_utf16() {
+            // ConPTY can serialize a wrapped/redrawn input as several row
+            // fragments separated by CRLF padding. Only exact submitted
+            // characters may bridge these breaks; other text is a mismatch.
+            while text.get(pos..pos + 2) == Some(&[b'\r' as u16, b'\n' as u16]) {
+                pos += 2;
+            }
+            if !matches!(unit, 9 | 32) {
+                let (line_start, has_text) = first_output_line(text, pos);
+                if !has_text {
+                    return OutputStart::Pending;
+                }
+                pos = line_start as usize;
+            }
+            let Some(&actual) = text.get(pos) else {
+                return OutputStart::Pending;
+            };
+            if actual == b'\r' as u16 && pos + 1 == text.len() {
+                return OutputStart::Pending;
+            }
+            if actual != unit {
+                return OutputStart::Mismatch;
+            }
+            pos += 1;
         }
-        pos += line16.len();
-        if pos + 2 > text.len() || text[pos] != b'\r' as u16 || text[pos + 1] != b'\n' as u16 {
-            return None;
+        if pos + 2 > text.len() {
+            return OutputStart::Pending;
+        }
+        if text[pos..pos + 2] != [b'\r' as u16, b'\n' as u16] {
+            return OutputStart::Mismatch;
         }
         pos += 2;
-        if i + 1 != lines.len()
-            && pos + 3 <= text.len()
-            && text[pos] == b'>' as u16
-            && text[pos + 1] == b'>' as u16
-            && text[pos + 2] == b' ' as u16
-        {
-            pos += 3;
+        if i + 1 != lines.len() {
+            let continuation = [b'>' as u16, b'>' as u16, b' ' as u16];
+            if text[pos..].starts_with(&continuation) {
+                pos += 3;
+            } else if text.len() - pos < continuation.len()
+                && continuation.starts_with(&text[pos..])
+            {
+                return OutputStart::Pending;
+            }
         }
     }
-    Some(pos as u32)
+    let (offset, has_text) = first_output_line(text, pos);
+    OutputStart::Found { offset, has_text }
+}
+
+fn first_output_line(text: &[u16], start: usize) -> (u32, bool) {
+    let mut line_start = start;
+    for (index, &unit) in text.iter().enumerate().skip(start) {
+        match unit {
+            10 | 13 => line_start = index + 1,
+            9 | 32 => {}
+            _ => {
+                return (line_start as u32, true);
+            }
+        }
+    }
+    (start.min(text.len()) as u32, false)
+}
+
+fn resolve_partial_echo(command: &str, text: &[u16], start: usize) -> OutputStart {
+    let expected: Vec<_> = command.encode_utf16().collect();
+    let mut next = 0;
+    let mut pos = start;
+    let mut seen_echo = false;
+    loop {
+        let (line_start, has_text) = first_output_line(text, pos);
+        if !has_text {
+            return if seen_echo {
+                OutputStart::Found {
+                    offset: pos.min(text.len()) as u32,
+                    has_text: false,
+                }
+            } else {
+                OutputStart::Pending
+            };
+        }
+        let line_start = line_start as usize;
+        let end = text[line_start..]
+            .iter()
+            .position(|unit| matches!(unit, 10 | 13))
+            .map_or(text.len(), |length| line_start + length);
+        let row = &text[line_start..end];
+        let matched = expected[next..]
+            .windows(row.len())
+            .position(|candidate| candidate == row);
+        let Some(skipped) = matched else {
+            return if seen_echo {
+                OutputStart::Found {
+                    offset: line_start as u32,
+                    has_text: true,
+                }
+            } else {
+                OutputStart::Mismatch
+            };
+        };
+        if end == text.len() || (text[end] == 13 && end + 1 == text.len()) {
+            return OutputStart::Pending;
+        }
+        next += skipped + row.len();
+        seen_echo = true;
+        pos = end
+            + if text.get(end..end + 2) == Some(&[13, 10]) {
+                2
+            } else {
+                1
+            };
+        if next == expected.len() {
+            let (offset, has_text) = first_output_line(text, pos);
+            return OutputStart::Found { offset, has_text };
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn output_anchor_waits_for_nonblank_content_and_preserves_its_indentation() {
+        let prefix = "🙂 $ ";
+        let mut blocks = CommandBlocks::new();
+        blocks.command_started(prefix.encode_utf16().count() as u32);
+        assert!(blocks.execute("ls", prefix));
+        let echo = format!("{prefix}ls\r\n");
+        blocks.text_updated(&echo);
+        assert!(blocks.needs_output_start());
+        blocks.text_updated(&format!("{echo}\r\n \t\r\n"));
+        assert!(blocks.needs_output_start());
+        let before_output = format!("{echo}\r\n \t\r\n\r\n");
+        let anchor = before_output.encode_utf16().count() as u32;
+        blocks.text_updated(&format!("{before_output}    result 🙂\r\n"));
+        assert_eq!(blocks.last(), Some(anchor));
+        assert!(!blocks.needs_output_start());
+        blocks.text_updated(&format!("{before_output}    result 🙂\r\nlater output\r\n"));
+        assert_eq!(blocks.last(), Some(anchor));
+    }
+
+    #[test]
+    fn wrapped_echo_fragments_survive_padding_and_incremental_unicode_output() {
+        for integrated in [false, true] {
+            let prefix = "🙂 $ ";
+            let mut blocks = CommandBlocks::new();
+            if integrated {
+                blocks.command_started(prefix.encode_utf16().count() as u32);
+                assert!(blocks.execute("docker ps", prefix));
+            } else {
+                blocks.execute_untracked("docker ps", prefix);
+            }
+            let before_output = format!("{prefix}doc\r\n\r\n\r\nker ps\r\n\r\n\t\r\n");
+            let expected = before_output.encode_utf16().count() as u32;
+            let mut text = prefix.to_owned();
+            for character in format!("{}    error Ж🙂\r\n", &before_output[prefix.len()..]).chars()
+            {
+                text.push(character);
+                blocks.text_updated(&text);
+            }
+            assert_eq!(blocks.last(), Some(expected));
+            assert_eq!(blocks.navigate(true, None), Some(expected));
+        }
+    }
+
+    #[test]
+    fn integrated_conpty_suffix_echo_does_not_become_the_output() {
+        for echo in ["s", "l", " \t\r\n\r\nl\r\ns"] {
+            let mut blocks = CommandBlocks::new();
+            blocks.command_started(2);
+            assert!(blocks.execute("ls", "$ "));
+            let prefix = format!("$ {echo}\r\n\r\n");
+            blocks.text_updated(&format!("{prefix}    result\r\n"));
+            assert_eq!(blocks.last(), Some(prefix.encode_utf16().count() as u32));
+            assert!(!blocks.needs_output_start());
+        }
+
+        let mut generic = CommandBlocks::new();
+        generic.execute_untracked("ls", "$ ");
+        generic.text_updated("$ s\r\n\r\n    result\r\n");
+        assert_eq!(generic.last(), Some(2));
+    }
+
+    #[test]
+    fn missing_integrated_echo_keeps_its_own_block_after_completion() {
+        let mut blocks = CommandBlocks::new();
+        blocks.command_started(2);
+        assert!(blocks.execute("ls", "$ "));
+        let output = "$ rewritten source\r\nresult\r\n";
+        let end = output.encode_utf16().count() as u32;
+        blocks.prompt_started(end);
+        blocks.command_started(end + 2);
+        blocks.text_updated(&format!("{output}$ ls\r\nother output\r\n"));
+        assert_eq!(blocks.current(2), Some((2, Some(end))));
+        assert!(!blocks.needs_output_start());
+    }
+
+    #[test]
+    fn blank_output_never_adopts_the_next_prompt_as_its_first_line() {
+        let mut blocks = CommandBlocks::new();
+        blocks.command_started(2);
+        assert!(blocks.execute("none", "$ "));
+        let output = "$ none\r\n\r\n\r\n";
+        let end = output.encode_utf16().count() as u32;
+        blocks.prompt_started(end);
+        blocks.command_started(end + 2);
+        blocks.text_updated(&format!("{output}$ "));
+        assert_eq!(blocks.current(8), Some((8, Some(end))));
+        assert!(!blocks.needs_output_start());
+    }
 
     #[test]
     fn single_command_closed_by_next_prompt() {

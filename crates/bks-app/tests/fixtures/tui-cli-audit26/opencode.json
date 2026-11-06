@@ -1,0 +1,4033 @@
+{
+  "tool": "opencode",
+  "version": "2.0.32",
+  "columns": 110,
+  "rows": 36,
+  "source": "Installed CLI, isolated environment and fixed loopback SSE; no real model/auth/tools",
+  "expected": [
+    "Привет! Я помощник",
+    "На модели DeepSeek"
+  ],
+  "events": [
+    {
+      "at_ms": 0,
+      "end_byte": 0,
+      "kind": "poll",
+      "start_byte": 0
+    },
+    {
+      "at_ms": 31,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 0
+    },
+    {
+      "at_ms": 185,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 341,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 496,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 651,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 805,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 959,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 1115,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 1271,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 1426,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 1582,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 1738,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 1893,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 2048,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 2203,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 2235,
+      "end_byte": 276,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 2251,
+      "end_byte": 500,
+      "kind": "poll",
+      "start_byte": 276
+    },
+    {
+      "at_ms": 2261,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 500
+    },
+    {
+      "at_ms": 2417,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 2572,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 2727,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 2881,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 3036,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 3191,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 3346,
+      "end_byte": 4491,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 3407,
+      "end_byte": 7420,
+      "kind": "poll",
+      "start_byte": 4491
+    },
+    {
+      "at_ms": 3428,
+      "end_byte": 8470,
+      "kind": "poll",
+      "start_byte": 7420
+    },
+    {
+      "at_ms": 3532,
+      "end_byte": 8486,
+      "kind": "poll",
+      "start_byte": 8470
+    },
+    {
+      "at_ms": 3685,
+      "end_byte": 8486,
+      "kind": "poll",
+      "start_byte": 8486
+    },
+    {
+      "at_ms": 3839,
+      "end_byte": 8486,
+      "kind": "poll",
+      "start_byte": 8486
+    },
+    {
+      "at_ms": 3995,
+      "end_byte": 8486,
+      "kind": "poll",
+      "start_byte": 8486
+    },
+    {
+      "at_ms": 4149,
+      "end_byte": 10233,
+      "kind": "poll",
+      "start_byte": 8486
+    },
+    {
+      "at_ms": 4171,
+      "end_byte": 10236,
+      "kind": "poll",
+      "start_byte": 10233
+    },
+    {
+      "at_ms": 4234,
+      "end_byte": 10455,
+      "kind": "poll",
+      "start_byte": 10236
+    },
+    {
+      "at_ms": 4244,
+      "end_byte": 10654,
+      "kind": "poll",
+      "start_byte": 10455
+    },
+    {
+      "at_ms": 4267,
+      "end_byte": 10855,
+      "kind": "poll",
+      "start_byte": 10654
+    },
+    {
+      "at_ms": 4278,
+      "end_byte": 11059,
+      "kind": "poll",
+      "start_byte": 10855
+    },
+    {
+      "at_ms": 4299,
+      "end_byte": 11078,
+      "kind": "poll",
+      "start_byte": 11059
+    },
+    {
+      "at_ms": 4309,
+      "end_byte": 11263,
+      "kind": "poll",
+      "start_byte": 11078
+    },
+    {
+      "at_ms": 4321,
+      "end_byte": 11279,
+      "kind": "poll",
+      "start_byte": 11263
+    },
+    {
+      "at_ms": 4331,
+      "end_byte": 11468,
+      "kind": "poll",
+      "start_byte": 11279
+    },
+    {
+      "at_ms": 4341,
+      "end_byte": 11673,
+      "kind": "poll",
+      "start_byte": 11468
+    },
+    {
+      "at_ms": 4352,
+      "end_byte": 11689,
+      "kind": "poll",
+      "start_byte": 11673
+    },
+    {
+      "at_ms": 4362,
+      "end_byte": 11878,
+      "kind": "poll",
+      "start_byte": 11689
+    },
+    {
+      "at_ms": 4373,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 11878
+    },
+    {
+      "at_ms": 4528,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 4683,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 4839,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 4994,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 5150,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 5306,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 5462,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 5617,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 5772,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 5927,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 6081,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 6237,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 6395,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 6550,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 6708,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 6866,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 7022,
+      "end_byte": 12047,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "kind": "input",
+      "at_ms": 7053,
+      "bytes": [
+        27,
+        91,
+        50,
+        48,
+        48,
+        126,
+        208,
+        150,
+        231,
+        149,
+        140,
+        240,
+        159,
+        153,
+        130,
+        27,
+        91,
+        50,
+        48,
+        49,
+        126
+      ]
+    },
+    {
+      "at_ms": 7096,
+      "end_byte": 12115,
+      "kind": "poll",
+      "start_byte": 12047
+    },
+    {
+      "at_ms": 7252,
+      "end_byte": 12115,
+      "kind": "poll",
+      "start_byte": 12115
+    },
+    {
+      "at_ms": 7407,
+      "end_byte": 12115,
+      "kind": "poll",
+      "start_byte": 12115
+    },
+    {
+      "at_ms": 7564,
+      "end_byte": 12115,
+      "kind": "poll",
+      "start_byte": 12115
+    },
+    {
+      "at_ms": 7726,
+      "end_byte": 12115,
+      "kind": "poll",
+      "start_byte": 12115
+    },
+    {
+      "kind": "input",
+      "at_ms": 7803,
+      "bytes": [
+        27,
+        91,
+        72
+      ]
+    },
+    {
+      "at_ms": 7824,
+      "end_byte": 12154,
+      "kind": "poll",
+      "start_byte": 12115
+    },
+    {
+      "at_ms": 7979,
+      "end_byte": 12154,
+      "kind": "poll",
+      "start_byte": 12154
+    },
+    {
+      "at_ms": 8133,
+      "end_byte": 12154,
+      "kind": "poll",
+      "start_byte": 12154
+    },
+    {
+      "at_ms": 8289,
+      "end_byte": 12154,
+      "kind": "poll",
+      "start_byte": 12154
+    },
+    {
+      "at_ms": 8444,
+      "end_byte": 12154,
+      "kind": "poll",
+      "start_byte": 12154
+    },
+    {
+      "kind": "input",
+      "at_ms": 8552,
+      "bytes": [
+        27,
+        91,
+        67
+      ]
+    },
+    {
+      "at_ms": 8573,
+      "end_byte": 12174,
+      "kind": "poll",
+      "start_byte": 12154
+    },
+    {
+      "at_ms": 8727,
+      "end_byte": 12174,
+      "kind": "poll",
+      "start_byte": 12174
+    },
+    {
+      "at_ms": 8882,
+      "end_byte": 12174,
+      "kind": "poll",
+      "start_byte": 12174
+    },
+    {
+      "at_ms": 9036,
+      "end_byte": 12174,
+      "kind": "poll",
+      "start_byte": 12174
+    },
+    {
+      "at_ms": 9192,
+      "end_byte": 12174,
+      "kind": "poll",
+      "start_byte": 12174
+    },
+    {
+      "kind": "input",
+      "at_ms": 9304,
+      "bytes": [
+        127
+      ]
+    },
+    {
+      "at_ms": 9324,
+      "end_byte": 12254,
+      "kind": "poll",
+      "start_byte": 12174
+    },
+    {
+      "at_ms": 9345,
+      "end_byte": 12257,
+      "kind": "poll",
+      "start_byte": 12254
+    },
+    {
+      "at_ms": 9499,
+      "end_byte": 12257,
+      "kind": "poll",
+      "start_byte": 12257
+    },
+    {
+      "at_ms": 9655,
+      "end_byte": 12257,
+      "kind": "poll",
+      "start_byte": 12257
+    },
+    {
+      "at_ms": 9810,
+      "end_byte": 12257,
+      "kind": "poll",
+      "start_byte": 12257
+    },
+    {
+      "at_ms": 9966,
+      "end_byte": 12257,
+      "kind": "poll",
+      "start_byte": 12257
+    },
+    {
+      "kind": "input",
+      "at_ms": 10057,
+      "bytes": [
+        27,
+        91,
+        70
+      ]
+    },
+    {
+      "at_ms": 10067,
+      "end_byte": 12277,
+      "kind": "poll",
+      "start_byte": 12257
+    },
+    {
+      "at_ms": 10222,
+      "end_byte": 12277,
+      "kind": "poll",
+      "start_byte": 12277
+    },
+    {
+      "at_ms": 10377,
+      "end_byte": 12277,
+      "kind": "poll",
+      "start_byte": 12277
+    },
+    {
+      "at_ms": 10533,
+      "end_byte": 12277,
+      "kind": "poll",
+      "start_byte": 12277
+    },
+    {
+      "at_ms": 10687,
+      "end_byte": 12277,
+      "kind": "poll",
+      "start_byte": 12277
+    },
+    {
+      "kind": "input",
+      "at_ms": 10809,
+      "bytes": [
+        127,
+        127
+      ]
+    },
+    {
+      "at_ms": 10837,
+      "end_byte": 12277,
+      "kind": "poll",
+      "start_byte": 12277
+    },
+    {
+      "at_ms": 10878,
+      "end_byte": 12390,
+      "kind": "poll",
+      "start_byte": 12277
+    },
+    {
+      "at_ms": 10889,
+      "end_byte": 12393,
+      "kind": "poll",
+      "start_byte": 12390
+    },
+    {
+      "at_ms": 11044,
+      "end_byte": 12393,
+      "kind": "poll",
+      "start_byte": 12393
+    },
+    {
+      "at_ms": 11200,
+      "end_byte": 12393,
+      "kind": "poll",
+      "start_byte": 12393
+    },
+    {
+      "at_ms": 11356,
+      "end_byte": 12393,
+      "kind": "poll",
+      "start_byte": 12393
+    },
+    {
+      "at_ms": 11512,
+      "end_byte": 12393,
+      "kind": "poll",
+      "start_byte": 12393
+    },
+    {
+      "kind": "input",
+      "at_ms": 11561,
+      "bytes": [
+        47,
+        109,
+        111,
+        100,
+        101,
+        108,
+        115
+      ]
+    },
+    {
+      "at_ms": 11623,
+      "end_byte": 12645,
+      "kind": "poll",
+      "start_byte": 12393
+    },
+    {
+      "at_ms": 11644,
+      "end_byte": 12648,
+      "kind": "poll",
+      "start_byte": 12645
+    },
+    {
+      "at_ms": 11800,
+      "end_byte": 12648,
+      "kind": "poll",
+      "start_byte": 12648
+    },
+    {
+      "at_ms": 11955,
+      "end_byte": 12648,
+      "kind": "poll",
+      "start_byte": 12648
+    },
+    {
+      "at_ms": 12110,
+      "end_byte": 12648,
+      "kind": "poll",
+      "start_byte": 12648
+    },
+    {
+      "at_ms": 12265,
+      "end_byte": 12648,
+      "kind": "poll",
+      "start_byte": 12648
+    },
+    {
+      "kind": "input",
+      "at_ms": 12317,
+      "bytes": [
+        13
+      ]
+    },
+    {
+      "at_ms": 12391,
+      "end_byte": 15144,
+      "kind": "poll",
+      "start_byte": 12648
+    },
+    {
+      "at_ms": 12402,
+      "end_byte": 15178,
+      "kind": "poll",
+      "start_byte": 15144
+    },
+    {
+      "at_ms": 12413,
+      "end_byte": 18086,
+      "kind": "poll",
+      "start_byte": 15178
+    },
+    {
+      "at_ms": 12568,
+      "end_byte": 18086,
+      "kind": "poll",
+      "start_byte": 18086
+    },
+    {
+      "at_ms": 12724,
+      "end_byte": 18086,
+      "kind": "poll",
+      "start_byte": 18086
+    },
+    {
+      "at_ms": 12879,
+      "end_byte": 18086,
+      "kind": "poll",
+      "start_byte": 18086
+    },
+    {
+      "at_ms": 13034,
+      "end_byte": 18086,
+      "kind": "poll",
+      "start_byte": 18086
+    },
+    {
+      "kind": "input",
+      "at_ms": 13073,
+      "bytes": [
+        13
+      ]
+    },
+    {
+      "at_ms": 13105,
+      "end_byte": 18364,
+      "kind": "poll",
+      "start_byte": 18086
+    },
+    {
+      "at_ms": 13126,
+      "end_byte": 18415,
+      "kind": "poll",
+      "start_byte": 18364
+    },
+    {
+      "at_ms": 13282,
+      "end_byte": 18415,
+      "kind": "poll",
+      "start_byte": 18415
+    },
+    {
+      "at_ms": 13438,
+      "end_byte": 18415,
+      "kind": "poll",
+      "start_byte": 18415
+    },
+    {
+      "at_ms": 13593,
+      "end_byte": 18415,
+      "kind": "poll",
+      "start_byte": 18415
+    },
+    {
+      "at_ms": 13750,
+      "end_byte": 18415,
+      "kind": "poll",
+      "start_byte": 18415
+    },
+    {
+      "kind": "input",
+      "at_ms": 13834,
+      "bytes": [
+        27,
+        91,
+        66
+      ]
+    },
+    {
+      "at_ms": 13845,
+      "end_byte": 18631,
+      "kind": "poll",
+      "start_byte": 18415
+    },
+    {
+      "at_ms": 13865,
+      "end_byte": 18634,
+      "kind": "poll",
+      "start_byte": 18631
+    },
+    {
+      "at_ms": 14021,
+      "end_byte": 18634,
+      "kind": "poll",
+      "start_byte": 18634
+    },
+    {
+      "at_ms": 14176,
+      "end_byte": 18634,
+      "kind": "poll",
+      "start_byte": 18634
+    },
+    {
+      "at_ms": 14332,
+      "end_byte": 18634,
+      "kind": "poll",
+      "start_byte": 18634
+    },
+    {
+      "at_ms": 14487,
+      "end_byte": 18634,
+      "kind": "poll",
+      "start_byte": 18634
+    },
+    {
+      "kind": "input",
+      "at_ms": 14591,
+      "bytes": [
+        27
+      ]
+    },
+    {
+      "at_ms": 14633,
+      "end_byte": 21201,
+      "kind": "poll",
+      "start_byte": 18634
+    },
+    {
+      "at_ms": 14643,
+      "end_byte": 24251,
+      "kind": "poll",
+      "start_byte": 21201
+    },
+    {
+      "at_ms": 14800,
+      "end_byte": 24251,
+      "kind": "poll",
+      "start_byte": 24251
+    },
+    {
+      "at_ms": 14955,
+      "end_byte": 24251,
+      "kind": "poll",
+      "start_byte": 24251
+    },
+    {
+      "at_ms": 15111,
+      "end_byte": 24251,
+      "kind": "poll",
+      "start_byte": 24251
+    },
+    {
+      "at_ms": 15266,
+      "end_byte": 24251,
+      "kind": "poll",
+      "start_byte": 24251
+    },
+    {
+      "kind": "input",
+      "at_ms": 15345,
+      "bytes": [
+        27,
+        91,
+        50,
+        48,
+        48,
+        126,
+        208,
+        159,
+        209,
+        128,
+        208,
+        184,
+        208,
+        178,
+        208,
+        181,
+        209,
+        130,
+        44,
+        32,
+        208,
+        186,
+        209,
+        130,
+        208,
+        190,
+        32,
+        209,
+        130,
+        209,
+        139,
+        32,
+        208,
+        184,
+        32,
+        209,
+        135,
+        209,
+        130,
+        208,
+        190,
+        32,
+        209,
+        131,
+        208,
+        188,
+        208,
+        181,
+        208,
+        181,
+        209,
+        136,
+        209,
+        140,
+        63,
+        27,
+        91,
+        50,
+        48,
+        49,
+        126
+      ]
+    },
+    {
+      "at_ms": 15366,
+      "end_byte": 24378,
+      "kind": "poll",
+      "start_byte": 24251
+    },
+    {
+      "at_ms": 15376,
+      "end_byte": 24381,
+      "kind": "poll",
+      "start_byte": 24378
+    },
+    {
+      "at_ms": 15533,
+      "end_byte": 24381,
+      "kind": "poll",
+      "start_byte": 24381
+    },
+    {
+      "at_ms": 15693,
+      "end_byte": 24381,
+      "kind": "poll",
+      "start_byte": 24381
+    },
+    {
+      "at_ms": 15849,
+      "end_byte": 24381,
+      "kind": "poll",
+      "start_byte": 24381
+    },
+    {
+      "at_ms": 16006,
+      "end_byte": 24381,
+      "kind": "poll",
+      "start_byte": 24381
+    },
+    {
+      "kind": "input",
+      "at_ms": 16098,
+      "bytes": [
+        13
+      ]
+    },
+    {
+      "at_ms": 16118,
+      "end_byte": 24494,
+      "kind": "poll",
+      "start_byte": 24381
+    },
+    {
+      "at_ms": 16139,
+      "end_byte": 24497,
+      "kind": "poll",
+      "start_byte": 24494
+    },
+    {
+      "at_ms": 16180,
+      "end_byte": 25927,
+      "kind": "poll",
+      "start_byte": 24497
+    },
+    {
+      "at_ms": 16191,
+      "end_byte": 25930,
+      "kind": "poll",
+      "start_byte": 25927
+    },
+    {
+      "at_ms": 16201,
+      "end_byte": 26363,
+      "kind": "poll",
+      "start_byte": 25930
+    },
+    {
+      "at_ms": 16211,
+      "end_byte": 26379,
+      "kind": "poll",
+      "start_byte": 26363
+    },
+    {
+      "at_ms": 16222,
+      "end_byte": 26493,
+      "kind": "poll",
+      "start_byte": 26379
+    },
+    {
+      "at_ms": 16232,
+      "end_byte": 26623,
+      "kind": "poll",
+      "start_byte": 26493
+    },
+    {
+      "at_ms": 16253,
+      "end_byte": 26753,
+      "kind": "poll",
+      "start_byte": 26623
+    },
+    {
+      "at_ms": 16263,
+      "end_byte": 26756,
+      "kind": "poll",
+      "start_byte": 26753
+    },
+    {
+      "at_ms": 16273,
+      "end_byte": 26772,
+      "kind": "poll",
+      "start_byte": 26756
+    },
+    {
+      "at_ms": 16284,
+      "end_byte": 26899,
+      "kind": "poll",
+      "start_byte": 26772
+    },
+    {
+      "at_ms": 16295,
+      "end_byte": 27184,
+      "kind": "poll",
+      "start_byte": 26899
+    },
+    {
+      "at_ms": 16332,
+      "end_byte": 27324,
+      "kind": "poll",
+      "start_byte": 27184
+    },
+    {
+      "at_ms": 16353,
+      "end_byte": 27476,
+      "kind": "poll",
+      "start_byte": 27324
+    },
+    {
+      "at_ms": 16374,
+      "end_byte": 27492,
+      "kind": "poll",
+      "start_byte": 27476
+    },
+    {
+      "at_ms": 16384,
+      "end_byte": 27558,
+      "kind": "poll",
+      "start_byte": 27492
+    },
+    {
+      "at_ms": 16416,
+      "end_byte": 27750,
+      "kind": "poll",
+      "start_byte": 27558
+    },
+    {
+      "at_ms": 16426,
+      "end_byte": 27769,
+      "kind": "poll",
+      "start_byte": 27750
+    },
+    {
+      "at_ms": 16436,
+      "end_byte": 27808,
+      "kind": "poll",
+      "start_byte": 27769
+    },
+    {
+      "at_ms": 16447,
+      "end_byte": 27824,
+      "kind": "poll",
+      "start_byte": 27808
+    },
+    {
+      "at_ms": 16458,
+      "end_byte": 28105,
+      "kind": "poll",
+      "start_byte": 27824
+    },
+    {
+      "at_ms": 16468,
+      "end_byte": 28121,
+      "kind": "poll",
+      "start_byte": 28105
+    },
+    {
+      "at_ms": 16478,
+      "end_byte": 28187,
+      "kind": "poll",
+      "start_byte": 28121
+    },
+    {
+      "at_ms": 16489,
+      "end_byte": 28562,
+      "kind": "poll",
+      "start_byte": 28187
+    },
+    {
+      "at_ms": 16499,
+      "end_byte": 28578,
+      "kind": "poll",
+      "start_byte": 28562
+    },
+    {
+      "at_ms": 16510,
+      "end_byte": 28729,
+      "kind": "poll",
+      "start_byte": 28578
+    },
+    {
+      "at_ms": 16520,
+      "end_byte": 28825,
+      "kind": "poll",
+      "start_byte": 28729
+    },
+    {
+      "at_ms": 16530,
+      "end_byte": 28841,
+      "kind": "poll",
+      "start_byte": 28825
+    },
+    {
+      "at_ms": 16541,
+      "end_byte": 29176,
+      "kind": "poll",
+      "start_byte": 28841
+    },
+    {
+      "at_ms": 16551,
+      "end_byte": 29272,
+      "kind": "poll",
+      "start_byte": 29176
+    },
+    {
+      "at_ms": 16572,
+      "end_byte": 29291,
+      "kind": "poll",
+      "start_byte": 29272
+    },
+    {
+      "at_ms": 16582,
+      "end_byte": 29606,
+      "kind": "poll",
+      "start_byte": 29291
+    },
+    {
+      "at_ms": 16603,
+      "end_byte": 29771,
+      "kind": "poll",
+      "start_byte": 29606
+    },
+    {
+      "at_ms": 16613,
+      "end_byte": 29859,
+      "kind": "poll",
+      "start_byte": 29771
+    },
+    {
+      "at_ms": 16624,
+      "end_byte": 29875,
+      "kind": "poll",
+      "start_byte": 29859
+    },
+    {
+      "at_ms": 16634,
+      "end_byte": 30031,
+      "kind": "poll",
+      "start_byte": 29875
+    },
+    {
+      "at_ms": 16645,
+      "end_byte": 30189,
+      "kind": "poll",
+      "start_byte": 30031
+    },
+    {
+      "at_ms": 16655,
+      "end_byte": 30205,
+      "kind": "poll",
+      "start_byte": 30189
+    },
+    {
+      "at_ms": 16666,
+      "end_byte": 30521,
+      "kind": "poll",
+      "start_byte": 30205
+    },
+    {
+      "at_ms": 16676,
+      "end_byte": 30735,
+      "kind": "poll",
+      "start_byte": 30521
+    },
+    {
+      "at_ms": 16687,
+      "end_byte": 30751,
+      "kind": "poll",
+      "start_byte": 30735
+    },
+    {
+      "at_ms": 16697,
+      "end_byte": 31012,
+      "kind": "poll",
+      "start_byte": 30751
+    },
+    {
+      "at_ms": 16707,
+      "end_byte": 31192,
+      "kind": "poll",
+      "start_byte": 31012
+    },
+    {
+      "at_ms": 16728,
+      "end_byte": 31211,
+      "kind": "poll",
+      "start_byte": 31192
+    },
+    {
+      "at_ms": 16739,
+      "end_byte": 31347,
+      "kind": "poll",
+      "start_byte": 31211
+    },
+    {
+      "at_ms": 16749,
+      "end_byte": 31617,
+      "kind": "poll",
+      "start_byte": 31347
+    },
+    {
+      "at_ms": 16760,
+      "end_byte": 31633,
+      "kind": "poll",
+      "start_byte": 31617
+    },
+    {
+      "at_ms": 16770,
+      "end_byte": 31773,
+      "kind": "poll",
+      "start_byte": 31633
+    },
+    {
+      "at_ms": 16781,
+      "end_byte": 31789,
+      "kind": "poll",
+      "start_byte": 31773
+    },
+    {
+      "at_ms": 16791,
+      "end_byte": 32098,
+      "kind": "poll",
+      "start_byte": 31789
+    },
+    {
+      "at_ms": 16802,
+      "end_byte": 32240,
+      "kind": "poll",
+      "start_byte": 32098
+    },
+    {
+      "at_ms": 16812,
+      "end_byte": 32256,
+      "kind": "poll",
+      "start_byte": 32240
+    },
+    {
+      "at_ms": 16822,
+      "end_byte": 32516,
+      "kind": "poll",
+      "start_byte": 32256
+    },
+    {
+      "at_ms": 16833,
+      "end_byte": 32660,
+      "kind": "poll",
+      "start_byte": 32516
+    },
+    {
+      "at_ms": 16844,
+      "end_byte": 32676,
+      "kind": "poll",
+      "start_byte": 32660
+    },
+    {
+      "at_ms": 16854,
+      "end_byte": 32820,
+      "kind": "poll",
+      "start_byte": 32676
+    },
+    {
+      "at_ms": 16864,
+      "end_byte": 33024,
+      "kind": "poll",
+      "start_byte": 32820
+    },
+    {
+      "at_ms": 16907,
+      "end_byte": 33350,
+      "kind": "poll",
+      "start_byte": 33024
+    },
+    {
+      "at_ms": 16917,
+      "end_byte": 33589,
+      "kind": "poll",
+      "start_byte": 33350
+    },
+    {
+      "at_ms": 16928,
+      "end_byte": 33712,
+      "kind": "poll",
+      "start_byte": 33589
+    },
+    {
+      "at_ms": 16938,
+      "end_byte": 33728,
+      "kind": "poll",
+      "start_byte": 33712
+    },
+    {
+      "at_ms": 16948,
+      "end_byte": 33954,
+      "kind": "poll",
+      "start_byte": 33728
+    },
+    {
+      "at_ms": 16959,
+      "end_byte": 34120,
+      "kind": "poll",
+      "start_byte": 33954
+    },
+    {
+      "at_ms": 16969,
+      "end_byte": 34136,
+      "kind": "poll",
+      "start_byte": 34120
+    },
+    {
+      "at_ms": 16980,
+      "end_byte": 34315,
+      "kind": "poll",
+      "start_byte": 34136
+    },
+    {
+      "at_ms": 16990,
+      "end_byte": 34670,
+      "kind": "poll",
+      "start_byte": 34315
+    },
+    {
+      "at_ms": 17001,
+      "end_byte": 34686,
+      "kind": "poll",
+      "start_byte": 34670
+    },
+    {
+      "at_ms": 17011,
+      "end_byte": 34827,
+      "kind": "poll",
+      "start_byte": 34686
+    },
+    {
+      "at_ms": 17022,
+      "end_byte": 35136,
+      "kind": "poll",
+      "start_byte": 34827
+    },
+    {
+      "at_ms": 17043,
+      "end_byte": 35331,
+      "kind": "poll",
+      "start_byte": 35136
+    },
+    {
+      "at_ms": 17072,
+      "end_byte": 35718,
+      "kind": "poll",
+      "start_byte": 35331
+    },
+    {
+      "at_ms": 17083,
+      "end_byte": 35721,
+      "kind": "poll",
+      "start_byte": 35718
+    },
+    {
+      "at_ms": 17093,
+      "end_byte": 35737,
+      "kind": "poll",
+      "start_byte": 35721
+    },
+    {
+      "at_ms": 17103,
+      "end_byte": 36062,
+      "kind": "poll",
+      "start_byte": 35737
+    },
+    {
+      "at_ms": 17114,
+      "end_byte": 36286,
+      "kind": "poll",
+      "start_byte": 36062
+    },
+    {
+      "at_ms": 17125,
+      "end_byte": 36302,
+      "kind": "poll",
+      "start_byte": 36286
+    },
+    {
+      "at_ms": 17135,
+      "end_byte": 36495,
+      "kind": "poll",
+      "start_byte": 36302
+    },
+    {
+      "at_ms": 17146,
+      "end_byte": 36872,
+      "kind": "poll",
+      "start_byte": 36495
+    },
+    {
+      "at_ms": 17156,
+      "end_byte": 36888,
+      "kind": "poll",
+      "start_byte": 36872
+    },
+    {
+      "at_ms": 17167,
+      "end_byte": 37093,
+      "kind": "poll",
+      "start_byte": 36888
+    },
+    {
+      "at_ms": 17177,
+      "end_byte": 37508,
+      "kind": "poll",
+      "start_byte": 37093
+    },
+    {
+      "at_ms": 17203,
+      "end_byte": 37859,
+      "kind": "poll",
+      "start_byte": 37508
+    },
+    {
+      "at_ms": 17231,
+      "end_byte": 38324,
+      "kind": "poll",
+      "start_byte": 37859
+    },
+    {
+      "at_ms": 17241,
+      "end_byte": 38588,
+      "kind": "poll",
+      "start_byte": 38324
+    },
+    {
+      "at_ms": 17252,
+      "end_byte": 38985,
+      "kind": "poll",
+      "start_byte": 38588
+    },
+    {
+      "at_ms": 17272,
+      "end_byte": 39193,
+      "kind": "poll",
+      "start_byte": 38985
+    },
+    {
+      "at_ms": 17283,
+      "end_byte": 39470,
+      "kind": "poll",
+      "start_byte": 39193
+    },
+    {
+      "at_ms": 17304,
+      "end_byte": 39489,
+      "kind": "poll",
+      "start_byte": 39470
+    },
+    {
+      "at_ms": 17315,
+      "end_byte": 39844,
+      "kind": "poll",
+      "start_byte": 39489
+    },
+    {
+      "at_ms": 17325,
+      "end_byte": 39860,
+      "kind": "poll",
+      "start_byte": 39844
+    },
+    {
+      "at_ms": 17335,
+      "end_byte": 40123,
+      "kind": "poll",
+      "start_byte": 39860
+    },
+    {
+      "at_ms": 17346,
+      "end_byte": 40498,
+      "kind": "poll",
+      "start_byte": 40123
+    },
+    {
+      "at_ms": 17356,
+      "end_byte": 40514,
+      "kind": "poll",
+      "start_byte": 40498
+    },
+    {
+      "at_ms": 17367,
+      "end_byte": 40744,
+      "kind": "poll",
+      "start_byte": 40514
+    },
+    {
+      "at_ms": 17377,
+      "end_byte": 41083,
+      "kind": "poll",
+      "start_byte": 40744
+    },
+    {
+      "at_ms": 17388,
+      "end_byte": 41099,
+      "kind": "poll",
+      "start_byte": 41083
+    },
+    {
+      "at_ms": 17398,
+      "end_byte": 41342,
+      "kind": "poll",
+      "start_byte": 41099
+    },
+    {
+      "at_ms": 17409,
+      "end_byte": 41567,
+      "kind": "poll",
+      "start_byte": 41342
+    },
+    {
+      "at_ms": 17429,
+      "end_byte": 41922,
+      "kind": "poll",
+      "start_byte": 41567
+    },
+    {
+      "at_ms": 17440,
+      "end_byte": 41938,
+      "kind": "poll",
+      "start_byte": 41922
+    },
+    {
+      "at_ms": 17450,
+      "end_byte": 42168,
+      "kind": "poll",
+      "start_byte": 41938
+    },
+    {
+      "at_ms": 17461,
+      "end_byte": 42493,
+      "kind": "poll",
+      "start_byte": 42168
+    },
+    {
+      "at_ms": 17482,
+      "end_byte": 42722,
+      "kind": "poll",
+      "start_byte": 42493
+    },
+    {
+      "at_ms": 17492,
+      "end_byte": 42741,
+      "kind": "poll",
+      "start_byte": 42722
+    },
+    {
+      "at_ms": 17513,
+      "end_byte": 43138,
+      "kind": "poll",
+      "start_byte": 42741
+    },
+    {
+      "at_ms": 17523,
+      "end_byte": 43347,
+      "kind": "poll",
+      "start_byte": 43138
+    },
+    {
+      "at_ms": 17534,
+      "end_byte": 43363,
+      "kind": "poll",
+      "start_byte": 43347
+    },
+    {
+      "at_ms": 17544,
+      "end_byte": 43627,
+      "kind": "poll",
+      "start_byte": 43363
+    },
+    {
+      "at_ms": 17555,
+      "end_byte": 43900,
+      "kind": "poll",
+      "start_byte": 43627
+    },
+    {
+      "at_ms": 17565,
+      "end_byte": 43916,
+      "kind": "poll",
+      "start_byte": 43900
+    },
+    {
+      "at_ms": 17575,
+      "end_byte": 44109,
+      "kind": "poll",
+      "start_byte": 43916
+    },
+    {
+      "at_ms": 17586,
+      "end_byte": 44415,
+      "kind": "poll",
+      "start_byte": 44109
+    },
+    {
+      "at_ms": 17596,
+      "end_byte": 44431,
+      "kind": "poll",
+      "start_byte": 44415
+    },
+    {
+      "at_ms": 17607,
+      "end_byte": 44826,
+      "kind": "poll",
+      "start_byte": 44431
+    },
+    {
+      "at_ms": 17617,
+      "end_byte": 45068,
+      "kind": "poll",
+      "start_byte": 44826
+    },
+    {
+      "at_ms": 17638,
+      "end_byte": 45354,
+      "kind": "poll",
+      "start_byte": 45068
+    },
+    {
+      "at_ms": 17649,
+      "end_byte": 45580,
+      "kind": "poll",
+      "start_byte": 45354
+    },
+    {
+      "at_ms": 17669,
+      "end_byte": 45853,
+      "kind": "poll",
+      "start_byte": 45580
+    },
+    {
+      "at_ms": 17690,
+      "end_byte": 45872,
+      "kind": "poll",
+      "start_byte": 45853
+    },
+    {
+      "at_ms": 17701,
+      "end_byte": 46170,
+      "kind": "poll",
+      "start_byte": 45872
+    },
+    {
+      "at_ms": 17721,
+      "end_byte": 46509,
+      "kind": "poll",
+      "start_byte": 46170
+    },
+    {
+      "at_ms": 17732,
+      "end_byte": 46816,
+      "kind": "poll",
+      "start_byte": 46509
+    },
+    {
+      "at_ms": 17742,
+      "end_byte": 46832,
+      "kind": "poll",
+      "start_byte": 46816
+    },
+    {
+      "at_ms": 17753,
+      "end_byte": 47073,
+      "kind": "poll",
+      "start_byte": 46832
+    },
+    {
+      "at_ms": 17763,
+      "end_byte": 47295,
+      "kind": "poll",
+      "start_byte": 47073
+    },
+    {
+      "at_ms": 17774,
+      "end_byte": 47311,
+      "kind": "poll",
+      "start_byte": 47295
+    },
+    {
+      "at_ms": 17784,
+      "end_byte": 47542,
+      "kind": "poll",
+      "start_byte": 47311
+    },
+    {
+      "at_ms": 17794,
+      "end_byte": 47867,
+      "kind": "poll",
+      "start_byte": 47542
+    },
+    {
+      "at_ms": 17805,
+      "end_byte": 47883,
+      "kind": "poll",
+      "start_byte": 47867
+    },
+    {
+      "at_ms": 17815,
+      "end_byte": 48060,
+      "kind": "poll",
+      "start_byte": 47883
+    },
+    {
+      "at_ms": 17826,
+      "end_byte": 48474,
+      "kind": "poll",
+      "start_byte": 48060
+    },
+    {
+      "at_ms": 17846,
+      "end_byte": 48724,
+      "kind": "poll",
+      "start_byte": 48474
+    },
+    {
+      "at_ms": 17857,
+      "end_byte": 48743,
+      "kind": "poll",
+      "start_byte": 48724
+    },
+    {
+      "at_ms": 17878,
+      "end_byte": 48884,
+      "kind": "poll",
+      "start_byte": 48743
+    },
+    {
+      "at_ms": 17888,
+      "end_byte": 49170,
+      "kind": "poll",
+      "start_byte": 48884
+    },
+    {
+      "at_ms": 17899,
+      "end_byte": 49186,
+      "kind": "poll",
+      "start_byte": 49170
+    },
+    {
+      "at_ms": 17909,
+      "end_byte": 49441,
+      "kind": "poll",
+      "start_byte": 49186
+    },
+    {
+      "at_ms": 17919,
+      "end_byte": 49819,
+      "kind": "poll",
+      "start_byte": 49441
+    },
+    {
+      "at_ms": 17930,
+      "end_byte": 49835,
+      "kind": "poll",
+      "start_byte": 49819
+    },
+    {
+      "at_ms": 17940,
+      "end_byte": 50120,
+      "kind": "poll",
+      "start_byte": 49835
+    },
+    {
+      "at_ms": 17950,
+      "end_byte": 50345,
+      "kind": "poll",
+      "start_byte": 50120
+    },
+    {
+      "at_ms": 17971,
+      "end_byte": 50565,
+      "kind": "poll",
+      "start_byte": 50345
+    },
+    {
+      "at_ms": 17981,
+      "end_byte": 50865,
+      "kind": "poll",
+      "start_byte": 50565
+    },
+    {
+      "at_ms": 18001,
+      "end_byte": 51098,
+      "kind": "poll",
+      "start_byte": 50865
+    },
+    {
+      "at_ms": 18022,
+      "end_byte": 51334,
+      "kind": "poll",
+      "start_byte": 51098
+    },
+    {
+      "at_ms": 18032,
+      "end_byte": 51353,
+      "kind": "poll",
+      "start_byte": 51334
+    },
+    {
+      "at_ms": 18042,
+      "end_byte": 51649,
+      "kind": "poll",
+      "start_byte": 51353
+    },
+    {
+      "at_ms": 18053,
+      "end_byte": 51665,
+      "kind": "poll",
+      "start_byte": 51649
+    },
+    {
+      "at_ms": 18063,
+      "end_byte": 51888,
+      "kind": "poll",
+      "start_byte": 51665
+    },
+    {
+      "at_ms": 18073,
+      "end_byte": 51904,
+      "kind": "poll",
+      "start_byte": 51888
+    },
+    {
+      "at_ms": 18084,
+      "end_byte": 52198,
+      "kind": "poll",
+      "start_byte": 51904
+    },
+    {
+      "at_ms": 18094,
+      "end_byte": 52468,
+      "kind": "poll",
+      "start_byte": 52198
+    },
+    {
+      "at_ms": 18104,
+      "end_byte": 52484,
+      "kind": "poll",
+      "start_byte": 52468
+    },
+    {
+      "at_ms": 18115,
+      "end_byte": 52787,
+      "kind": "poll",
+      "start_byte": 52484
+    },
+    {
+      "at_ms": 18125,
+      "end_byte": 53125,
+      "kind": "poll",
+      "start_byte": 52787
+    },
+    {
+      "at_ms": 18146,
+      "end_byte": 53347,
+      "kind": "poll",
+      "start_byte": 53125
+    },
+    {
+      "at_ms": 18156,
+      "end_byte": 53366,
+      "kind": "poll",
+      "start_byte": 53347
+    },
+    {
+      "at_ms": 18177,
+      "end_byte": 53631,
+      "kind": "poll",
+      "start_byte": 53366
+    },
+    {
+      "at_ms": 18188,
+      "end_byte": 53887,
+      "kind": "poll",
+      "start_byte": 53631
+    },
+    {
+      "at_ms": 18198,
+      "end_byte": 53903,
+      "kind": "poll",
+      "start_byte": 53887
+    },
+    {
+      "at_ms": 18209,
+      "end_byte": 54210,
+      "kind": "poll",
+      "start_byte": 53903
+    },
+    {
+      "at_ms": 18219,
+      "end_byte": 54509,
+      "kind": "poll",
+      "start_byte": 54210
+    },
+    {
+      "at_ms": 18230,
+      "end_byte": 54525,
+      "kind": "poll",
+      "start_byte": 54509
+    },
+    {
+      "at_ms": 18240,
+      "end_byte": 54740,
+      "kind": "poll",
+      "start_byte": 54525
+    },
+    {
+      "at_ms": 18251,
+      "end_byte": 55050,
+      "kind": "poll",
+      "start_byte": 54740
+    },
+    {
+      "at_ms": 18261,
+      "end_byte": 55066,
+      "kind": "poll",
+      "start_byte": 55050
+    },
+    {
+      "at_ms": 18272,
+      "end_byte": 55282,
+      "kind": "poll",
+      "start_byte": 55066
+    },
+    {
+      "at_ms": 18282,
+      "end_byte": 55592,
+      "kind": "poll",
+      "start_byte": 55282
+    },
+    {
+      "at_ms": 18303,
+      "end_byte": 55836,
+      "kind": "poll",
+      "start_byte": 55592
+    },
+    {
+      "at_ms": 18313,
+      "end_byte": 55855,
+      "kind": "poll",
+      "start_byte": 55836
+    },
+    {
+      "at_ms": 18324,
+      "end_byte": 56240,
+      "kind": "poll",
+      "start_byte": 55855
+    },
+    {
+      "at_ms": 18335,
+      "end_byte": 56256,
+      "kind": "poll",
+      "start_byte": 56240
+    },
+    {
+      "at_ms": 18345,
+      "end_byte": 56468,
+      "kind": "poll",
+      "start_byte": 56256
+    },
+    {
+      "at_ms": 18356,
+      "end_byte": 56800,
+      "kind": "poll",
+      "start_byte": 56468
+    },
+    {
+      "at_ms": 18366,
+      "end_byte": 56816,
+      "kind": "poll",
+      "start_byte": 56800
+    },
+    {
+      "at_ms": 18377,
+      "end_byte": 57010,
+      "kind": "poll",
+      "start_byte": 56816
+    },
+    {
+      "at_ms": 18387,
+      "end_byte": 57026,
+      "kind": "poll",
+      "start_byte": 57010
+    },
+    {
+      "at_ms": 18398,
+      "end_byte": 57262,
+      "kind": "poll",
+      "start_byte": 57026
+    },
+    {
+      "at_ms": 18408,
+      "end_byte": 57565,
+      "kind": "poll",
+      "start_byte": 57262
+    },
+    {
+      "at_ms": 18419,
+      "end_byte": 57581,
+      "kind": "poll",
+      "start_byte": 57565
+    },
+    {
+      "at_ms": 18430,
+      "end_byte": 57784,
+      "kind": "poll",
+      "start_byte": 57581
+    },
+    {
+      "at_ms": 18440,
+      "end_byte": 58108,
+      "kind": "poll",
+      "start_byte": 57784
+    },
+    {
+      "at_ms": 18461,
+      "end_byte": 58311,
+      "kind": "poll",
+      "start_byte": 58108
+    },
+    {
+      "at_ms": 18471,
+      "end_byte": 58330,
+      "kind": "poll",
+      "start_byte": 58311
+    },
+    {
+      "at_ms": 18481,
+      "end_byte": 58572,
+      "kind": "poll",
+      "start_byte": 58330
+    },
+    {
+      "at_ms": 18492,
+      "end_byte": 58588,
+      "kind": "poll",
+      "start_byte": 58572
+    },
+    {
+      "at_ms": 18502,
+      "end_byte": 58887,
+      "kind": "poll",
+      "start_byte": 58588
+    },
+    {
+      "at_ms": 18513,
+      "end_byte": 59260,
+      "kind": "poll",
+      "start_byte": 58887
+    },
+    {
+      "at_ms": 18523,
+      "end_byte": 59276,
+      "kind": "poll",
+      "start_byte": 59260
+    },
+    {
+      "at_ms": 18534,
+      "end_byte": 59586,
+      "kind": "poll",
+      "start_byte": 59276
+    },
+    {
+      "at_ms": 18545,
+      "end_byte": 59602,
+      "kind": "poll",
+      "start_byte": 59586
+    },
+    {
+      "at_ms": 18555,
+      "end_byte": 59837,
+      "kind": "poll",
+      "start_byte": 59602
+    },
+    {
+      "at_ms": 18565,
+      "end_byte": 60145,
+      "kind": "poll",
+      "start_byte": 59837
+    },
+    {
+      "at_ms": 18576,
+      "end_byte": 60161,
+      "kind": "poll",
+      "start_byte": 60145
+    },
+    {
+      "at_ms": 18586,
+      "end_byte": 60410,
+      "kind": "poll",
+      "start_byte": 60161
+    },
+    {
+      "at_ms": 18596,
+      "end_byte": 60790,
+      "kind": "poll",
+      "start_byte": 60410
+    },
+    {
+      "at_ms": 18617,
+      "end_byte": 60809,
+      "kind": "poll",
+      "start_byte": 60790
+    },
+    {
+      "at_ms": 18628,
+      "end_byte": 61208,
+      "kind": "poll",
+      "start_byte": 60809
+    },
+    {
+      "at_ms": 18648,
+      "end_byte": 61459,
+      "kind": "poll",
+      "start_byte": 61208
+    },
+    {
+      "at_ms": 18659,
+      "end_byte": 61790,
+      "kind": "poll",
+      "start_byte": 61459
+    },
+    {
+      "at_ms": 18669,
+      "end_byte": 61806,
+      "kind": "poll",
+      "start_byte": 61790
+    },
+    {
+      "at_ms": 18679,
+      "end_byte": 62073,
+      "kind": "poll",
+      "start_byte": 61806
+    },
+    {
+      "at_ms": 18690,
+      "end_byte": 62485,
+      "kind": "poll",
+      "start_byte": 62073
+    },
+    {
+      "at_ms": 18700,
+      "end_byte": 62501,
+      "kind": "poll",
+      "start_byte": 62485
+    },
+    {
+      "at_ms": 18710,
+      "end_byte": 62710,
+      "kind": "poll",
+      "start_byte": 62501
+    },
+    {
+      "at_ms": 18721,
+      "end_byte": 62990,
+      "kind": "poll",
+      "start_byte": 62710
+    },
+    {
+      "at_ms": 18741,
+      "end_byte": 63378,
+      "kind": "poll",
+      "start_byte": 62990
+    },
+    {
+      "at_ms": 18752,
+      "end_byte": 63394,
+      "kind": "poll",
+      "start_byte": 63378
+    },
+    {
+      "at_ms": 18762,
+      "end_byte": 63611,
+      "kind": "poll",
+      "start_byte": 63394
+    },
+    {
+      "at_ms": 18773,
+      "end_byte": 64037,
+      "kind": "poll",
+      "start_byte": 63611
+    },
+    {
+      "at_ms": 18794,
+      "end_byte": 64296,
+      "kind": "poll",
+      "start_byte": 64037
+    },
+    {
+      "at_ms": 18804,
+      "end_byte": 64688,
+      "kind": "poll",
+      "start_byte": 64296
+    },
+    {
+      "at_ms": 18825,
+      "end_byte": 65038,
+      "kind": "poll",
+      "start_byte": 64688
+    },
+    {
+      "at_ms": 18835,
+      "end_byte": 65246,
+      "kind": "poll",
+      "start_byte": 65038
+    },
+    {
+      "at_ms": 18856,
+      "end_byte": 65471,
+      "kind": "poll",
+      "start_byte": 65246
+    },
+    {
+      "at_ms": 18866,
+      "end_byte": 65474,
+      "kind": "poll",
+      "start_byte": 65471
+    },
+    {
+      "at_ms": 18877,
+      "end_byte": 65490,
+      "kind": "poll",
+      "start_byte": 65474
+    },
+    {
+      "at_ms": 18887,
+      "end_byte": 65746,
+      "kind": "poll",
+      "start_byte": 65490
+    },
+    {
+      "at_ms": 18898,
+      "end_byte": 66104,
+      "kind": "poll",
+      "start_byte": 65746
+    },
+    {
+      "at_ms": 18908,
+      "end_byte": 66120,
+      "kind": "poll",
+      "start_byte": 66104
+    },
+    {
+      "at_ms": 18919,
+      "end_byte": 66482,
+      "kind": "poll",
+      "start_byte": 66120
+    },
+    {
+      "at_ms": 18929,
+      "end_byte": 66818,
+      "kind": "poll",
+      "start_byte": 66482
+    },
+    {
+      "at_ms": 18940,
+      "end_byte": 66837,
+      "kind": "poll",
+      "start_byte": 66818
+    },
+    {
+      "at_ms": 18951,
+      "end_byte": 67026,
+      "kind": "poll",
+      "start_byte": 66837
+    },
+    {
+      "at_ms": 18961,
+      "end_byte": 67268,
+      "kind": "poll",
+      "start_byte": 67026
+    },
+    {
+      "at_ms": 18971,
+      "end_byte": 67271,
+      "kind": "poll",
+      "start_byte": 67268
+    },
+    {
+      "at_ms": 18982,
+      "end_byte": 67287,
+      "kind": "poll",
+      "start_byte": 67271
+    },
+    {
+      "at_ms": 18992,
+      "end_byte": 67639,
+      "kind": "poll",
+      "start_byte": 67287
+    },
+    {
+      "at_ms": 19002,
+      "end_byte": 67890,
+      "kind": "poll",
+      "start_byte": 67639
+    },
+    {
+      "at_ms": 19013,
+      "end_byte": 68261,
+      "kind": "poll",
+      "start_byte": 67890
+    },
+    {
+      "at_ms": 19034,
+      "end_byte": 68473,
+      "kind": "poll",
+      "start_byte": 68261
+    },
+    {
+      "at_ms": 19044,
+      "end_byte": 68799,
+      "kind": "poll",
+      "start_byte": 68473
+    },
+    {
+      "at_ms": 19065,
+      "end_byte": 69067,
+      "kind": "poll",
+      "start_byte": 68799
+    },
+    {
+      "at_ms": 19085,
+      "end_byte": 69293,
+      "kind": "poll",
+      "start_byte": 69067
+    },
+    {
+      "at_ms": 19096,
+      "end_byte": 69312,
+      "kind": "poll",
+      "start_byte": 69293
+    },
+    {
+      "at_ms": 19106,
+      "end_byte": 69616,
+      "kind": "poll",
+      "start_byte": 69312
+    },
+    {
+      "at_ms": 19117,
+      "end_byte": 69632,
+      "kind": "poll",
+      "start_byte": 69616
+    },
+    {
+      "at_ms": 19127,
+      "end_byte": 69940,
+      "kind": "poll",
+      "start_byte": 69632
+    },
+    {
+      "at_ms": 19137,
+      "end_byte": 70196,
+      "kind": "poll",
+      "start_byte": 69940
+    },
+    {
+      "at_ms": 19148,
+      "end_byte": 70212,
+      "kind": "poll",
+      "start_byte": 70196
+    },
+    {
+      "at_ms": 19158,
+      "end_byte": 70430,
+      "kind": "poll",
+      "start_byte": 70212
+    },
+    {
+      "at_ms": 19169,
+      "end_byte": 70753,
+      "kind": "poll",
+      "start_byte": 70430
+    },
+    {
+      "at_ms": 19189,
+      "end_byte": 70997,
+      "kind": "poll",
+      "start_byte": 70753
+    },
+    {
+      "at_ms": 19200,
+      "end_byte": 71013,
+      "kind": "poll",
+      "start_byte": 70997
+    },
+    {
+      "at_ms": 19210,
+      "end_byte": 71186,
+      "kind": "poll",
+      "start_byte": 71013
+    },
+    {
+      "at_ms": 19220,
+      "end_byte": 71607,
+      "kind": "poll",
+      "start_byte": 71186
+    },
+    {
+      "at_ms": 19241,
+      "end_byte": 71842,
+      "kind": "poll",
+      "start_byte": 71607
+    },
+    {
+      "at_ms": 19262,
+      "end_byte": 72187,
+      "kind": "poll",
+      "start_byte": 71842
+    },
+    {
+      "at_ms": 19272,
+      "end_byte": 72425,
+      "kind": "poll",
+      "start_byte": 72187
+    },
+    {
+      "at_ms": 19293,
+      "end_byte": 72646,
+      "kind": "poll",
+      "start_byte": 72425
+    },
+    {
+      "at_ms": 19303,
+      "end_byte": 72649,
+      "kind": "poll",
+      "start_byte": 72646
+    },
+    {
+      "at_ms": 19314,
+      "end_byte": 72665,
+      "kind": "poll",
+      "start_byte": 72649
+    },
+    {
+      "at_ms": 19324,
+      "end_byte": 73013,
+      "kind": "poll",
+      "start_byte": 72665
+    },
+    {
+      "at_ms": 19334,
+      "end_byte": 73217,
+      "kind": "poll",
+      "start_byte": 73013
+    },
+    {
+      "at_ms": 19344,
+      "end_byte": 73233,
+      "kind": "poll",
+      "start_byte": 73217
+    },
+    {
+      "at_ms": 19355,
+      "end_byte": 73550,
+      "kind": "poll",
+      "start_byte": 73233
+    },
+    {
+      "at_ms": 19365,
+      "end_byte": 73566,
+      "kind": "poll",
+      "start_byte": 73550
+    },
+    {
+      "at_ms": 19375,
+      "end_byte": 73799,
+      "kind": "poll",
+      "start_byte": 73566
+    },
+    {
+      "at_ms": 19385,
+      "end_byte": 74200,
+      "kind": "poll",
+      "start_byte": 73799
+    },
+    {
+      "at_ms": 19396,
+      "end_byte": 74416,
+      "kind": "poll",
+      "start_byte": 74200
+    },
+    {
+      "at_ms": 19417,
+      "end_byte": 74832,
+      "kind": "poll",
+      "start_byte": 74416
+    },
+    {
+      "at_ms": 19437,
+      "end_byte": 75122,
+      "kind": "poll",
+      "start_byte": 74832
+    },
+    {
+      "at_ms": 19448,
+      "end_byte": 75141,
+      "kind": "poll",
+      "start_byte": 75122
+    },
+    {
+      "at_ms": 19458,
+      "end_byte": 75357,
+      "kind": "poll",
+      "start_byte": 75141
+    },
+    {
+      "at_ms": 19469,
+      "end_byte": 75767,
+      "kind": "poll",
+      "start_byte": 75357
+    },
+    {
+      "at_ms": 19479,
+      "end_byte": 75783,
+      "kind": "poll",
+      "start_byte": 75767
+    },
+    {
+      "at_ms": 19489,
+      "end_byte": 76036,
+      "kind": "poll",
+      "start_byte": 75783
+    },
+    {
+      "at_ms": 19499,
+      "end_byte": 76279,
+      "kind": "poll",
+      "start_byte": 76036
+    },
+    {
+      "at_ms": 19520,
+      "end_byte": 76484,
+      "kind": "poll",
+      "start_byte": 76279
+    },
+    {
+      "at_ms": 19530,
+      "end_byte": 76500,
+      "kind": "poll",
+      "start_byte": 76484
+    },
+    {
+      "at_ms": 19541,
+      "end_byte": 76799,
+      "kind": "poll",
+      "start_byte": 76500
+    },
+    {
+      "at_ms": 19552,
+      "end_byte": 77174,
+      "kind": "poll",
+      "start_byte": 76799
+    },
+    {
+      "at_ms": 19573,
+      "end_byte": 77459,
+      "kind": "poll",
+      "start_byte": 77174
+    },
+    {
+      "at_ms": 19583,
+      "end_byte": 77795,
+      "kind": "poll",
+      "start_byte": 77459
+    },
+    {
+      "at_ms": 19604,
+      "end_byte": 78035,
+      "kind": "poll",
+      "start_byte": 77795
+    },
+    {
+      "at_ms": 19615,
+      "end_byte": 78038,
+      "kind": "poll",
+      "start_byte": 78035
+    },
+    {
+      "at_ms": 19625,
+      "end_byte": 78054,
+      "kind": "poll",
+      "start_byte": 78038
+    },
+    {
+      "at_ms": 19636,
+      "end_byte": 78340,
+      "kind": "poll",
+      "start_byte": 78054
+    },
+    {
+      "at_ms": 19646,
+      "end_byte": 78343,
+      "kind": "poll",
+      "start_byte": 78340
+    },
+    {
+      "at_ms": 19656,
+      "end_byte": 78359,
+      "kind": "poll",
+      "start_byte": 78343
+    },
+    {
+      "at_ms": 19667,
+      "end_byte": 79002,
+      "kind": "poll",
+      "start_byte": 78359
+    },
+    {
+      "at_ms": 19677,
+      "end_byte": 79477,
+      "kind": "poll",
+      "start_byte": 79002
+    },
+    {
+      "at_ms": 19698,
+      "end_byte": 79857,
+      "kind": "poll",
+      "start_byte": 79477
+    },
+    {
+      "at_ms": 19708,
+      "end_byte": 80141,
+      "kind": "poll",
+      "start_byte": 79857
+    },
+    {
+      "at_ms": 19729,
+      "end_byte": 80414,
+      "kind": "poll",
+      "start_byte": 80141
+    },
+    {
+      "at_ms": 19739,
+      "end_byte": 80417,
+      "kind": "poll",
+      "start_byte": 80414
+    },
+    {
+      "at_ms": 19749,
+      "end_byte": 80433,
+      "kind": "poll",
+      "start_byte": 80417
+    },
+    {
+      "at_ms": 19769,
+      "end_byte": 80707,
+      "kind": "poll",
+      "start_byte": 80433
+    },
+    {
+      "at_ms": 19780,
+      "end_byte": 80940,
+      "kind": "poll",
+      "start_byte": 80707
+    },
+    {
+      "at_ms": 19790,
+      "end_byte": 81234,
+      "kind": "poll",
+      "start_byte": 80940
+    },
+    {
+      "at_ms": 19801,
+      "end_byte": 81250,
+      "kind": "poll",
+      "start_byte": 81234
+    },
+    {
+      "at_ms": 19811,
+      "end_byte": 81458,
+      "kind": "poll",
+      "start_byte": 81250
+    },
+    {
+      "at_ms": 19821,
+      "end_byte": 81722,
+      "kind": "poll",
+      "start_byte": 81458
+    },
+    {
+      "at_ms": 19831,
+      "end_byte": 81738,
+      "kind": "poll",
+      "start_byte": 81722
+    },
+    {
+      "at_ms": 19842,
+      "end_byte": 81940,
+      "kind": "poll",
+      "start_byte": 81738
+    },
+    {
+      "at_ms": 19852,
+      "end_byte": 82219,
+      "kind": "poll",
+      "start_byte": 81940
+    },
+    {
+      "at_ms": 19863,
+      "end_byte": 82222,
+      "kind": "poll",
+      "start_byte": 82219
+    },
+    {
+      "at_ms": 19873,
+      "end_byte": 82238,
+      "kind": "poll",
+      "start_byte": 82222
+    },
+    {
+      "at_ms": 19883,
+      "end_byte": 82471,
+      "kind": "poll",
+      "start_byte": 82238
+    },
+    {
+      "at_ms": 19904,
+      "end_byte": 82677,
+      "kind": "poll",
+      "start_byte": 82471
+    },
+    {
+      "at_ms": 19924,
+      "end_byte": 82879,
+      "kind": "poll",
+      "start_byte": 82677
+    },
+    {
+      "at_ms": 19935,
+      "end_byte": 82882,
+      "kind": "poll",
+      "start_byte": 82879
+    },
+    {
+      "at_ms": 19945,
+      "end_byte": 82898,
+      "kind": "poll",
+      "start_byte": 82882
+    },
+    {
+      "at_ms": 19955,
+      "end_byte": 83010,
+      "kind": "poll",
+      "start_byte": 82898
+    },
+    {
+      "at_ms": 19966,
+      "end_byte": 83152,
+      "kind": "poll",
+      "start_byte": 83010
+    },
+    {
+      "at_ms": 19976,
+      "end_byte": 83168,
+      "kind": "poll",
+      "start_byte": 83152
+    },
+    {
+      "at_ms": 19986,
+      "end_byte": 83327,
+      "kind": "poll",
+      "start_byte": 83168
+    },
+    {
+      "at_ms": 20008,
+      "end_byte": 83502,
+      "kind": "poll",
+      "start_byte": 83327
+    },
+    {
+      "at_ms": 20018,
+      "end_byte": 83594,
+      "kind": "poll",
+      "start_byte": 83502
+    },
+    {
+      "at_ms": 20029,
+      "end_byte": 83610,
+      "kind": "poll",
+      "start_byte": 83594
+    },
+    {
+      "at_ms": 20039,
+      "end_byte": 83753,
+      "kind": "poll",
+      "start_byte": 83610
+    },
+    {
+      "at_ms": 20050,
+      "end_byte": 83846,
+      "kind": "poll",
+      "start_byte": 83753
+    },
+    {
+      "at_ms": 20081,
+      "end_byte": 83955,
+      "kind": "poll",
+      "start_byte": 83846
+    },
+    {
+      "at_ms": 20092,
+      "end_byte": 83958,
+      "kind": "poll",
+      "start_byte": 83955
+    },
+    {
+      "at_ms": 20113,
+      "end_byte": 84064,
+      "kind": "poll",
+      "start_byte": 83958
+    },
+    {
+      "at_ms": 20144,
+      "end_byte": 84173,
+      "kind": "poll",
+      "start_byte": 84064
+    },
+    {
+      "at_ms": 20165,
+      "end_byte": 84282,
+      "kind": "poll",
+      "start_byte": 84173
+    },
+    {
+      "at_ms": 20175,
+      "end_byte": 84285,
+      "kind": "poll",
+      "start_byte": 84282
+    },
+    {
+      "at_ms": 20196,
+      "end_byte": 84391,
+      "kind": "poll",
+      "start_byte": 84285
+    },
+    {
+      "at_ms": 20248,
+      "end_byte": 84500,
+      "kind": "poll",
+      "start_byte": 84391
+    },
+    {
+      "at_ms": 20311,
+      "end_byte": 84609,
+      "kind": "poll",
+      "start_byte": 84500
+    },
+    {
+      "at_ms": 20426,
+      "end_byte": 84698,
+      "kind": "poll",
+      "start_byte": 84609
+    },
+    {
+      "at_ms": 20582,
+      "end_byte": 84698,
+      "kind": "poll",
+      "start_byte": 84698
+    },
+    {
+      "at_ms": 20738,
+      "end_byte": 84698,
+      "kind": "poll",
+      "start_byte": 84698
+    },
+    {
+      "at_ms": 20894,
+      "end_byte": 84698,
+      "kind": "poll",
+      "start_byte": 84698
+    },
+    {
+      "at_ms": 21050,
+      "end_byte": 84698,
+      "kind": "poll",
+      "start_byte": 84698
+    },
+    {
+      "kind": "input",
+      "at_ms": 21178,
+      "bytes": [
+        27,
+        91,
+        50,
+        48,
+        48,
+        126,
+        208,
+        159,
+        208,
+        190,
+        208,
+        189,
+        209,
+        143,
+        208,
+        187,
+        46,
+        32,
+        208,
+        157,
+        208,
+        176,
+        32,
+        208,
+        186,
+        208,
+        176,
+        208,
+        186,
+        208,
+        190,
+        208,
+        185,
+        32,
+        208,
+        188,
+        208,
+        190,
+        208,
+        180,
+        208,
+        181,
+        208,
+        187,
+        208,
+        184,
+        32,
+        209,
+        130,
+        209,
+        139,
+        32,
+        209,
+        128,
+        208,
+        176,
+        208,
+        177,
+        208,
+        190,
+        209,
+        130,
+        208,
+        176,
+        208,
+        181,
+        209,
+        136,
+        209,
+        140,
+        63,
+        27,
+        91,
+        50,
+        48,
+        49,
+        126
+      ]
+    },
+    {
+      "at_ms": 21198,
+      "end_byte": 84817,
+      "kind": "poll",
+      "start_byte": 84698
+    },
+    {
+      "at_ms": 21219,
+      "end_byte": 84820,
+      "kind": "poll",
+      "start_byte": 84817
+    },
+    {
+      "at_ms": 21374,
+      "end_byte": 84820,
+      "kind": "poll",
+      "start_byte": 84820
+    },
+    {
+      "at_ms": 21531,
+      "end_byte": 84820,
+      "kind": "poll",
+      "start_byte": 84820
+    },
+    {
+      "at_ms": 21688,
+      "end_byte": 84820,
+      "kind": "poll",
+      "start_byte": 84820
+    },
+    {
+      "at_ms": 21844,
+      "end_byte": 84820,
+      "kind": "poll",
+      "start_byte": 84820
+    },
+    {
+      "kind": "input",
+      "at_ms": 21935,
+      "bytes": [
+        13
+      ]
+    },
+    {
+      "at_ms": 21956,
+      "end_byte": 84895,
+      "kind": "poll",
+      "start_byte": 84820
+    },
+    {
+      "at_ms": 21966,
+      "end_byte": 84911,
+      "kind": "poll",
+      "start_byte": 84895
+    },
+    {
+      "at_ms": 21976,
+      "end_byte": 87333,
+      "kind": "poll",
+      "start_byte": 84911
+    },
+    {
+      "at_ms": 21997,
+      "end_byte": 87463,
+      "kind": "poll",
+      "start_byte": 87333
+    },
+    {
+      "at_ms": 22018,
+      "end_byte": 87593,
+      "kind": "poll",
+      "start_byte": 87463
+    },
+    {
+      "at_ms": 22029,
+      "end_byte": 87945,
+      "kind": "poll",
+      "start_byte": 87593
+    },
+    {
+      "at_ms": 22050,
+      "end_byte": 88027,
+      "kind": "poll",
+      "start_byte": 87945
+    },
+    {
+      "at_ms": 22082,
+      "end_byte": 88224,
+      "kind": "poll",
+      "start_byte": 88027
+    },
+    {
+      "at_ms": 22093,
+      "end_byte": 88290,
+      "kind": "poll",
+      "start_byte": 88224
+    },
+    {
+      "at_ms": 22103,
+      "end_byte": 88306,
+      "kind": "poll",
+      "start_byte": 88290
+    },
+    {
+      "at_ms": 22114,
+      "end_byte": 88505,
+      "kind": "poll",
+      "start_byte": 88306
+    },
+    {
+      "at_ms": 22124,
+      "end_byte": 88571,
+      "kind": "poll",
+      "start_byte": 88505
+    },
+    {
+      "at_ms": 22135,
+      "end_byte": 88587,
+      "kind": "poll",
+      "start_byte": 88571
+    },
+    {
+      "at_ms": 22145,
+      "end_byte": 88653,
+      "kind": "poll",
+      "start_byte": 88587
+    },
+    {
+      "at_ms": 22155,
+      "end_byte": 88869,
+      "kind": "poll",
+      "start_byte": 88653
+    },
+    {
+      "at_ms": 22166,
+      "end_byte": 88885,
+      "kind": "poll",
+      "start_byte": 88869
+    },
+    {
+      "at_ms": 22177,
+      "end_byte": 88951,
+      "kind": "poll",
+      "start_byte": 88885
+    },
+    {
+      "at_ms": 22187,
+      "end_byte": 89198,
+      "kind": "poll",
+      "start_byte": 88951
+    },
+    {
+      "at_ms": 22208,
+      "end_byte": 89344,
+      "kind": "poll",
+      "start_byte": 89198
+    },
+    {
+      "at_ms": 22219,
+      "end_byte": 89347,
+      "kind": "poll",
+      "start_byte": 89344
+    },
+    {
+      "at_ms": 22229,
+      "end_byte": 89363,
+      "kind": "poll",
+      "start_byte": 89347
+    },
+    {
+      "at_ms": 22239,
+      "end_byte": 91586,
+      "kind": "poll",
+      "start_byte": 89363
+    },
+    {
+      "at_ms": 22250,
+      "end_byte": 91712,
+      "kind": "poll",
+      "start_byte": 91586
+    },
+    {
+      "at_ms": 22260,
+      "end_byte": 91728,
+      "kind": "poll",
+      "start_byte": 91712
+    },
+    {
+      "at_ms": 22271,
+      "end_byte": 91879,
+      "kind": "poll",
+      "start_byte": 91728
+    },
+    {
+      "at_ms": 22281,
+      "end_byte": 92145,
+      "kind": "poll",
+      "start_byte": 91879
+    },
+    {
+      "at_ms": 22292,
+      "end_byte": 92161,
+      "kind": "poll",
+      "start_byte": 92145
+    },
+    {
+      "at_ms": 22302,
+      "end_byte": 92312,
+      "kind": "poll",
+      "start_byte": 92161
+    },
+    {
+      "at_ms": 22313,
+      "end_byte": 92561,
+      "kind": "poll",
+      "start_byte": 92312
+    },
+    {
+      "at_ms": 22324,
+      "end_byte": 92577,
+      "kind": "poll",
+      "start_byte": 92561
+    },
+    {
+      "at_ms": 22334,
+      "end_byte": 92726,
+      "kind": "poll",
+      "start_byte": 92577
+    },
+    {
+      "at_ms": 22345,
+      "end_byte": 92742,
+      "kind": "poll",
+      "start_byte": 92726
+    },
+    {
+      "at_ms": 22355,
+      "end_byte": 92844,
+      "kind": "poll",
+      "start_byte": 92742
+    },
+    {
+      "at_ms": 22366,
+      "end_byte": 93013,
+      "kind": "poll",
+      "start_byte": 92844
+    },
+    {
+      "at_ms": 22386,
+      "end_byte": 93032,
+      "kind": "poll",
+      "start_byte": 93013
+    },
+    {
+      "at_ms": 22397,
+      "end_byte": 93179,
+      "kind": "poll",
+      "start_byte": 93032
+    },
+    {
+      "at_ms": 22407,
+      "end_byte": 93475,
+      "kind": "poll",
+      "start_byte": 93179
+    },
+    {
+      "at_ms": 22418,
+      "end_byte": 93491,
+      "kind": "poll",
+      "start_byte": 93475
+    },
+    {
+      "at_ms": 22428,
+      "end_byte": 95655,
+      "kind": "poll",
+      "start_byte": 93491
+    },
+    {
+      "at_ms": 22439,
+      "end_byte": 95951,
+      "kind": "poll",
+      "start_byte": 95655
+    },
+    {
+      "at_ms": 22450,
+      "end_byte": 95967,
+      "kind": "poll",
+      "start_byte": 95951
+    },
+    {
+      "at_ms": 22460,
+      "end_byte": 96132,
+      "kind": "poll",
+      "start_byte": 95967
+    },
+    {
+      "at_ms": 22470,
+      "end_byte": 96148,
+      "kind": "poll",
+      "start_byte": 96132
+    },
+    {
+      "at_ms": 22481,
+      "end_byte": 96425,
+      "kind": "poll",
+      "start_byte": 96148
+    },
+    {
+      "at_ms": 22492,
+      "end_byte": 96567,
+      "kind": "poll",
+      "start_byte": 96425
+    },
+    {
+      "at_ms": 22502,
+      "end_byte": 96724,
+      "kind": "poll",
+      "start_byte": 96567
+    },
+    {
+      "at_ms": 22523,
+      "end_byte": 96981,
+      "kind": "poll",
+      "start_byte": 96724
+    },
+    {
+      "at_ms": 22544,
+      "end_byte": 97000,
+      "kind": "poll",
+      "start_byte": 96981
+    },
+    {
+      "at_ms": 22554,
+      "end_byte": 97231,
+      "kind": "poll",
+      "start_byte": 97000
+    },
+    {
+      "at_ms": 22575,
+      "end_byte": 97451,
+      "kind": "poll",
+      "start_byte": 97231
+    },
+    {
+      "at_ms": 22585,
+      "end_byte": 97632,
+      "kind": "poll",
+      "start_byte": 97451
+    },
+    {
+      "at_ms": 22596,
+      "end_byte": 97844,
+      "kind": "poll",
+      "start_byte": 97632
+    },
+    {
+      "at_ms": 22606,
+      "end_byte": 97860,
+      "kind": "poll",
+      "start_byte": 97844
+    },
+    {
+      "at_ms": 22617,
+      "end_byte": 98004,
+      "kind": "poll",
+      "start_byte": 97860
+    },
+    {
+      "at_ms": 22627,
+      "end_byte": 100271,
+      "kind": "poll",
+      "start_byte": 98004
+    },
+    {
+      "at_ms": 22658,
+      "end_byte": 100658,
+      "kind": "poll",
+      "start_byte": 100271
+    },
+    {
+      "at_ms": 22679,
+      "end_byte": 100677,
+      "kind": "poll",
+      "start_byte": 100658
+    },
+    {
+      "at_ms": 22689,
+      "end_byte": 100865,
+      "kind": "poll",
+      "start_byte": 100677
+    },
+    {
+      "at_ms": 22700,
+      "end_byte": 100881,
+      "kind": "poll",
+      "start_byte": 100865
+    },
+    {
+      "at_ms": 22710,
+      "end_byte": 101023,
+      "kind": "poll",
+      "start_byte": 100881
+    },
+    {
+      "at_ms": 22721,
+      "end_byte": 101309,
+      "kind": "poll",
+      "start_byte": 101023
+    },
+    {
+      "at_ms": 22731,
+      "end_byte": 101325,
+      "kind": "poll",
+      "start_byte": 101309
+    },
+    {
+      "at_ms": 22742,
+      "end_byte": 101487,
+      "kind": "poll",
+      "start_byte": 101325
+    },
+    {
+      "at_ms": 22752,
+      "end_byte": 101808,
+      "kind": "poll",
+      "start_byte": 101487
+    },
+    {
+      "at_ms": 22763,
+      "end_byte": 101824,
+      "kind": "poll",
+      "start_byte": 101808
+    },
+    {
+      "at_ms": 22773,
+      "end_byte": 101965,
+      "kind": "poll",
+      "start_byte": 101824
+    },
+    {
+      "at_ms": 22784,
+      "end_byte": 102152,
+      "kind": "poll",
+      "start_byte": 101965
+    },
+    {
+      "at_ms": 22804,
+      "end_byte": 102486,
+      "kind": "poll",
+      "start_byte": 102152
+    },
+    {
+      "at_ms": 22825,
+      "end_byte": 102762,
+      "kind": "poll",
+      "start_byte": 102486
+    },
+    {
+      "at_ms": 22836,
+      "end_byte": 102781,
+      "kind": "poll",
+      "start_byte": 102762
+    },
+    {
+      "at_ms": 22857,
+      "end_byte": 103163,
+      "kind": "poll",
+      "start_byte": 102781
+    },
+    {
+      "at_ms": 22867,
+      "end_byte": 103364,
+      "kind": "poll",
+      "start_byte": 103163
+    },
+    {
+      "at_ms": 22878,
+      "end_byte": 103380,
+      "kind": "poll",
+      "start_byte": 103364
+    },
+    {
+      "at_ms": 22888,
+      "end_byte": 103789,
+      "kind": "poll",
+      "start_byte": 103380
+    },
+    {
+      "at_ms": 22899,
+      "end_byte": 103996,
+      "kind": "poll",
+      "start_byte": 103789
+    },
+    {
+      "at_ms": 22910,
+      "end_byte": 104247,
+      "kind": "poll",
+      "start_byte": 103996
+    },
+    {
+      "at_ms": 22930,
+      "end_byte": 104687,
+      "kind": "poll",
+      "start_byte": 104247
+    },
+    {
+      "at_ms": 22941,
+      "end_byte": 104703,
+      "kind": "poll",
+      "start_byte": 104687
+    },
+    {
+      "at_ms": 22951,
+      "end_byte": 104952,
+      "kind": "poll",
+      "start_byte": 104703
+    },
+    {
+      "at_ms": 22962,
+      "end_byte": 105323,
+      "kind": "poll",
+      "start_byte": 104952
+    },
+    {
+      "at_ms": 22972,
+      "end_byte": 105588,
+      "kind": "poll",
+      "start_byte": 105323
+    },
+    {
+      "at_ms": 22993,
+      "end_byte": 105834,
+      "kind": "poll",
+      "start_byte": 105588
+    },
+    {
+      "at_ms": 23014,
+      "end_byte": 105853,
+      "kind": "poll",
+      "start_byte": 105834
+    },
+    {
+      "at_ms": 23024,
+      "end_byte": 106064,
+      "kind": "poll",
+      "start_byte": 105853
+    },
+    {
+      "at_ms": 23035,
+      "end_byte": 106080,
+      "kind": "poll",
+      "start_byte": 106064
+    },
+    {
+      "at_ms": 23045,
+      "end_byte": 106845,
+      "kind": "poll",
+      "start_byte": 106080
+    },
+    {
+      "at_ms": 23067,
+      "end_byte": 107070,
+      "kind": "poll",
+      "start_byte": 106845
+    },
+    {
+      "at_ms": 23077,
+      "end_byte": 107073,
+      "kind": "poll",
+      "start_byte": 107070
+    },
+    {
+      "at_ms": 23087,
+      "end_byte": 107089,
+      "kind": "poll",
+      "start_byte": 107073
+    },
+    {
+      "at_ms": 23098,
+      "end_byte": 107497,
+      "kind": "poll",
+      "start_byte": 107089
+    },
+    {
+      "at_ms": 23109,
+      "end_byte": 107727,
+      "kind": "poll",
+      "start_byte": 107497
+    },
+    {
+      "at_ms": 23119,
+      "end_byte": 107743,
+      "kind": "poll",
+      "start_byte": 107727
+    },
+    {
+      "at_ms": 23130,
+      "end_byte": 108048,
+      "kind": "poll",
+      "start_byte": 107743
+    },
+    {
+      "at_ms": 23140,
+      "end_byte": 110370,
+      "kind": "poll",
+      "start_byte": 108048
+    },
+    {
+      "at_ms": 23151,
+      "end_byte": 110386,
+      "kind": "poll",
+      "start_byte": 110370
+    },
+    {
+      "at_ms": 23161,
+      "end_byte": 110629,
+      "kind": "poll",
+      "start_byte": 110386
+    },
+    {
+      "at_ms": 23172,
+      "end_byte": 110950,
+      "kind": "poll",
+      "start_byte": 110629
+    },
+    {
+      "at_ms": 23193,
+      "end_byte": 111234,
+      "kind": "poll",
+      "start_byte": 110950
+    },
+    {
+      "at_ms": 23204,
+      "end_byte": 111518,
+      "kind": "poll",
+      "start_byte": 111234
+    },
+    {
+      "at_ms": 23225,
+      "end_byte": 111863,
+      "kind": "poll",
+      "start_byte": 111518
+    },
+    {
+      "at_ms": 23235,
+      "end_byte": 111866,
+      "kind": "poll",
+      "start_byte": 111863
+    },
+    {
+      "at_ms": 23246,
+      "end_byte": 111882,
+      "kind": "poll",
+      "start_byte": 111866
+    },
+    {
+      "at_ms": 23256,
+      "end_byte": 112135,
+      "kind": "poll",
+      "start_byte": 111882
+    },
+    {
+      "at_ms": 23266,
+      "end_byte": 112403,
+      "kind": "poll",
+      "start_byte": 112135
+    },
+    {
+      "at_ms": 23277,
+      "end_byte": 112419,
+      "kind": "poll",
+      "start_byte": 112403
+    },
+    {
+      "at_ms": 23287,
+      "end_byte": 112726,
+      "kind": "poll",
+      "start_byte": 112419
+    },
+    {
+      "at_ms": 23298,
+      "end_byte": 112951,
+      "kind": "poll",
+      "start_byte": 112726
+    },
+    {
+      "at_ms": 23318,
+      "end_byte": 113193,
+      "kind": "poll",
+      "start_byte": 112951
+    },
+    {
+      "at_ms": 23329,
+      "end_byte": 113526,
+      "kind": "poll",
+      "start_byte": 113193
+    },
+    {
+      "at_ms": 23350,
+      "end_byte": 113537,
+      "kind": "poll",
+      "start_byte": 113526
+    },
+    {
+      "at_ms": 23360,
+      "end_byte": 116101,
+      "kind": "poll",
+      "start_byte": 113537
+    },
+    {
+      "at_ms": 23381,
+      "end_byte": 116498,
+      "kind": "poll",
+      "start_byte": 116101
+    },
+    {
+      "at_ms": 23392,
+      "end_byte": 116895,
+      "kind": "poll",
+      "start_byte": 116498
+    },
+    {
+      "at_ms": 23413,
+      "end_byte": 117221,
+      "kind": "poll",
+      "start_byte": 116895
+    },
+    {
+      "at_ms": 23434,
+      "end_byte": 117458,
+      "kind": "poll",
+      "start_byte": 117221
+    },
+    {
+      "at_ms": 23444,
+      "end_byte": 117763,
+      "kind": "poll",
+      "start_byte": 117458
+    },
+    {
+      "at_ms": 23465,
+      "end_byte": 118039,
+      "kind": "poll",
+      "start_byte": 117763
+    },
+    {
+      "at_ms": 23476,
+      "end_byte": 118058,
+      "kind": "poll",
+      "start_byte": 118039
+    },
+    {
+      "at_ms": 23486,
+      "end_byte": 118358,
+      "kind": "poll",
+      "start_byte": 118058
+    },
+    {
+      "at_ms": 23497,
+      "end_byte": 118374,
+      "kind": "poll",
+      "start_byte": 118358
+    },
+    {
+      "at_ms": 23507,
+      "end_byte": 118641,
+      "kind": "poll",
+      "start_byte": 118374
+    },
+    {
+      "at_ms": 23517,
+      "end_byte": 118871,
+      "kind": "poll",
+      "start_byte": 118641
+    },
+    {
+      "at_ms": 23538,
+      "end_byte": 119158,
+      "kind": "poll",
+      "start_byte": 118871
+    },
+    {
+      "at_ms": 23548,
+      "end_byte": 119385,
+      "kind": "poll",
+      "start_byte": 119158
+    },
+    {
+      "at_ms": 23569,
+      "end_byte": 119659,
+      "kind": "poll",
+      "start_byte": 119385
+    },
+    {
+      "at_ms": 23590,
+      "end_byte": 119820,
+      "kind": "poll",
+      "start_byte": 119659
+    },
+    {
+      "at_ms": 23610,
+      "end_byte": 119987,
+      "kind": "poll",
+      "start_byte": 119820
+    },
+    {
+      "at_ms": 23621,
+      "end_byte": 120003,
+      "kind": "poll",
+      "start_byte": 119987
+    },
+    {
+      "at_ms": 23631,
+      "end_byte": 120184,
+      "kind": "poll",
+      "start_byte": 120003
+    },
+    {
+      "at_ms": 23642,
+      "end_byte": 120351,
+      "kind": "poll",
+      "start_byte": 120184
+    },
+    {
+      "at_ms": 23663,
+      "end_byte": 120553,
+      "kind": "poll",
+      "start_byte": 120351
+    },
+    {
+      "at_ms": 23673,
+      "end_byte": 120572,
+      "kind": "poll",
+      "start_byte": 120553
+    },
+    {
+      "at_ms": 23694,
+      "end_byte": 120679,
+      "kind": "poll",
+      "start_byte": 120572
+    },
+    {
+      "at_ms": 23705,
+      "end_byte": 120833,
+      "kind": "poll",
+      "start_byte": 120679
+    },
+    {
+      "at_ms": 23715,
+      "end_byte": 120849,
+      "kind": "poll",
+      "start_byte": 120833
+    },
+    {
+      "at_ms": 23725,
+      "end_byte": 120937,
+      "kind": "poll",
+      "start_byte": 120849
+    },
+    {
+      "at_ms": 23736,
+      "end_byte": 121075,
+      "kind": "poll",
+      "start_byte": 120937
+    },
+    {
+      "at_ms": 23746,
+      "end_byte": 121091,
+      "kind": "poll",
+      "start_byte": 121075
+    },
+    {
+      "at_ms": 23757,
+      "end_byte": 121146,
+      "kind": "poll",
+      "start_byte": 121091
+    },
+    {
+      "at_ms": 23767,
+      "end_byte": 121255,
+      "kind": "poll",
+      "start_byte": 121146
+    },
+    {
+      "at_ms": 23788,
+      "end_byte": 121364,
+      "kind": "poll",
+      "start_byte": 121255
+    },
+    {
+      "at_ms": 23819,
+      "end_byte": 121473,
+      "kind": "poll",
+      "start_byte": 121364
+    },
+    {
+      "at_ms": 23830,
+      "end_byte": 121476,
+      "kind": "poll",
+      "start_byte": 121473
+    },
+    {
+      "at_ms": 23840,
+      "end_byte": 121492,
+      "kind": "poll",
+      "start_byte": 121476
+    },
+    {
+      "at_ms": 23866,
+      "end_byte": 121582,
+      "kind": "poll",
+      "start_byte": 121492
+    },
+    {
+      "at_ms": 23877,
+      "end_byte": 121691,
+      "kind": "poll",
+      "start_byte": 121582
+    },
+    {
+      "at_ms": 23907,
+      "end_byte": 121800,
+      "kind": "poll",
+      "start_byte": 121691
+    },
+    {
+      "at_ms": 23918,
+      "end_byte": 121803,
+      "kind": "poll",
+      "start_byte": 121800
+    },
+    {
+      "at_ms": 23960,
+      "end_byte": 121909,
+      "kind": "poll",
+      "start_byte": 121803
+    },
+    {
+      "at_ms": 23970,
+      "end_byte": 121912,
+      "kind": "poll",
+      "start_byte": 121909
+    },
+    {
+      "at_ms": 24032,
+      "end_byte": 122018,
+      "kind": "poll",
+      "start_byte": 121912
+    },
+    {
+      "at_ms": 24043,
+      "end_byte": 122021,
+      "kind": "poll",
+      "start_byte": 122018
+    },
+    {
+      "at_ms": 24147,
+      "end_byte": 122107,
+      "kind": "poll",
+      "start_byte": 122021
+    },
+    {
+      "at_ms": 24158,
+      "end_byte": 122110,
+      "kind": "poll",
+      "start_byte": 122107
+    },
+    {
+      "at_ms": 24314,
+      "end_byte": 122110,
+      "kind": "poll",
+      "start_byte": 122110
+    },
+    {
+      "at_ms": 24468,
+      "end_byte": 122110,
+      "kind": "poll",
+      "start_byte": 122110
+    },
+    {
+      "at_ms": 24626,
+      "end_byte": 122110,
+      "kind": "poll",
+      "start_byte": 122110
+    },
+    {
+      "at_ms": 24780,
+      "end_byte": 122110,
+      "kind": "poll",
+      "start_byte": 122110
+    }
+  ]
+}

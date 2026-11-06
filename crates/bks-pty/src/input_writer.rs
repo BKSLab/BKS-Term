@@ -386,7 +386,33 @@ mod tests {
             writer.check_error().is_err(),
             "worker error was not reported"
         );
+        let code = writer.check_error().unwrap_err().raw_os_error();
+        assert!(
+            matches!(code, Some(109 | 232 | 233)),
+            "native closed-pipe code survives the worker: {code:?}"
+        );
+        assert_eq!(writer.write(b"later").unwrap_err().raw_os_error(), code);
         assert!(writer.write(b"later").is_err());
+    }
+
+    #[test]
+    fn windows_close_errors_keep_their_native_codes_through_queue_copies() {
+        for code in [109, 232, 233] {
+            let queue = InputQueue::default();
+            let error =
+                windows::core::Error::from_hresult(windows::core::HRESULT::from_win32(code));
+            queue.fail(win_err(error));
+            assert_eq!(
+                queue.enqueue(b"late").unwrap_err().raw_os_error(),
+                Some(code as i32)
+            );
+        }
+        let error =
+            windows::core::Error::from_hresult(windows::core::HRESULT(0x80004005u32 as i32));
+        assert!(
+            win_err(error).raw_os_error().is_none(),
+            "non-Win32 HRESULT stays a typed error"
+        );
     }
 
     #[test]

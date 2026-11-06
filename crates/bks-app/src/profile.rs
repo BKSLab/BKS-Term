@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::ffi::OsString;
 use std::fs;
@@ -14,6 +14,7 @@ use windows::Win32::Storage::FileSystem::{
 };
 
 use crate::config_lock::ConfigLock;
+use crate::launch_profile::{is_shell_profile, LaunchSettings};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -31,6 +32,8 @@ pub struct Profile {
     pub executable: String,
     pub args: Vec<String>,
     pub working_directory: Option<String>,
+    #[serde(default, skip_serializing_if = "LaunchSettings::is_default")]
+    pub launch: LaunchSettings,
 }
 
 /// Only connection metadata. OpenSSH owns config, host keys and credentials.
@@ -182,17 +185,20 @@ impl SshOptions {
 pub struct ProfileManager {
     pub profiles: Vec<Profile>,
     pub default_profile_id: String,
+    pub default_shell_profile_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct ProfilesFile {
     schema_version: u32,
     default_profile_id: String,
+    #[serde(default)]
+    default_shell_profile_id: Option<String>,
     profiles: Vec<Profile>,
 }
 
-const SCHEMA_VERSION: u32 = 1;
-const PS_PROMPT: &str = r"function global:prompt { [char]27 + ']133;A' + [char]27 + '\PS ' + $executionContext.SessionState.Path.CurrentLocation + '> ' + [char]27 + ']133;B' + [char]27 + '\' }";
+const SCHEMA_VERSION: u32 = 2;
+pub(crate) const PS_PROMPT: &str = r"function global:prompt { [char]27 + ']133;A' + [char]27 + '\PS ' + $executionContext.SessionState.Path.CurrentLocation + '> ' + [char]27 + ']133;B' + [char]27 + '\' }";
 
 impl Profile {
     pub fn command_line(&self) -> String {
@@ -206,6 +212,7 @@ impl Profile {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        crate::launch_profile::validate_profile_data(self)?;
         if self.id.trim().is_empty() {
             return Err("profile id must not be empty".to_string());
         }
@@ -235,7 +242,11 @@ impl Profile {
         SshOptions::from_arguments(&self.args)
     }
 
-    fn executable_for_launch(&self) -> Result<String, String> {
+    pub fn is_shell_profile(&self) -> bool {
+        is_shell_profile(self)
+    }
+
+    pub(crate) fn executable_for_launch(&self) -> Result<String, String> {
         if self.id == "git-bash" && self.kind == ProfileKind::Local {
             let path = if self.executable.eq_ignore_ascii_case("bash.exe") {
                 executable_path(&self.executable)
@@ -252,6 +263,15 @@ impl Profile {
 
 impl ProfileManager {
     pub fn discover() -> Self {
+        Self::discover_with_powershell7(powershell7_executable())
+    }
+
+    fn discover_with_powershell7(powershell7: Option<String>) -> Self {
+        let default_profile_id = if powershell7.is_some() {
+            "pwsh"
+        } else {
+            "windows-powershell"
+        };
         let mut profiles = vec![
             Profile {
                 id: "windows-powershell".to_string(),
@@ -260,6 +280,7 @@ impl ProfileManager {
                 executable: "powershell.exe".to_string(),
                 args: ps_args(),
                 working_directory: None,
+                launch: LaunchSettings::default(),
             },
             Profile {
                 id: "windows-cmd".to_string(),
@@ -268,9 +289,10 @@ impl ProfileManager {
                 executable: "cmd.exe".to_string(),
                 args: vec!["/Q".to_string()],
                 working_directory: None,
+                launch: LaunchSettings::default(),
             },
         ];
-        if let Some(executable) = locate("pwsh.exe", &[]) {
+        if let Some(executable) = powershell7 {
             profiles.push(Profile {
                 id: "pwsh".to_string(),
                 name: "PowerShell 7".to_string(),
@@ -278,6 +300,7 @@ impl ProfileManager {
                 executable,
                 args: ps_args(),
                 working_directory: None,
+                launch: LaunchSettings::default(),
             });
         }
         if let Some(executable) = git_bash_executable() {
@@ -288,6 +311,7 @@ impl ProfileManager {
                 executable,
                 args: vec!["--login".to_string(), "-i".to_string()],
                 working_directory: None,
+                launch: LaunchSettings::default(),
             });
         }
         if let Some(executable) = locate("wsl.exe", &[]) {
@@ -298,11 +322,13 @@ impl ProfileManager {
                 executable,
                 args: Vec::new(),
                 working_directory: None,
+                launch: LaunchSettings::default(),
             });
         }
         ProfileManager {
             profiles,
-            default_profile_id: "windows-powershell".to_string(),
+            default_profile_id: default_profile_id.to_string(),
+            default_shell_profile_id: None,
         }
     }
 
@@ -313,6 +339,257 @@ impl ProfileManager {
 
     pub fn get(&self, id: &str) -> Option<&Profile> {
         self.profiles.iter().find(|profile| profile.id == id)
+    }
+
+    pub fn default_shell_profile(&self) -> Result<&Profile, String> {
+        if let Some(id) = &self.default_shell_profile_id {
+            return self
+                .get(id)
+                .filter(|profile| profile.is_shell_profile())
+                .ok_or_else(|| {
+                    "Оболочка по умолчанию не найдена или не является обычной локальной оболочкой."
+                        .into()
+                });
+        }
+        self.get(&self.default_profile_id)
+            .filter(|profile| profile.is_shell_profile())
+            .or_else(|| {
+                ["pwsh", "windows-powershell", "windows-cmd", "git-bash"]
+                    .iter()
+                    .filter_map(|id| self.get(id))
+                    .find(|profile| profile.is_shell_profile())
+            })
+            .or_else(|| {
+                self.profiles
+                    .iter()
+                    .find(|profile| profile.is_shell_profile())
+            })
+            .ok_or_else(|| "Обычная локальная оболочка не настроена.".into())
+    }
+
+    pub fn next_local_profile_id(&self) -> String {
+        next_local_id(|id| self.get(id).is_some())
+    }
+
+    #[cfg(test)]
+    pub fn duplicate_local_profile(&self, id: &str, name: &str) -> Result<Profile, String> {
+        let mut profile = self
+            .get(id)
+            .filter(|profile| profile.kind == ProfileKind::Local)
+            .ok_or_else(|| "Локальный профиль не найден.".to_owned())?
+            .clone();
+        // Runtime discovery may identify a node/cmd CLI by its original id.
+        profile.launch.adapter = crate::launch_profile::resolve_adapter(&profile);
+        profile.id = self.next_local_profile_id();
+        profile.name = name.trim().to_owned();
+        profile.validate()?;
+        Ok(profile)
+    }
+
+    /// Discovery adds entries; saved customizations with the same id win.
+    #[cfg(test)]
+    pub fn merge_discovered_profiles(&mut self, profiles: impl IntoIterator<Item = Profile>) {
+        for profile in profiles {
+            if self.get(&profile.id).is_none() {
+                self.profiles.push(profile);
+            }
+        }
+    }
+
+    /// Apply one editor's local-profile diff and default-shell change against
+    /// the latest disk state, preserving unrelated local/SSH/window edits.
+    pub fn save_local_profiles(
+        path: &Path,
+        baseline: &Self,
+        locals: Vec<Profile>,
+        default_shell_profile_id: Option<String>,
+    ) -> Result<Self, String> {
+        let mut desired = BTreeMap::new();
+        for profile in locals {
+            if profile.kind != ProfileKind::Local || desired.contains_key(&profile.id) {
+                return Err("Редактор передал повторяющийся или нелокальный профиль.".into());
+            }
+            if baseline
+                .get(&profile.id)
+                .is_some_and(|old| old.kind != ProfileKind::Local)
+            {
+                return Err("Идентификатор локального профиля занят профилем подключения.".into());
+            }
+            desired.insert(profile.id.clone(), profile);
+        }
+        let _lock = profile_lock(path)?;
+        let latest = Self::load_latest(path).map_err(|error| {
+            format!("Хранилище профилей не прочитано. Файл не изменён: {error}")
+        })?;
+        if latest.is_none()
+            && baseline.profiles.iter().any(|profile| {
+                profile.kind == ProfileKind::Ssh
+                    || (profile.kind == ProfileKind::Local && !is_builtin_profile(profile))
+            })
+        {
+            return Err("Хранилище профилей удалено в другом окне. Устаревшие пользовательские профили не восстановлены.".into());
+        }
+        let mut next = latest.unwrap_or_else(|| baseline.initial_persistent_state());
+        let mut updates = Vec::new();
+        let mut removals = BTreeSet::new();
+        for old in baseline
+            .profiles
+            .iter()
+            .filter(|profile| profile.kind == ProfileKind::Local)
+        {
+            let new = desired.get(&old.id);
+            if new == Some(old) {
+                continue;
+            }
+            if is_builtin_profile(old) {
+                return Err(
+                    "Встроенный профиль доступен только для дублирования; сохранение отменено."
+                        .into(),
+                );
+            }
+            if next.get(&old.id) != Some(old) {
+                return Err("Профиль изменён или удалён в другом окне. Сохранение отменено; файл не изменён.".into());
+            }
+            if let Some(new) = new {
+                new.validate()?;
+                updates.push(new.clone());
+            } else {
+                removals.insert(old.id.clone());
+            }
+        }
+        let mut renames = BTreeMap::new();
+        for new in desired
+            .values()
+            .filter(|profile| baseline.get(&profile.id).is_none())
+        {
+            if is_builtin_profile(new) {
+                return Err("Идентификатор зарезервирован для встроенного профиля.".into());
+            }
+            new.validate()?;
+            let mut new = new.clone();
+            if next.get(&new.id).is_some() {
+                let id = next_local_id(|id| {
+                    next.get(id).is_some()
+                        || desired.contains_key(id)
+                        || updates.iter().any(|profile| profile.id == id)
+                });
+                renames.insert(new.id.clone(), id.clone());
+                new.id = id;
+            }
+            updates.push(new);
+        }
+        for update in &mut updates {
+            if let Some(id) = update.launch.shell_profile_id.as_mut() {
+                if let Some(renamed) = renames.get(id) {
+                    *id = renamed.clone();
+                }
+            }
+        }
+        let default_changed = default_shell_profile_id != baseline.default_shell_profile_id;
+        if default_changed {
+            let selected_default =
+                default_shell_profile_id.map(|id| renames.get(&id).cloned().unwrap_or(id));
+            if next.default_shell_profile_id != baseline.default_shell_profile_id
+                && next.default_shell_profile_id != selected_default
+            {
+                return Err(
+                    "Оболочка по умолчанию изменена в другом окне. Сохранение отменено.".into(),
+                );
+            }
+            next.default_shell_profile_id = selected_default;
+        }
+        next.profiles
+            .retain(|profile| !removals.contains(&profile.id));
+        let changed_ids: BTreeSet<_> = updates.iter().map(|profile| profile.id.clone()).collect();
+        for update in updates {
+            if let Some(old) = next
+                .profiles
+                .iter_mut()
+                .find(|profile| profile.id == update.id)
+            {
+                *old = update;
+            } else {
+                next.profiles.push(update);
+            }
+        }
+        if next.profiles.is_empty() {
+            return Err("Необходимо сохранить хотя бы один профиль.".into());
+        }
+        if next.get(&next.default_profile_id).is_none() {
+            next.default_profile_id = next
+                .default_shell_profile()
+                .map(|profile| profile.id.clone())
+                .unwrap_or_else(|_| next.profiles[0].id.clone());
+        }
+        if let Some(id) = &next.default_shell_profile_id {
+            if !next.get(id).is_some_and(Profile::is_shell_profile) {
+                return Err(
+                    "Оболочка по умолчанию удалена или не является обычной локальной оболочкой."
+                        .into(),
+                );
+            }
+        }
+        for profile in &next.profiles {
+            if let Some(id) = &profile.launch.shell_profile_id {
+                if !next.get(id).is_some_and(Profile::is_shell_profile) {
+                    return Err("На выбранную оболочку ссылается другой профиль. Измените его настройки перед удалением.".into());
+                }
+            }
+            if changed_ids.contains(&profile.id) {
+                crate::launch_profile::LaunchPlan::resolve(&next, profile)?;
+            }
+        }
+        next.save(path)
+            .map_err(|error| format!("Не удалось сохранить локальные профили: {error}"))?;
+        Ok(next)
+    }
+
+    #[cfg(test)]
+    pub fn save_local_profile(&mut self, path: &Path, profile: Profile) -> Result<(), String> {
+        let mut locals: Vec<_> = self
+            .profiles
+            .iter()
+            .filter(|profile| profile.kind == ProfileKind::Local)
+            .cloned()
+            .collect();
+        if let Some(old) = locals.iter_mut().find(|old| old.id == profile.id) {
+            *old = profile;
+        } else {
+            locals.push(profile);
+        }
+        *self =
+            Self::save_local_profiles(path, self, locals, self.default_shell_profile_id.clone())?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn delete_local_profile(&mut self, path: &Path, id: &str) -> Result<(), String> {
+        if !self.get(id).is_some_and(|profile| {
+            profile.kind == ProfileKind::Local && !is_builtin_profile(profile)
+        }) {
+            return Err("Удалить можно только пользовательский локальный профиль.".into());
+        }
+        let locals = self
+            .profiles
+            .iter()
+            .filter(|profile| profile.kind == ProfileKind::Local && profile.id != id)
+            .cloned()
+            .collect();
+        *self =
+            Self::save_local_profiles(path, self, locals, self.default_shell_profile_id.clone())?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn save_default_shell(&mut self, path: &Path, id: Option<&str>) -> Result<(), String> {
+        let locals = self
+            .profiles
+            .iter()
+            .filter(|profile| profile.kind == ProfileKind::Local)
+            .cloned()
+            .collect();
+        *self = Self::save_local_profiles(path, self, locals, id.map(str::to_owned))?;
+        Ok(())
     }
 
     pub fn make_ssh_profile(
@@ -346,6 +623,7 @@ impl ProfileManager {
                 executable,
                 args: Vec::new(),
                 working_directory: None,
+                launch: LaunchSettings::default(),
             }
         };
         profile.name = name.to_owned();
@@ -460,7 +738,7 @@ impl ProfileManager {
         let file: ProfilesFile = serde_json::from_slice(&bytes)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         let mut ids = BTreeSet::new();
-        if file.schema_version != SCHEMA_VERSION
+        if !matches!(file.schema_version, 1 | SCHEMA_VERSION)
             || file.profiles.is_empty()
             || file.profiles.iter().any(|profile| {
                 profile.id.trim().is_empty()
@@ -468,6 +746,12 @@ impl ProfileManager {
                     || !ids.insert(profile.id.as_str())
             })
             || !ids.contains(file.default_profile_id.as_str())
+            || file.default_shell_profile_id.as_ref().is_some_and(|id| {
+                !file
+                    .profiles
+                    .iter()
+                    .any(|profile| profile.id == *id && profile.is_shell_profile())
+            })
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -477,6 +761,7 @@ impl ProfileManager {
         Ok(Some(Self {
             profiles: file.profiles,
             default_profile_id: file.default_profile_id,
+            default_shell_profile_id: file.default_shell_profile_id,
         }))
     }
 
@@ -488,22 +773,24 @@ impl ProfileManager {
     }
 
     pub(crate) fn load(path: &Path) -> Option<Self> {
-        let data = fs::read_to_string(path).ok()?;
-        let file: ProfilesFile = serde_json::from_str(&data).ok()?;
-        Some(ProfileManager {
-            profiles: file.profiles,
-            default_profile_id: file.default_profile_id,
-        })
+        Self::load_latest(path).ok().flatten()
     }
 
     pub fn save(&self, path: &Path) -> io::Result<()> {
         let file = ProfilesFile {
             schema_version: SCHEMA_VERSION,
             default_profile_id: self.default_profile_id.clone(),
+            default_shell_profile_id: self.default_shell_profile_id.clone(),
             profiles: self.profiles.clone(),
         };
         let json = serde_json::to_string_pretty(&file)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if json.len() > 4 * 1024 * 1024 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Файл профилей превышает 4 МиБ.",
+            ));
+        }
         if let Some(parent) = path.parent() {
             if !parent.as_os_str().is_empty() {
                 fs::create_dir_all(parent)?;
@@ -522,6 +809,45 @@ impl ProfileManager {
             .map_err(io::Error::other)
         }
     }
+}
+
+pub fn is_builtin_profile(profile: &Profile) -> bool {
+    matches!(
+        profile.id.as_str(),
+        "windows-powershell"
+            | "windows-cmd"
+            | "pwsh"
+            | "git-bash"
+            | "wsl"
+            | "cli-codex"
+            | "cli-claude"
+            | "cli-opencode"
+            | "cli-kimi"
+            | "cli-gemini"
+    ) || profile.id == crate::codex_cli::PROFILE_ID
+}
+
+fn next_local_id(mut occupied: impl FnMut(&str) -> bool) -> String {
+    let mut number = 1_u64;
+    loop {
+        let id = format!("local-{number}");
+        if !occupied(&id) {
+            return id;
+        }
+        number += 1;
+    }
+}
+
+fn profile_lock(path: &Path) -> Result<ConfigLock, String> {
+    ConfigLock::acquire(path).map_err(|error| {
+        if error.raw_os_error().is_some_and(|code| {
+            code == ERROR_SHARING_VIOLATION.0 as i32 || code == ERROR_LOCK_VIOLATION.0 as i32
+        }) {
+            "Хранилище профилей занято другим окном. Повторите сохранение.".into()
+        } else {
+            format!("Не удалось заблокировать хранилище профилей: {error}")
+        }
+    })
 }
 
 fn ps_args() -> Vec<String> {
@@ -548,6 +874,14 @@ fn locate(exe: &str, standard: &[&str]) -> Option<String> {
         .find(|path| Path::new(path).is_file())
         .map(|path| (*path).to_string())
         .or_else(|| executable_exists(exe).then(|| exe.to_owned()))
+}
+
+fn powershell7_executable() -> Option<String> {
+    env::var_os("ProgramFiles")
+        .map(|root| PathBuf::from(root).join("PowerShell/7/pwsh.exe"))
+        .filter(|path| path.is_file())
+        .map(|path| path.to_string_lossy().into_owned())
+        .or_else(|| locate("pwsh.exe", &[]))
 }
 
 fn executable_exists(exe: &str) -> bool {
@@ -667,7 +1001,7 @@ fn executable_extensions(exe: &str) -> Vec<String> {
     extensions
 }
 
-fn quote_windows_arg(arg: &str) -> String {
+pub(crate) fn quote_windows_arg(arg: &str) -> String {
     if arg.is_empty() {
         return "\"\"".to_string();
     }
@@ -716,16 +1050,21 @@ mod tests {
             executable: executable.to_string(),
             args,
             working_directory: None,
+            launch: LaunchSettings::default(),
         }
     }
 
     fn unique_temp_dir() -> PathBuf {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let directory =
-            std::env::temp_dir().join(format!("bks-profile-test-{}-{nanos}", std::process::id()));
+        let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!(
+            "bks-profile-test-{}-{nanos}-{sequence}",
+            std::process::id()
+        ));
         fs::create_dir_all(&directory).unwrap();
         directory
     }
@@ -773,13 +1112,51 @@ mod tests {
     #[test]
     fn discover_has_required_profiles() {
         let manager = ProfileManager::discover();
-        assert_eq!(manager.default_profile().id, "windows-powershell");
+        assert_eq!(
+            manager.default_profile().id,
+            if manager.get("pwsh").is_some() {
+                "pwsh"
+            } else {
+                "windows-powershell"
+            }
+        );
         assert!(manager.get("windows-powershell").is_some());
         assert!(manager.get("windows-cmd").is_some());
         assert!(manager
             .profiles
             .iter()
             .all(|profile| profile.kind != ProfileKind::Ssh));
+    }
+
+    #[test]
+    fn discovered_default_prefers_powershell7_without_changing_windows_powershell() {
+        let executable = r"C:\Program Files\PowerShell\7\pwsh.exe";
+        let discovered = ProfileManager::discover_with_powershell7(Some(executable.to_owned()));
+        assert_eq!(discovered.default_profile().id, "pwsh");
+        assert_eq!(discovered.default_profile().executable, executable);
+        let legacy = discovered.get("windows-powershell").unwrap();
+        assert_eq!(legacy.executable, "powershell.exe");
+        assert_eq!(legacy.args, ps_args());
+        assert!(!legacy.args.iter().any(|argument| {
+            argument.eq_ignore_ascii_case("-ExecutionPolicy")
+                || argument.eq_ignore_ascii_case("Bypass")
+        }));
+        let fallback = ProfileManager::discover_with_powershell7(None);
+        assert_eq!(fallback.default_profile().id, "windows-powershell");
+        assert!(fallback.get("pwsh").is_none());
+    }
+
+    #[test]
+    fn saved_windows_powershell_default_and_custom_arguments_are_preserved() {
+        let directory = unique_temp_dir();
+        let path = directory.join("profiles.json");
+        let mut manager = ProfileManager::discover_with_powershell7(None);
+        manager.profiles[0].args = vec!["-NoLogo".to_owned(), "-NoExit".to_owned()];
+        manager.save(&path).unwrap();
+        let loaded = ProfileManager::load_or_default(&path);
+        assert_eq!(loaded.default_profile_id, "windows-powershell");
+        assert_eq!(loaded.profiles, manager.profiles);
+        let _ = fs::remove_dir_all(directory);
     }
 
     #[test]
@@ -869,6 +1246,7 @@ mod tests {
             executable: executable.to_string_lossy().into_owned(),
             args: vec!["original-alias".to_owned()],
             working_directory: Some("C:\\Work folder".to_owned()),
+            launch: LaunchSettings::default(),
         }
     }
 
@@ -913,7 +1291,7 @@ mod tests {
         assert_eq!(&loaded.profiles[..locals.len()], &locals);
         assert_eq!(loaded.get(&fixture.id), Some(&edited));
         let json: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-        assert_eq!(json["schema_version"], 1);
+        assert_eq!(json["schema_version"], SCHEMA_VERSION);
         assert_eq!(json["profiles"][locals.len()].as_object().unwrap().len(), 6);
         cleanup_ssh_fixture(&directory);
     }
@@ -975,7 +1353,259 @@ mod tests {
         ProfileManager {
             profiles: vec![first, second, foreign_ssh],
             default_profile_id: "local-one".to_owned(),
+            default_shell_profile_id: None,
         }
+    }
+
+    fn local_snapshot(manager: &ProfileManager) -> Vec<Profile> {
+        manager
+            .profiles
+            .iter()
+            .filter(|profile| profile.kind == ProfileKind::Local)
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn legacy_launch_migration_preserves_ssh_args_and_explicit_default() {
+        let directory = unique_temp_dir();
+        let path = directory.join("profiles.json");
+        let mut original = persistent_fixture();
+        original
+            .profiles
+            .push(sample("windows-cmd", "cmd.exe", vec!["/Q".into()]));
+        let mut legacy = serde_json::to_value(ProfilesFile {
+            schema_version: SCHEMA_VERSION,
+            default_profile_id: original.default_profile_id.clone(),
+            default_shell_profile_id: None,
+            profiles: original.profiles.clone(),
+        })
+        .unwrap();
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("default_shell_profile_id");
+        legacy["schema_version"] = serde_json::json!(1);
+        fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        let baseline = ProfileManager::load_latest(&path).unwrap().unwrap();
+        assert!(baseline
+            .profiles
+            .iter()
+            .all(|profile| profile.launch.is_default()));
+        let next = ProfileManager::save_local_profiles(
+            &path,
+            &baseline,
+            local_snapshot(&baseline),
+            Some("windows-cmd".into()),
+        )
+        .unwrap();
+        assert_eq!(next.profiles, original.profiles);
+        assert_eq!(next.default_profile_id, original.default_profile_id);
+        assert_eq!(
+            next.default_shell_profile_id.as_deref(),
+            Some("windows-cmd")
+        );
+        assert_eq!(
+            ProfileManager::load_latest(&path)
+                .unwrap()
+                .unwrap()
+                .profiles,
+            original.profiles
+        );
+        cleanup_ssh_fixture(&directory);
+    }
+
+    #[test]
+    fn local_crud_is_atomic_and_retains_foreign_ssh_and_default_shell_changes() {
+        let directory = unique_temp_dir();
+        let path = directory.join("profiles.json");
+        let mut original = persistent_fixture();
+        original
+            .profiles
+            .push(sample("windows-cmd", "cmd.exe", vec!["/Q".into()]));
+        original.save(&path).unwrap();
+        let baseline = original.clone();
+        let created = sample("local-1", "cmd.exe", vec!["/Q".into()]);
+        let mut one = baseline.clone();
+        one.save_local_profile(&path, created.clone()).unwrap();
+        one.save_default_shell(&path, Some("windows-cmd")).unwrap();
+        let mut other_ssh = one.get("custom-ssh").unwrap().clone();
+        other_ssh.args.push("foreign-option-preserved".into());
+        let index = one
+            .profiles
+            .iter()
+            .position(|profile| profile.id == other_ssh.id)
+            .unwrap();
+        one.profiles[index] = other_ssh.clone();
+        one.save(&path).unwrap();
+        let mut locals = local_snapshot(&baseline);
+        let mut second = created.clone();
+        second.name = "Second independent window".into();
+        locals.push(second);
+        let mut merged =
+            ProfileManager::save_local_profiles(&path, &baseline, locals, None).unwrap();
+        assert_eq!(
+            merged.default_shell_profile_id.as_deref(),
+            Some("windows-cmd")
+        );
+        assert_eq!(merged.get("custom-ssh"), Some(&other_ssh));
+        assert_eq!(merged.get("local-1"), Some(&created));
+        assert_eq!(
+            merged.get("local-2").unwrap().name,
+            "Second independent window"
+        );
+        let mut edited = merged.get("local-2").unwrap().clone();
+        edited.args.push("/D".into());
+        merged.save_local_profile(&path, edited.clone()).unwrap();
+        assert_eq!(merged.get("local-2"), Some(&edited));
+        merged.delete_local_profile(&path, "local-2").unwrap();
+        assert!(merged.get("local-2").is_none());
+        assert_eq!(merged.get("custom-ssh"), Some(&other_ssh));
+        cleanup_ssh_fixture(&directory);
+    }
+
+    #[test]
+    fn local_stale_edits_deletions_and_default_shell_conflicts_leave_disk_unchanged() {
+        let directory = unique_temp_dir();
+        let path = directory.join("profiles.json");
+        let mut baseline = ProfileManager::discover_with_powershell7(None);
+        baseline
+            .profiles
+            .push(sample("local-1", "cmd.exe", vec!["/Q".into()]));
+        baseline.save(&path).unwrap();
+        let mut other = baseline.clone();
+        let mut changed = other.get("local-1").unwrap().clone();
+        changed.name = "other window".into();
+        other.save_local_profile(&path, changed).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let mut stale = baseline.clone();
+        assert!(stale.delete_local_profile(&path, "local-1").is_err());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert_eq!(stale.profiles, baseline.profiles);
+        let mut changed = baseline.get("local-1").unwrap().clone();
+        changed.name = "stale edit".into();
+        assert!(stale.save_local_profile(&path, changed).is_err());
+        other
+            .save_default_shell(&path, Some("windows-cmd"))
+            .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        assert!(stale
+            .save_default_shell(&path, Some("windows-powershell"))
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        fs::remove_file(&path).unwrap();
+        assert!(stale.save_default_shell(&path, None).is_err());
+        assert!(!path.exists());
+        cleanup_ssh_fixture(&directory);
+    }
+
+    #[test]
+    fn local_deleted_shell_references_and_readonly_builtins_are_rejected() {
+        let directory = unique_temp_dir();
+        let path = directory.join("profiles.json");
+        let mut baseline = ProfileManager::discover_with_powershell7(None);
+        let shell = sample("local-1", "cmd.exe", vec!["/Q".into()]);
+        let mut target = sample("local-2", "cmd.exe", vec!["/C".into(), "echo".into()]);
+        target.launch.shell_profile_id = Some(shell.id.clone());
+        target.launch.mode = crate::launch_profile::LaunchMode::Shell;
+        baseline.profiles.extend([shell, target]);
+        baseline.save(&path).unwrap();
+        assert!(baseline.delete_local_profile(&path, "windows-cmd").is_err());
+        assert!(baseline.delete_local_profile(&path, "local-1").is_err());
+        let original = baseline.get("windows-cmd").unwrap().clone();
+        let mut changed = original.clone();
+        changed.name = "cannot overwrite a built in".into();
+        assert!(baseline.save_local_profile(&path, changed).is_err());
+        baseline.merge_discovered_profiles([sample("windows-cmd", "wrong.exe", Vec::new())]);
+        assert_eq!(baseline.get("windows-cmd"), Some(&original));
+        let duplicate = baseline
+            .duplicate_local_profile("windows-cmd", "My shell")
+            .unwrap();
+        assert!(!is_builtin_profile(&duplicate));
+        assert_eq!(
+            duplicate.launch.adapter,
+            crate::tui_adapters::AdapterKind::Shell
+        );
+        cleanup_ssh_fixture(&directory);
+    }
+
+    #[test]
+    fn atomic_local_save_rejects_busy_lock_and_malformed_storage() {
+        let directory = unique_temp_dir();
+        let path = directory.join("profiles.json");
+        let baseline = ProfileManager::discover_with_powershell7(None);
+        baseline.save(&path).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let lock = ConfigLock::acquire(&path).unwrap();
+        assert!(ProfileManager::save_local_profiles(
+            &path,
+            &baseline,
+            local_snapshot(&baseline),
+            None
+        )
+        .unwrap_err()
+        .contains("занято"));
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        drop(lock);
+        fs::write(&path, b"{broken file").unwrap();
+        assert!(ProfileManager::save_local_profiles(
+            &path,
+            &baseline,
+            local_snapshot(&baseline),
+            None
+        )
+        .is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"{broken file");
+        cleanup_ssh_fixture(&directory);
+    }
+
+    #[test]
+    fn local_new_shell_collision_remaps_references_without_overwriting_a_foreign_default() {
+        let directory = unique_temp_dir();
+        let path = directory.join("profiles.json");
+        let baseline = ProfileManager::discover_with_powershell7(None);
+        baseline.save(&path).unwrap();
+        let mut other = baseline.clone();
+        other
+            .save_local_profile(&path, sample("local-1", "cmd.exe", vec!["/Q".into()]))
+            .unwrap();
+        let mut locals = local_snapshot(&baseline);
+        locals.push(sample("local-1", "cmd.exe", vec!["/Q".into()]));
+        let mut target = sample("local-2", "cmd.exe", vec!["/C".into(), "echo".into()]);
+        target.launch.mode = crate::launch_profile::LaunchMode::Shell;
+        target.launch.shell_profile_id = Some("local-1".into());
+        locals.push(target);
+        let merged = ProfileManager::save_local_profiles(
+            &path,
+            &baseline,
+            locals.clone(),
+            Some("local-1".into()),
+        )
+        .unwrap();
+        assert_eq!(merged.default_shell_profile_id.as_deref(), Some("local-3"));
+        assert_eq!(
+            merged
+                .get("local-2")
+                .unwrap()
+                .launch
+                .shell_profile_id
+                .as_deref(),
+            Some("local-3")
+        );
+        // A foreign selection of local-1 is not the same choice as our newly
+        // allocated shell, even though both editors initially used that id.
+        other.save(&path).unwrap();
+        other.save_default_shell(&path, Some("local-1")).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        assert!(ProfileManager::save_local_profiles(
+            &path,
+            &baseline,
+            locals,
+            Some("local-1".into())
+        )
+        .is_err());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        cleanup_ssh_fixture(&directory);
     }
 
     #[test]
@@ -1102,6 +1732,7 @@ mod tests {
         let valid = serde_json::to_value(ProfilesFile {
             schema_version: SCHEMA_VERSION,
             default_profile_id: manager.default_profile_id.clone(),
+            default_shell_profile_id: manager.default_shell_profile_id.clone(),
             profiles: manager.profiles.clone(),
         })
         .unwrap();

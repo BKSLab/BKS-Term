@@ -158,7 +158,24 @@ fn snap(document: &ReadingDocument, offset: u32, forward: bool) -> u32 {
                 cell.start
             }
         }
-        _ => offset,
+        _ => {
+            // A rich/native text control may return the offset between CR
+            // and LF. Preserve hard line breaks as one navigation unit, just
+            // as surrogate pairs and combining glyphs above remain whole.
+            let line = document.lines.partition_point(|line| line.start <= offset);
+            let previous = line
+                .checked_sub(1)
+                .and_then(|index| document.lines.get(index));
+            if let Some(previous) = previous.filter(|line| offset > line.end) {
+                if forward {
+                    document.lines.get(line).map_or(offset, |line| line.start)
+                } else {
+                    previous.end
+                }
+            } else {
+                offset
+            }
+        }
     }
 }
 
@@ -346,6 +363,42 @@ fn find_selected_span(
 mod tests {
     use super::*;
     use bks_terminal::TerminalModel;
+
+    #[test]
+    fn native_offsets_inside_crlf_snap_to_a_whole_hard_line_break() {
+        let first = document("a\r\nЖ🙂e\u{301}", 1, false);
+        let mut state = ReadingState::default();
+        state.capture(&first, (2, 2), 2, false);
+        let restored = state.restore(&first);
+        assert_eq!(restored.selection, (1, 1));
+        assert_eq!(restored.viewport_offset, 1);
+        state.capture(&first, (0, 2), 2, false);
+        assert_eq!(state.restore(&first).selection, (0, 3));
+        state.capture(&first, (2, 0), 2, false);
+        assert_eq!(state.restore(&first).selection, (0, 3));
+    }
+
+    #[test]
+    fn streaming_append_preserves_a_selection_across_hard_break_and_unicode() {
+        let first = document("head\r\nЖ🙂e\u{301}\r\ntail", 1, false);
+        let mut state = ReadingState::default();
+        let selection = selected(&first, "\r\nЖ🙂e\u{301}");
+        state.capture(&first, selection, 6, false);
+        for revision in 2..7 {
+            let next = document(
+                &format!(
+                    "head\r\nЖ🙂e\u{301}\r\ntail{}",
+                    "x".repeat(revision as usize)
+                ),
+                revision,
+                false,
+            );
+            let restored = state.restore(&next);
+            assert_eq!(restored.selection, selection);
+            assert_eq!(restored.viewport_offset, 6);
+            assert!(!restored.follow);
+        }
+    }
 
     #[test]
     fn removed_selection_does_not_jump_to_an_isolated_duplicate_in_new_tail() {

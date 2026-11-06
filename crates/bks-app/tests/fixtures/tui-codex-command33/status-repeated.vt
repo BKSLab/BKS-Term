@@ -1,0 +1,207 @@
+[?9001h[?1004h[?2004h[?25l[2J[m[H]0;C:\Users\user\AppData\Roaming\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe[?25h[?2026h[?25l[?1049h[?1003;1006h[?2026h[0 q[?2026l[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[K
+  [38;2;99;168;248m>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[K
+     [2mloading[22m[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K[1m
+›[22m [2mAsk Codex to do anything[22m[K
+[K
+[K
+  [1m?[22m for shortcuts[K[26;3H[?25h[?2026h[?2026l[?2026h[?2026l[?2026h[?25l[?2026l[?2026h[?2026l[?2026h[?2026l[2m[3;6H~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[26;3H[?25h[?2026h[?2026l[22m[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l]0;command33-status-repe...]7501;state=idle:app=codex\[?2026h[?2026l[?2026h[?2026l[?25l[38;2;246;226;183m[28;3Hbks-offline default[m[1C·[38;2;171;223;167m[1C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[m[29;76H⚠[38;2;196;167;103m[1C1 warning[m[1C·[1m[1Cf2[22m[1Cto[1Cview[26;3H[?25h[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?25l[1m[7m[23;1H› /status      [22mshow current session configuration and token usage[1m                                   [22m[27m[24;3H/[1mstatus[22mline[2m[2Cconfigure which items appear in the status line[22m[26;3H/status[K[29;2H[K[26;10H[?25h[?2026h[?25l[?2026l[38;5;5m[5;1H/status[38;2;99;168;248m[7;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[9;1H  Model:               [22mbks-offline[2m (reasoning none, summaries auto)
+  Model provider:      [22mbks-offline[2m
+  Directory:           [22m~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m
+  Permissions:         [22mRead[1COnly[1C(never)[2m
+  Agents.md:           [22m<none>[2m
+  Collaboration mode:  [22mDefault[2m
+  Session:             [22m01a1b152-655f-7be1-8ded-13b9b5a51afe[2m[17;1H  Token usage:         [22m0[1Ctotal[2m[1C (0 input + 0 output)
+  Limits:              data not available yet[22m[23;1H                                                                                                    [24;2H[K[2m[26;3HAsk Codex to do anything[22m[1m[29;3H?[22m[1Cfor[1Cshortcuts[58C⚠[38;2;196;167;103m[1C1 warning[m[1C·[1m[1Cf2[22m[1Cto[1Cview[26;3H[?25h[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?25lBK[K[29;3H [1C   [1C[9X[26;5H[?25h[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026lS_[?2026h[?2026l[?2026h[?2026l[?2026h[?2026lCO[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026lMMAN[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026lD33[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l_FIR[?2026h[?2026l[?2026h[?2026lS[?2026h[?2026lT[?2026h[?2026l]7501;state=working:app=codex\[?2026h[?2026l[?25l[1m[2m[21;1H› [22mBKS_COMMAND33_FIRST[2m[26;3HAsk Codex to do anything[22m[1m[29;3H?[22m[1Cfor[1Cshortcuts[26;3H[?25h[?2026h[?2026l[?2026h[?2026l[?25l[29;75H⚠ [38;2;196;167;103m2 warnings[26;3H[?25h[?2026h[?2026l[m[?2026h[?25l[?2026l[38;2;99;168;248m[1;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[2;3H   [2m~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[22m[3;2H[K[38;5;5m
+/status[m
+[K[38;2;99;168;248m[6;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[7;2H[K[2m
+  Model:               [22mbks-offline[2m (reasoning none, summaries auto)[9;8H provider:[22m[17C[K[2m[10;3HDir[1Ccto[1Cy:     [22m[6C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[11;3HPe[1Cmissions:[22m[9CRead Only (never)[K[2m[12;3HAgent[1C.md:  [22m[9C<none>[K[2m[13;3HCollaboration[1Cmode:[22m[2CDefault[2m[14;3HSession:     [1C     [22m[2C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m
+  Token usage:         [22m0[1Ctotal[2m[1C (0 input + 0 output)[17;3HLimits:     [9Cdata not[1Cava[1Clable yet[22m[K
+[K[1m[2m[20;1H› [22mBKS_COMMAND33_FIRST
+[K[23;1HWorking[2m[1C(0s • [22m[1mesc[22m[2m to interrupt)[26;3H[?25h[?2026h[22m[?25l[?2026l[2m[23;1H• [22mBKS_CODEX_RESPONSE_1_BEG                                                                          [26;3H[?25h[?2026h[?25l[?2026l[1;2H[K[38;2;99;168;248m[2;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[K[2m[3;6H~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[22m
+[K[38;5;5m
+/status[m[6;2H[K[38;2;99;168;248m[7;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m
+[K[2m[9;8H:         [17C (reasoning none, summaries auto)[10;3HMod[1Cl p[1Covider:[22m[6Cbks-offline[K[2m[11;3HDi[1Cectory:  [22m[9C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[12;3HPermi[1Csions:[22m[9CRead Only[1C(never)[2m[13;3HAgents.md:   [1C     [22m[2C<none>[K[2m[14;3HCollaboration[1Cmode:[22m[2CDefault[K[2m
+  Session:             [22m01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m[17;3HToken usage:[22m[9C0 total [2m[1C(0 [1Cnput + 0 output)
+  Limits:              data not available yet[22m[20;1H[K[1m[2m
+› [22mBKS_COMMAND33_FIRST[23;1H  Fixed answer 1: Ж界🙂.                                                                            [26;3H[?25h[?2026h[?25l[?2026l[?2026h[?2026l[38;5;5m[H/status[m[2;2H[K[38;2;99;168;248m[3;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[K[2m[5;1H  Model:               [22mbks-offline[2m (reasoning none, summaries auto)
+  Model provider:      [22mbks-offline[2m
+  Directory:     [1C     [22m~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m
+  Permissions:         [22mRead[1COnly[1C(never)[2m[9;3HAgents.md:[22m[11C<none>[K[2m[10;3HC[1Cllabo[1Cat[1Con mode:[22m[2CDefault[K[2m[11;3HSession:  [22m[11C01a1b152-655f-7be1-8ded-1[1Cb9b5a51afe[K
+[K[2m[13;3HToken usage:[22m[9C0 total[2m[1C (0 input + 0 output)[14;3HLimits:      [1C     [2Cdata not available yet[22m
+[K[1m[2m[17;1H› [22mBKS_COMMAND33_FIRST[K
+[K[2m[20;1H• [22mBKS_CODEX_RESPONSE_1_BEGIN
+[K[22;3HFixed[1Canswer[1C1:[1CЖ界🙂.[23;3HBKS_CODEX_RESPONSE_1_END[26;3H[?25h[?2026h[?2026l[?25l[H[K[38;2;99;168;248m[2;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[3;2H[K[2m
+  Model:               [22mbks-offline[2m (reasoning none, summaries auto)[5;8H provider:[22m[17C[K[2m[6;3HDir[1Ccto[1Cy:     [22m[6C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[7;3HPe[1Cmissions:[22m[9CRead Only (never)[K[2m[8;3HAgent[1C.md:  [22m[9C<none>[K[2m[9;3HCollaboration[1Cmode:[22m[2CDefault[2m[10;3HSession:     [1C     [22m[2C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m
+  Token usage:         [22m0[1Ctotal[2m[1C (0 input + 0 output)[13;3HLimits:     [9Cdata not[1Cava[1Clable yet[22m[K
+[K[1m[2m[16;1H› [22mBKS_COMMAND33_FIRST
+[K[2m[19;1H• [22mBKS_CODEX_RESPONSE_1_BEGIN
+[K[21;3HFixed[1Canswer[1C1:[1CЖ界🙂.[22;2H[K[26;3H[?25h[?2026h[?2026l[?2026h[?2026l]7501;state=done:app=codex\[?2026h[?2026l[?25l[2m[2;1H  Model:         [1C     [22mbks-offline[2m (reasoning none, summaries auto)
+  Model provider:      [22mbks-offline[2m[4;3HDir[1Cctory:[22m[11C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[5;3HPermissi[1Cns:   [22m[6CRead On[1Cy (never)[2m[6;3HAgents.md[22m[12C<none>[K[2m[7;3HCollaboration[1Cmode:[22m[2CD[1Cfault[K[2m[8;3HSession:  [22m[11C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m[10;3HToken usage:[22m[10C total [2m (0 input + 0 output)[22m[K[2m
+  Limits:              data not available yet[22m
+[K
+[K[1m[2m
+› [22mBKS_COMMAND33_FIRST[16;1H[K[2m
+• [22mBKS_CODEX_RESPONSE_1_BEGIN[19;1H  Fixed answer 1: Ж界🙂.[K[21;3HBKS_CODEX_RESPONSE_1_END[2m[23;1H  Worked for <1s • 18:45                                                                            [26;3H[?25h[?2026h[22m[?2026l]7501;state=idle:app=codex\[?2026h[?2026l[?25l[1m[7m[17;1H› /model         [22mchoose what model and reasoning effort to use[1m                                      [22m[27m[18;3H/presets[2m[7Crun or save reusable prompts and slash commands[22m[19;3H/[1Cd[1C [1C      [1C  [2minclude current selection, open files, and other context from your IDE[22m[20;3H/permissions[2m[3Cchoose what Codex is allowed to do[22m[21;3H/keymap        [2mremap TUI shortcuts[22m[22;3H/vim[2m[11Ctoggle Vim mode for the composer[22m
+  /experimental  [2mtoggle experimental[1Cfeatures[22m                                                       [24;3H/approve[2m[7Capprove one retry of a recent auto-review denial[22m[26;3H/[K[29;2H[K[26;4H[?25h[?2026h[?2026l[?25l[2m[17;1H• [22mBKS_CODEX_RESPONSE_1_BEGIN                                                                        [18;2H[K[19;3HF[1Cx[1Cd[1Canswer[1C1: Ж界🙂.[K[20;2H[K[21;3HBKS_CODEX_RESPONSE_1_END[K[22;2H[K[1m[7m
+› /status      [22mshow current session configuration and token usage[1m                                   [27m[24;4Hstatus[22mline[2m[2Cconfigur[2Cwhich items appear in[1Cthe status line[22m[K[26;4Hstatus[?25h[?2026h[?25l[?2026l[1m[2m[H› [22mBKS_COMMAND33_FIRST
+[K
+  Fixed answer 1: Ж界🙂.[K
+[K
+  BKS_CODEX_RESPONSE_1_END[K
+[K[2m[7;3HW[1Crked for <1s • 18:45                                                                            [22m
+[K[38;5;5m
+/status[m
+[K
+  [38;2;99;168;248m>_ [m[1mOpenAI Codex[22m[2m[1C(v0.164.0)[22m[K[2m[13;1H  Model:               [22mbks-offline[2m (reasoning none, summaries auto)
+  Model provider:      [22mbks-offline[2m
+  Directory:           [22m~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m
+  Permissions:         [22mRead[1COnly[1C(never)[2m
+ [1CAgents.md:           [22m<none>[2m
+  Collaboration mode:  [22mDefault[2m
+  Session:             [22m01a1b152-655f-7be1-8ded-13b9b5a51afe[2m[21;1H  Token usage:         [22m112[1Ctotal[2m[1C (64 input + 48 output)
+  Context window:      [22m100%[1Cleft[2m (112 used / 258K)
+  Limits:              data not available yet[22m                                                       [24;2H[K[2m[26;3HAsk Codex to do anything[22m[1m[29;3H?[22m[1Cfor[1Cshortcuts[57C⚠[38;2;196;167;103m[1C2 warnings[m[1C·[1m[1Cf2[22m[1Cto[1Cview[26;3H[?25h[?2026h[?2026l[?2026h[?2026l[?25l[1m[7m[19;1H› /skills      [22muse skills to improve how Codex performs specific tasks[1m                              [22m[27m[20;3H/[1ms[22mide[2m[8Cstart a side conversation in an ephemeral fork[22m
+  /[1ms[22mtatus      [2mshow[1Ccurrent session configuration and [1Coken usage[22m
+  /[1ms[22mtatusline  [2mconfigure which items app[1Car in the status line[22m
+  /[1ms[22mtop        [2mstop[1Call background terminals[22m                                                        [24;3H/[1ms[22mubagents[2m[3Cswitch between this session's subagents[22m[26;3H/s[K[29;2H[K[26;5H[?25h[?2026h[?2026l[?25l[2m[19;1H  Session:             [22m01a1b152-655f-7be1-8ded-13b9b5a51afe                                         [20;2H[K[2m
+  Token usage:     [1C   [22m112 total [2m (64 input + 48 outpu[1C)[22m[K[2m
+  Context window:      [22m100% left[2m (112 us[1Cd / 258K)[22m[K[1m[7m
+› /status      [22mshow current session configuration and token usage[1m                                   [27m[24;5Htatus[22mline[2m[2Cconfigur[1C [1Chich item[1C appear in the s[1Catus line[22m[26;5Htatus[?25h[?2026h[?25l[?2026l[2m[2;1H  Collaboration mode:  [22mDefault[2m
+  Session:             [22m01a1b152-655f-7be1-8ded-13b9b5a51afe[2m[5;1H  Token usage:         [22m112[1Ctotal[2m[1C (64 input + 48 output)
+  Context window:      [22m100%[1Cleft[2m (112 used / 258K)[7;3HLimits:   [1C   [1C [1C    data[1Cnot[1Cavailable[1Cyet[22m                                                       [2m[23;1H  Limits:              data not available yet[22m                                                       [24;2H[K[2m[26;3HAsk Codex to do anything[22m[1m[29;3H?[22m[1Cfor[1Cshortcuts[57C⚠[38;2;196;167;103m[1C2 warnings[m[1C·[1m[1Cf2[22m[1Cto[1Cview[26;3H[?25h[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?25lBKS[K[29;3H [1C   [1C[9X[26;6H[?25h[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l_COM[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026l[?2026h[?2026lMAND33_SECON[?2026h[?25l[?2026lD[?25h[?2026h[?2026l]7501;state=working:app=codex\[?2026h[?2026l[?25l[2m[2;5Hntext window:    [22m[2C100% [1Ceft[2m (112 used / 258K)[3;3HLimits: [13Cdata not available yet[22m[K[38;5;5m[5;1H/status[K[m
+[K
+  [38;2;99;168;248m>_ [m[1mOpenAI Codex[22m[2m[1C(v0.164.0)[22m                                                                        [2m[9;1H  Model:               [22mbks-offline[2m (reasoning none, summaries auto)
+  Model provider:      [22mbks-offline[2m
+  Directory:     [1C     [22m~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m
+  Permissions:         [22mRead[1COnly[1C(never)[2m[13;3HAgents.md:[22m[11C<none>[K[2m[14;3HC[1Cllabo[1Cat[1Con mode:[22m[2CDefault[K[2m[15;3HSession:  [22m[11C01a1b152-655f-7be1-8ded-1[1Cb9b5a51afe[K
+[K[2m[17;3HToken usage:[22m[9C112 total[2m[1C (64 input + 48 output)[18;5Hntext window:    [22m[2C100% [1Ceft[2m (112 used / 258K)[19;3HLimits: [13Cdata not available yet[22m                                                       [21;1H[K[1m[2m
+› [22mBKS_COMMAND33_SECOND[K
+                                                                                                    [2m[26;3HAsk Codex to do anything[22m[1m[29;3H?[22m[1Cfor[1Cshortcuts[26;3H[?25h[?2026h[?2026l[?2026h[?25l[?2026l[2;1H[K[38;5;5m
+/status[K[m[5;1H  [38;2;99;168;248m>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[7;1H  Model:         [1C     [22mbks-offline[2m (reasoning none, summaries auto)
+  Model provider:      [22mbks-offline[2m[9;3HDir[1Cctory:[22m[11C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[10;3HPermissi[1Cns:   [22m[6CRead On[1Cy (never)[2m[11;3HAgents.md[22m[12C<none>[K[2m[12;3HCollaboration[1Cmode:[22m[2CD[1Cfault[K[2m[13;3HSession:  [22m[11C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m[15;3HToken usage:[22m[9C1[1C2 total [2m (64 input + 48 output)[22m[K[2m
+  Context window:      [22m100%[1Cleft[2m (112 used / 258K)[17;3HLimits:     [9Cdata not available yet[22m                                                       
+[K
+                                                                                                    [1m[2m› [22mBKS_COMMAND33_SECOND[22;1H[K
+Working[2m[1C(0s • [22m[1mesc[22m[2m to interrupt)[26;3H[?25h[?2026h[22m[?25l[?2026l[2m[23;1H• [22mBKS_CODEX_RESPONSE_2_BEG                                                                          [26;3H[?25h[?2026h[?25l[?2026l[?2026h[?2026l[38;5;5m[2;1H/status[K[m
+[K
+  [38;2;99;168;248m>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[5;2H[K[2m
+  Model:               [22mbks-offline[2m (reasoning none, summaries auto)
+  Model provider:      [22mbks-offline                                                                  [2m[8;3HDir[1Cctory:     [22m[6C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[9;3HPermissions:   [22m[6CRead Only (never)[K[2m[10;3HAgents.md:  [22m[9C<none>[K[2m[11;3HCollaboration[1Cmode:[22m[2CDefault[K[2m[12;3HSession:     [1C     [22m[2C01a1b152-655f-7be1-8ded-13b9b5a51afe[K
+[K[2m
+  Token usage:         [22m112 total [2m (64 input + 48 output)[22m[K[2m
+  Context window:      [22m100% left[2m (112 used / 258K)[22m[K[2m[16;3HLimits:        [6Cdata not available yet[22m[K
+                                                                                                    
+[K[1m[2m
+› [22mBKS_COMMAND33_SECOND
+[K
+[K[2m
+• [22mBKS_CODEX_RESPONSE_2_BEGIN
+  Fixed answer 2: Ж界🙂.                                                                            [26;3H[?25h[?2026h[?25l[?2026l[2;1H[K[38;2;99;168;248m[3;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[4;2H[K[2m
+  Model:               [22mbks-offline[2m (reasoning none, summaries auto)[6;8H provider:[22m[17C[K[2m[7;3HDir[1Ccto[1Cy:     [22m[6C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[8;3HPe[1Cmissions:[22m[9CRead Only (never)[K[2m[9;3HAgent[1C.md:  [22m[9C<none>[K[2m[10;3HCollaboration[1Cmode:[22m[2CDefault[2m[11;3HSession:     [1C     [22m[2C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m
+  Token usage:         [22m112[1Ctotal[2m[1C (64 input + 48 output)[14;3HC[1Cntext window:[22m[7C00% left[2m (112[1Cused / 25[1CK)[22m[K[2m[15;3HLimits:[1C       [6Cdata not availabl[1C yet[22m[K
+[K[1m[2m[18;1H› [22mBKS_COMMAND33_SECOND
+                                                                                                    [2m[21;1H• [22mBKS_CODEX_RESPONSE_2_BEGIN
+[K[23;3HBKS_CODEX_RESPONSE_2_E[26;3H[?25h[?2026h[?2026l[?25l[38;2;99;168;248m[2;3H>_ [m[1mOpenAI Codex[22m[2m (v0.164.0)[22m[3;2H[K[2m
+  Model:               [22mbks-offline[2m (reasoning none, summaries auto)[5;8H provider:[22m[17C[K[2m[6;3HDir[1Ccto[1Cy:     [22m[6C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[7;3HPe[1Cmissions:[22m[9CRead Only (never)                                                            [2m[8;3HAgent[1C.md:  [22m[9C<none>[K[2m[9;3HCollaboration[1Cmode:[22m[2CDefault[2m[10;3HSession:     [1C     [22m[2C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m
+  Token usage:         [22m112[1Ctotal[2m[1C (64 input + 48 output)[13;3HC[1Cntext window:[22m[7C00% left[2m (112[1Cused / 25[1CK)[22m[K[2m[14;3HLimits:[1C       [6Cdata not availabl[1C yet[22m[K
+[K[1m[2m[17;1H› [22mBKS_COMMAND33_SECOND
+[K[2m[20;1H• [22mBKS_CODEX_RESPONSE_2_BEGIN
+[K[22;3HFixed[1Canswer[1C2:[1CЖ界🙂.[26;3H[?25h[?2026h[?2026l[?2026h[?2026l[?25l[23;25HND[26;3H[?25h[?2026h[?25l[?2026l[2;2H[K[2m
+  Model:               [22mbks-offline[2m (reasoning none, summaries auto)[4;8H provider:[22m[17C[K[2m[5;3HDir[1Ccto[1Cy:     [22m[6C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[6;3HPe[1Cmissions:[22m[9CRead Only (never)[K[2m[7;3HAgent[1C.md:  [22m[9C<none>                                                                       [2m[8;3HCollaboration[1Cmode:[22m[2CDefault[2m[9;3HSession:     [1C     [22m[2C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m
+  Token usage:         [22m112[1Ctotal[2m[1C (64 input + 48 output)[12;3HC[1Cntext window:[22m[7C00% left[2m (112[1Cused / 25[1CK)[22m[K[2m[13;3HLimits:[1C       [6Cdata not availabl[1C yet[22m[K
+[K[1m[2m[16;1H› [22mBKS_COMMAND33_SECOND
+                                                                                                    [2m[19;1H• [22mBKS_CODEX_RESPONSE_2_BEGIN
+[K[21;3HFixed[1Canswer[1C2:[1CЖ界🙂.[22;2H[K[26;3H[?25h[?2026h[?2026l]7501;state=done:app=codex\[?2026h[?2026l[?25l[2m[2;1H  Model provider:      [22mbks-offline[2m[3;3HDir[1Cctory:[22m[11C~\AppData\Local\Temp\BKSC33\command33-status-repeat-1793976328806-22544[2m[4;3HPermissi[1Cns:   [22m[6CRead On[1Cy (never)[2m[5;3HAgents.md[22m[12C<none>[K[2m[6;3HCollaboration[1Cmode:[22m[2CD[1Cfault[K[2m[7;3HSession:  [22m[11C01a1b152-655f-7be1-8ded-13b9b5a51afe
+[K[2m[9;3HToken usage:[22m[9C1[1C2 total [2m (64 input + 48 output)[22m[K[2m
+  Context window:      [22m100%[1Cleft[2m (112 used / 258K)[11;3HLimits:     [9Cdata not available yet[22m[K
+[K
+[K[1m[2m
+› [22mBKS_COMMAND33_SECOND[16;1H[K[2m
+• [22mBKS_CODEX_RESPONSE_2_BEGIN[19;1H  Fixed answer 2: Ж界🙂.                                                                            [21;3HBKS_CODEX_RESPONSE_2_END[2m[23;1H  Worked for <1s • 18:45                                                                            [26;3H[?25h[?2026h[22m[?2026l]7501;state=idle:app=codex\[?2026h[?2026l[?25l[1m[7m[17;1H› /model         [22mchoose what model and reasoning effort to use[1m                                      [22m[27m[18;3H/presets[2m[7Crun or save reusable prompts and slash commands[22m[19;3H/[1Cd[1C [1C      [1C  [2minclude current selection, open files, and other context from your IDE[22m[20;3H/permissions[2m[3Cchoose what Codex is allowed to do[22m[21;3H/keymap        [2mremap TUI shortcuts[22m[22;3H/vim[2m[11Ctoggle Vim mode for the composer[22m
+  /experimental  [2mtoggle experimental[1Cfeatures[22m                                                       [24;3H/approve[2m[7Capprove one retry of a recent auto-review denial[22m[26;3H/[K[29;2H[K[26;4H[?25h[?2026h[?2026l[?25l[2m[17;1H• [22mBKS_CODEX_RESPONSE_2_BEGIN                                                                        [18;2H[K[19;3HF[1Cx[1Cd[1Canswer[1C2: Ж界🙂.                                                                            [20;2H[K[21;3HBKS_CODEX_RESPONSE_2_END[K[22;2H[K[2m
+  Worked for <1s • 18:45            [1C                                                               [22m[1m[7m› /quit  [22mexit Codex[1m                                                                                 [22m[27m[26;4Hquit[?25h[?2026h[?25l[?2026l[24;1H                                                                                                    [2m[26;1H›[1CShutting down...]0;[?1003;1006l[22m[H[K
+[K
+[K
+[K
+[K
+[K
+                                                                                                    
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+                                                                                                    
+[K
+                                                                                                    
+[K
+[K
+[K
+                                                                                                                                                                                                        
+[K
+[K
+[K
+[K
+[K[100C[?1049l[?2004l[0 q]7501;state=clear\[0 q[HToken usage: total=224 input=128 output=96[K
+To continue this session, run:[K
+  [36mcodex resume 01a1b152-655f-7be1-8ded-13b9b5a51afe[K[m
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K[4;1H[?25h

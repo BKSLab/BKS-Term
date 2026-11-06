@@ -1,0 +1,360 @@
+{
+  "columns": 100,
+  "rows": 29,
+  "events": [
+    {
+      "at_ms": 10,
+      "end_byte": 16,
+      "kind": "poll",
+      "start_byte": 0
+    },
+    {
+      "at_ms": 684,
+      "end_byte": 324,
+      "kind": "poll",
+      "start_byte": 16
+    },
+    {
+      "at_ms": 698,
+      "end_byte": 3431,
+      "kind": "poll",
+      "start_byte": 324
+    },
+    {
+      "at_ms": 1706,
+      "end_byte": 6300,
+      "kind": "poll",
+      "start_byte": 3431
+    },
+    {
+      "at_ms": 1727,
+      "end_byte": 6387,
+      "kind": "poll",
+      "start_byte": 6300
+    },
+    {
+      "at_ms": 1800,
+      "end_byte": 8136,
+      "kind": "poll",
+      "start_byte": 6387
+    },
+    {
+      "at_ms": 1811,
+      "end_byte": 8152,
+      "kind": "poll",
+      "start_byte": 8136
+    },
+    {
+      "at_ms": 1821,
+      "end_byte": 8240,
+      "kind": "poll",
+      "start_byte": 8152
+    },
+    {
+      "at_ms": 1842,
+      "end_byte": 8416,
+      "kind": "poll",
+      "start_byte": 8240
+    },
+    {
+      "at_ms": 1852,
+      "end_byte": 8435,
+      "kind": "poll",
+      "start_byte": 8416
+    },
+    {
+      "at_ms": 1863,
+      "end_byte": 8615,
+      "kind": "poll",
+      "start_byte": 8435
+    },
+    {
+      "at_ms": 1873,
+      "end_byte": 8631,
+      "kind": "poll",
+      "start_byte": 8615
+    },
+    {
+      "at_ms": 1884,
+      "end_byte": 8832,
+      "kind": "poll",
+      "start_byte": 8631
+    },
+    {
+      "at_ms": 1895,
+      "end_byte": 9017,
+      "kind": "poll",
+      "start_byte": 8832
+    },
+    {
+      "at_ms": 1906,
+      "end_byte": 9033,
+      "kind": "poll",
+      "start_byte": 9017
+    },
+    {
+      "at_ms": 1916,
+      "end_byte": 9221,
+      "kind": "poll",
+      "start_byte": 9033
+    },
+    {
+      "at_ms": 1927,
+      "end_byte": 9426,
+      "kind": "poll",
+      "start_byte": 9221
+    },
+    {
+      "at_ms": 1937,
+      "end_byte": 9442,
+      "kind": "poll",
+      "start_byte": 9426
+    },
+    {
+      "at_ms": 1948,
+      "end_byte": 9631,
+      "kind": "poll",
+      "start_byte": 9442
+    },
+    {
+      "at_ms": 1958,
+      "end_byte": 9836,
+      "kind": "poll",
+      "start_byte": 9631
+    },
+    {
+      "at_ms": 1979,
+      "end_byte": 9855,
+      "kind": "poll",
+      "start_byte": 9836
+    },
+    {
+      "at_ms": 1990,
+      "end_byte": 10057,
+      "kind": "poll",
+      "start_byte": 9855
+    },
+    {
+      "at_ms": 2001,
+      "end_byte": 10210,
+      "kind": "poll",
+      "start_byte": 10057
+    },
+    {
+      "kind": "input",
+      "at_ms": 4584,
+      "bytes": [
+        208,
+        191
+      ]
+    },
+    {
+      "at_ms": 4605,
+      "end_byte": 10271,
+      "kind": "poll",
+      "start_byte": 10210
+    },
+    {
+      "at_ms": 4626,
+      "end_byte": 10274,
+      "kind": "poll",
+      "start_byte": 10271
+    },
+    {
+      "kind": "input",
+      "at_ms": 4820,
+      "bytes": [
+        209,
+        128
+      ]
+    },
+    {
+      "at_ms": 4841,
+      "end_byte": 10330,
+      "kind": "poll",
+      "start_byte": 10274
+    },
+    {
+      "kind": "input",
+      "at_ms": 5051,
+      "bytes": [
+        208,
+        184
+      ]
+    },
+    {
+      "at_ms": 5072,
+      "end_byte": 10383,
+      "kind": "poll",
+      "start_byte": 10330
+    },
+    {
+      "at_ms": 5082,
+      "end_byte": 10386,
+      "kind": "poll",
+      "start_byte": 10383
+    },
+    {
+      "kind": "input",
+      "at_ms": 5286,
+      "bytes": [
+        208,
+        178
+      ]
+    },
+    {
+      "at_ms": 5297,
+      "end_byte": 10439,
+      "kind": "poll",
+      "start_byte": 10386
+    },
+    {
+      "kind": "input",
+      "at_ms": 5514,
+      "bytes": [
+        208,
+        181
+      ]
+    },
+    {
+      "at_ms": 5535,
+      "end_byte": 10495,
+      "kind": "poll",
+      "start_byte": 10439
+    },
+    {
+      "at_ms": 5546,
+      "end_byte": 10498,
+      "kind": "poll",
+      "start_byte": 10495
+    },
+    {
+      "kind": "input",
+      "at_ms": 5751,
+      "bytes": [
+        209,
+        130
+      ]
+    },
+    {
+      "at_ms": 5771,
+      "end_byte": 10551,
+      "kind": "poll",
+      "start_byte": 10498
+    },
+    {
+      "kind": "input",
+      "at_ms": 5982,
+      "bytes": [
+        3
+      ]
+    },
+    {
+      "at_ms": 6003,
+      "end_byte": 10667,
+      "kind": "poll",
+      "start_byte": 10551
+    },
+    {
+      "kind": "input",
+      "at_ms": 6427,
+      "bytes": [
+        47,
+        101,
+        120,
+        105,
+        116
+      ]
+    },
+    {
+      "at_ms": 6489,
+      "end_byte": 11421,
+      "kind": "poll",
+      "start_byte": 10667
+    },
+    {
+      "at_ms": 6500,
+      "end_byte": 11424,
+      "kind": "poll",
+      "start_byte": 11421
+    },
+    {
+      "kind": "input",
+      "at_ms": 7134,
+      "bytes": [
+        13
+      ]
+    },
+    {
+      "at_ms": 7155,
+      "end_byte": 11461,
+      "kind": "poll",
+      "start_byte": 11424
+    },
+    {
+      "at_ms": 7176,
+      "end_byte": 11670,
+      "kind": "poll",
+      "start_byte": 11461
+    }
+  ],
+  "phases": [
+    {
+      "name": "startup",
+      "at_ms": 4575,
+      "text": "",
+      "shell": false,
+      "caret": 0
+    },
+    {
+      "name": "typed0",
+      "at_ms": 4814,
+      "text": "п",
+      "shell": false,
+      "caret": 1
+    },
+    {
+      "name": "typed1",
+      "at_ms": 5043,
+      "text": "пр",
+      "shell": false,
+      "caret": 2
+    },
+    {
+      "name": "typed2",
+      "at_ms": 5278,
+      "text": "при",
+      "shell": false,
+      "caret": 3
+    },
+    {
+      "name": "typed3",
+      "at_ms": 5507,
+      "text": "прив",
+      "shell": false,
+      "caret": 4
+    },
+    {
+      "name": "typed4",
+      "at_ms": 5743,
+      "text": "приве",
+      "shell": false,
+      "caret": 5
+    },
+    {
+      "name": "typed5",
+      "at_ms": 5971,
+      "text": "привет",
+      "shell": false,
+      "caret": 6
+    },
+    {
+      "name": "cleared",
+      "at_ms": 6420,
+      "text": "",
+      "shell": false,
+      "caret": 0
+    }
+  ],
+  "source": "Installed OpenCode 2.0.32, isolated --standalone, BKS default palette, 100x29; literal typing привет, zero HTTP/tool/model requests, natural exit 0"
+}

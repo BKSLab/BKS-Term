@@ -1,8 +1,14 @@
+mod input_modes;
 mod reading_document;
+mod style_tracker;
+mod text_style;
 
 pub use reading_document::{ReadingCell, ReadingDocument, ReadingLine};
+pub use style_tracker::StyleTracker;
+pub use text_style::{StyleSpan, TextStyle};
 
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Scroll};
@@ -18,6 +24,7 @@ const SCROLLBACK_LINES: usize = 10_000;
 #[derive(Clone, Default)]
 struct ReplyListener {
     responses: Arc<Mutex<Vec<u8>>>,
+    default_colors: Arc<Mutex<Option<[Rgb; 3]>>>,
 }
 
 impl ReplyListener {
@@ -31,7 +38,30 @@ impl EventListener for ReplyListener {
     fn send_event(&self, event: Event) {
         // Only VT protocol replies may be sent back to the PTY. In particular,
         // clipboard, title and other OSC events never perform external actions.
-        if let Event::PtyWrite(response) = event {
+        let response = match event {
+            Event::PtyWrite(response) => Some(response),
+            Event::ColorRequest(index, format) => {
+                let slot = if index == NamedColor::Foreground as usize {
+                    Some(0)
+                } else if index == NamedColor::Background as usize {
+                    Some(1)
+                } else if index == NamedColor::Cursor as usize {
+                    Some(2)
+                } else {
+                    None
+                };
+                let color = slot.and_then(|slot| {
+                    self.default_colors
+                        .lock()
+                        .unwrap_or_else(|err| err.into_inner())
+                        .as_ref()
+                        .map(|colors| colors[slot])
+                });
+                color.map(|color| format(color))
+            }
+            _ => None,
+        };
+        if let Some(response) = response {
             let mut responses = self.responses.lock().unwrap_or_else(|err| err.into_inner());
             responses.extend_from_slice(response.as_bytes());
         }
@@ -142,6 +172,7 @@ pub struct InputModes {
     pub application_cursor: bool,
     pub application_keypad: bool,
     pub bracketed_paste: bool,
+    pub win32_input: bool,
 }
 
 pub struct TerminalModel {
@@ -151,6 +182,7 @@ pub struct TerminalModel {
     cols: usize,
     rows: usize,
     reading_revision: u64,
+    input_modes: input_modes::InputModeTracker,
 }
 
 impl TerminalModel {
@@ -176,6 +208,7 @@ impl TerminalModel {
             cols,
             rows,
             reading_revision: 0,
+            input_modes: input_modes::InputModeTracker::default(),
         }
     }
 
@@ -184,7 +217,74 @@ impl TerminalModel {
             return;
         }
         self.parser.advance(&mut self.term, bytes);
+        self.input_modes.push_bytes(bytes);
         self.reading_revision = self.reading_revision.wrapping_add(1);
+    }
+
+    /// Consume up to the first complete synchronized redraw, or the whole
+    /// slice when there is none. The parser's actual sync state is the proof;
+    /// matching a byte sequence inside OSC/DCS text is not a frame boundary.
+    pub fn push_bytes_until_frame(&mut self, bytes: &[u8]) -> (usize, bool) {
+        if bytes.is_empty() {
+            return (0, false);
+        }
+        let mut start = 0;
+        let mut pending = self.sync_pending();
+        for (index, byte) in bytes.iter().enumerate() {
+            // Both DECSET and DECRST must be observed, including when either
+            // sequence was split across PTY reads. Ordinary text stays batched.
+            if !matches!(byte, b'h' | b'l') {
+                continue;
+            }
+            self.parser.advance(&mut self.term, &bytes[start..=index]);
+            self.input_modes.push_bytes(&bytes[start..=index]);
+            start = index + 1;
+            let next = self.sync_pending();
+            if pending && !next {
+                self.reading_revision = self.reading_revision.wrapping_add(1);
+                return (start, true);
+            }
+            pending = next;
+        }
+        if start < bytes.len() {
+            self.parser.advance(&mut self.term, &bytes[start..]);
+            self.input_modes.push_bytes(&bytes[start..]);
+        }
+        self.reading_revision = self.reading_revision.wrapping_add(1);
+        (bytes.len(), false)
+    }
+
+    /// Publish the host's actual default colors for OSC 10/11/12 queries.
+    /// This only answers VT protocol requests; it never changes rendered text
+    /// or performs actions on behalf of terminal output.
+    pub fn set_default_colors(&mut self, foreground: Rgb, background: Rgb, cursor: Rgb) {
+        *self
+            .replies
+            .default_colors
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = Some([foreground, background, cursor]);
+    }
+
+    /// Publish an incomplete synchronized update only when its deadline expires.
+    /// The owner must call this while polling, including when no new PTY bytes
+    /// arrive. Protocol replies created by the flush remain in `drain_responses`.
+    pub fn expire_sync(&mut self, now: Instant) -> bool {
+        let expired = self
+            .parser
+            .sync_timeout()
+            .sync_timeout()
+            .is_some_and(|deadline| now >= deadline);
+        if !expired {
+            return false;
+        }
+        self.parser.stop_sync(&mut self.term);
+        self.reading_revision = self.reading_revision.wrapping_add(1);
+        true
+    }
+
+    /// A synchronized frame is buffered and cannot yet justify screen actions.
+    pub fn sync_pending(&self) -> bool {
+        self.parser.sync_timeout().sync_timeout().is_some()
     }
 
     pub fn resize(&mut self, cols: usize, rows: usize) {
@@ -296,6 +396,7 @@ impl TerminalModel {
             application_cursor: modes.contains(TermMode::APP_CURSOR),
             application_keypad: modes.contains(TermMode::APP_KEYPAD),
             bracketed_paste: modes.contains(TermMode::BRACKETED_PASTE),
+            win32_input: self.input_modes.win32(),
         }
     }
 
@@ -308,6 +409,64 @@ impl TerminalModel {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn synchronized_updates_publish_only_the_complete_frame_across_split_sequences() {
+        let mut model = TerminalModel::new(20, 3);
+        model.push_bytes(b"old\r");
+        let original = model.live_snapshot();
+        model.push_bytes(b"\x1b[?20");
+        model.push_bytes(b"26h\x1b[2Knew");
+        assert!(model.sync_pending());
+        let deadline = model.parser.sync_timeout().sync_timeout().unwrap();
+        assert_eq!(model.live_snapshot(), original);
+        assert!(!model.expire_sync(deadline - Duration::from_nanos(1)));
+        assert_eq!(model.live_snapshot(), original);
+        model.push_bytes(b" frame\x1b[?202");
+        assert_eq!(model.live_snapshot(), original);
+        model.push_bytes(b"6l");
+        assert!(!model.sync_pending());
+        assert!(model.visible_text().starts_with("new frame"));
+        let revision = model.reading_revision();
+        assert!(!model.expire_sync(deadline + Duration::from_secs(1)));
+        assert_eq!(model.reading_revision(), revision);
+    }
+
+    #[test]
+    fn synchronized_update_timeout_publishes_without_new_bytes_and_drains_replies_once() {
+        let mut model = TerminalModel::new(20, 3);
+        model.push_bytes(b"old\r\x1b[?2026h\x1b[2Knew\x1b[6n");
+        let deadline = model.parser.sync_timeout().sync_timeout().unwrap();
+        let revision = model.reading_revision();
+        assert!(model.visible_text().starts_with("old"));
+        assert!(model.drain_responses().is_empty());
+        assert!(model.expire_sync(deadline));
+        assert!(!model.sync_pending());
+        assert!(model.visible_text().starts_with("new"));
+        assert_eq!(model.reading_document().text, "new");
+        assert_eq!(model.reading_revision(), revision + 1);
+        assert_eq!(model.drain_responses(), b"\x1b[1;4R");
+        assert!(model.drain_responses().is_empty());
+        assert!(!model.expire_sync(deadline + Duration::from_secs(1)));
+        assert_eq!(model.reading_revision(), revision + 1);
+        model.push_bytes(b" suffix");
+        assert!(model.visible_text().starts_with("new suffix"));
+    }
+
+    #[test]
+    fn repeated_sync_begin_extends_the_deadline_without_publishing_partial_text() {
+        let mut model = TerminalModel::new(20, 3);
+        model.push_bytes(b"\x1b[?2026hfirst");
+        let first = model.parser.sync_timeout().sync_timeout().unwrap();
+        model.push_bytes(b"\x1b[?2026hsecond");
+        let extended = model.parser.sync_timeout().sync_timeout().unwrap();
+        assert!(extended >= first);
+        assert!(!model.expire_sync(extended - Duration::from_nanos(1)));
+        assert!(model.visible_text().trim().is_empty());
+        assert!(model.expire_sync(extended));
+        assert!(model.visible_text().starts_with("firstsecond"));
+    }
 
     #[test]
     fn live_screen_does_not_follow_the_readers_scrollback_view() {
@@ -638,6 +797,7 @@ mod tests {
                 application_cursor: true,
                 application_keypad: true,
                 bracketed_paste: true,
+                win32_input: false,
             }
         );
         model.push_bytes(b"\x1b[?1l\x1b>\x1b[?2004l");
@@ -660,5 +820,90 @@ mod tests {
         model.push_bytes(b"\x1b]52;c;dGV4dA==\x07\x1b]52;c;?\x07");
         assert_eq!(model.visible_text(), "\n\n");
         assert!(model.drain_responses().is_empty());
+    }
+
+    #[test]
+    fn default_color_queries_follow_the_host_palette_and_preserve_protocol_order() {
+        let mut model = TerminalModel::new(20, 3);
+        model.push_bytes(b"\x1b]11;?\x07");
+        assert!(model.drain_responses().is_empty(), "no guessed host color");
+        model.set_default_colors(
+            Rgb {
+                r: 209,
+                g: 213,
+                b: 219,
+            },
+            Rgb {
+                r: 21,
+                g: 24,
+                b: 27,
+            },
+            Rgb {
+                r: 153,
+                g: 196,
+                b: 255,
+            },
+        );
+        model.push_bytes(b"abc\x1b]10;?\x07\x1b]11;?");
+        assert_eq!(model.drain_responses(), b"\x1b]10;rgb:d1d1/d5d5/dbdb\x07");
+        model.push_bytes(b"\x1b\\\x1b[6n\x1b]12;?\x07");
+        assert_eq!(
+            model.drain_responses(),
+            b"\x1b]11;rgb:1515/1818/1b1b\x1b\\\x1b[1;4R\x1b]12;rgb:9999/c4c4/ffff\x07"
+        );
+        assert!(model.drain_responses().is_empty());
+        model.set_default_colors(
+            Rgb {
+                r: 255,
+                g: 255,
+                b: 255,
+            },
+            Rgb { r: 0, g: 0, b: 0 },
+            Rgb {
+                r: 255,
+                g: 255,
+                b: 255,
+            },
+        );
+        model.push_bytes(b"\x1b]11;?\x07\x1b]4;1;?\x07\x1b]52;c;?\x07");
+        assert_eq!(model.drain_responses(), b"\x1b]11;rgb:0000/0000/0000\x07");
+        assert_eq!(model.visible_text(), "abc\n\n");
+    }
+
+    #[test]
+    fn coalesced_and_split_sync_frames_expose_every_completed_page_once() {
+        let first = b"\x1b[?2026h\x1b[Hfirst\x1b[?2026l";
+        let second = b"\x1b[?2026h\x1b[Hother\x1b[?2026l";
+        let all = [first.as_slice(), second.as_slice(), b"!"].concat();
+        let mut whole = TerminalModel::new(20, 3);
+        let mut consumed = 0;
+        let mut frames = Vec::new();
+        while consumed < all.len() {
+            let (used, complete) = whole.push_bytes_until_frame(&all[consumed..]);
+            assert!(used > 0);
+            consumed += used;
+            if complete {
+                frames.push(whole.visible_text());
+            }
+        }
+        assert_eq!(frames, ["first\n\n", "other\n\n"]);
+        let mut split = TerminalModel::new(20, 3);
+        let mut individual = Vec::new();
+        for byte in &all {
+            let (used, complete) = split.push_bytes_until_frame(std::slice::from_ref(byte));
+            assert_eq!(used, 1);
+            if complete {
+                individual.push(split.visible_text());
+            }
+        }
+        assert_eq!(individual, frames);
+        assert_eq!(whole.live_snapshot(), split.live_snapshot());
+        let mut normal = TerminalModel::new(20, 3);
+        normal.push_bytes(&all);
+        assert_eq!(whole.live_snapshot(), normal.live_snapshot());
+        assert_eq!(
+            whole.push_bytes_until_frame(b"\x1b]0;literal h and l\x07"),
+            (20, false)
+        );
     }
 }

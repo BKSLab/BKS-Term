@@ -1,0 +1,13 @@
+{
+  "completed_streams": 2,
+  "conversation_requests": 2,
+  "exit_code": 0,
+  "http_requests": 4,
+  "mode": "command33-status-repeat-picker-win32",
+  "natural_exit": true,
+  "own_listener_closed": true,
+  "own_pty_closed": true,
+  "responses_requests": 4,
+  "root": "C:\\work\\BKS.Lab\\python\\my_projects\\BKS-Term\\target/codex-command33\\command33-status-repeat-picker-win32-1793976562231-21868",
+  "title_requests": 2
+}
